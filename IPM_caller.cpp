@@ -149,15 +149,18 @@ Output IPM_caller::Solve(const int itmax, const double tol){
     double primal_infeas{};
     double dual_infeas{};
     double mu{};
-
-    // print header
-    printf("\n\n  iter     pinf      dinf        mu        alpha_p    alpha_d\n");
+    double objective_value{};
 
 
     // ------------------------------------------
     // ---- MAIN LOOP ---------------------------
     // ------------------------------------------
+    
+    printf("\n");
     while (iter < itmax){
+      // Possibly print header
+      if (iter % 20 == 0) 
+	printf(" iter            obj_v       pinf       dinf         mu        alpha_p    alpha_d\n");
 
         // Stopping criterion
         if (iter > 0 &&                                 
@@ -216,7 +219,8 @@ Output IPM_caller::Solve(const int itmax, const double tol){
         // Print output to screen
         primal_infeas = Norm2(Res.res1) / Norm2(model.rhs);
         dual_infeas = Norm2(Res.res4) / Norm2(model.obj);
-        printf("%5d %10.2e %10.2e %10.2e %10.2f %10.2f\n",iter,primal_infeas,dual_infeas,mu,alpha_primal,alpha_dual);
+	objective_value = DotProd(It.x,model.obj);
+        printf("%5d %20.10e %10.2e %10.2e %10.2e %10.2f %10.2f\n",iter,objective_value,primal_infeas,dual_infeas,mu,alpha_primal,alpha_dual);
 
     }
 

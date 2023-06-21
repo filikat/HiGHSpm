@@ -19,6 +19,7 @@ int main(int argc, char** argv){
 
     // Read LP using Highs MPS read
     Highs highs;
+    highs.setOptionValue("output_flag", false);
     HighsStatus status = highs.readModel(argv[1]);
     assert(status == HighsStatus::kOk);
     HighsLp lp = highs.getLp();
