@@ -20,11 +20,12 @@ void IPM_caller::Load(const int num_var, const int num_con, const double *obj,
   // count how many slacks are needed
   int num_slacks{};
   for (int i = 0; i < num_con; ++i) {
-    if (constraints[i] != 0) {
+    if (constraints[i] != kConstraintTypeEqual) {
 
       ++num_slacks;
 
-      if (constraints[i] != 1 && constraints[i] != -1) {
+      if (constraints[i] != kConstraintTypeLower &&
+          constraints[i] != kConstraintTypeUpper) {
         std::cerr << "Wrong constraint type\n";
         return;
       }
@@ -76,10 +77,10 @@ void IPM_caller::Load(const int num_var, const int num_con, const double *obj,
     model.rhs[i] = rhs[i];
 
     // if constraint is inequality, add a slack variable
-    if (constraints[i] != 0) {
+    if (constraints[i] != kConstraintTypeEqual) {
 
       // lower/upper bound for new slack
-      if (constraints[i] == 1) {
+      if (constraints[i] == kConstraintTypeLower) {
         model.lower[slack_ind] = -INF;
         model.upper[slack_ind] = 0.0;
       } else {

@@ -9,7 +9,7 @@ highs_library="$highs_build/lib"
 
 #AUX_LIBRARY_FOR_MAC="/Library/Developer/CommandLineTools/SDKs/MacOSX13.1.sdk/usr/lib/"
 
-FLAGS="-std=c++11 -O3 -o ipm"
+FLAGS="-std=c++11 -g3 -o ipm"
 
 $CPP_COMPILER \
         $FLAGS \

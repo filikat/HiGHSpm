@@ -23,6 +23,11 @@
 // double infinity
 const double INF = std::numeric_limits<double>::infinity();
 
+// Constraint types
+const double kConstraintTypeLower = 1;
+const double kConstraintTypeEqual = 0;
+const double kConstraintTypeUpper = -1;
+
 class IPM_model {
 
   int num_var{};

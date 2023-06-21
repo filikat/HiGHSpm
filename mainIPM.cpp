@@ -57,24 +57,24 @@ int main(int argc, char **argv) {
 
     // equality constraint
     if (lp.row_lower_[i] == lp.row_upper_[i]) {
-      constraints[i] = 0;
+      constraints[i] = kConstraintTypeEqual;
       rhs[i] = lp.row_lower_[i];
     }
 
     // constraint <=
-    else if (lp.row_lower_[i] <= -kHighsInf && lp.row_upper_[i] < kHighsIInf) {
-      constraints[i] = -1;
+    else if (lp.row_lower_[i] <= -kHighsInf && lp.row_upper_[i] < kHighsInf) {
+      constraints[i] = kConstraintTypeUpper;
       rhs[i] = lp.row_upper_[i];
     }
 
     // constraint >=
-    else if (lp.row_lower_[i] > -kHighsInf && lp.row_upper_[i] >= kHighsIInf) {
-      constraints[i] = 1;
+    else if (lp.row_lower_[i] > -kHighsInf && lp.row_upper_[i] >= kHighsInf) {
+      constraints[i] = kConstraintTypeLower;
       rhs[i] = lp.row_lower_[i];
     }
 
     // no constraint
-    else if (lp.row_lower_[i] <= -kHighsInf && lp.row_upper_[i] >= kHighsIInf) {
+    else if (lp.row_lower_[i] <= -kHighsInf && lp.row_upper_[i] >= kHighsInf) {
       std::cout << "======= Free variable not yet supported =======\n";
       return 1;
     }
@@ -96,8 +96,8 @@ int main(int argc, char **argv) {
 
   for (int i = 0; i < m; ++i) {
 
-    if (lp.row_lower_[i] != lp.row_upper_[i] &&
-        lp.row_lower_[i] > -kHighsIInf && lp.row_upper_[i] < kHighsIInf) {
+    if (lp.row_lower_[i] != lp.row_upper_[i] && lp.row_lower_[i] > -kHighsInf &&
+        lp.row_upper_[i] < kHighsInf) {
       // If both row_lower_ and row_upper_ are finite and different, add slack:
       //   lb <= a^T * x <= ub
       //   becomes
@@ -107,7 +107,7 @@ int main(int argc, char **argv) {
       //   - updating obj, lower, upper
       //   - adding a column of -identity to A
 
-      constraints[i] = 0;
+      constraints[i] = kConstraintTypeEqual;
       rhs[i] = 0.0;
 
       // add slack

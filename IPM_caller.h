@@ -39,8 +39,8 @@ public:
   //  >= : add slack -inf <= s_i <=    0
   //
   // ===================================================================================
-  void Load( // - - - - - - - - - - - - - - -  length
-             // INPUT
+  void Load(               // - - - - - - - - - - - - - - -  length
+                           // INPUT
       const int num_var,   // number of variables
       const int num_con,   // number of constraints
       const double *obj,   // objective function c           num_var
