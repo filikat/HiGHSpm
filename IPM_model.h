@@ -1,14 +1,14 @@
 #ifndef IPM_MODEL_H
 #define IPM_MODEL_H
 
-#include <vector>
-#include <limits>
 #include "SparseMatrix.h"
+#include <limits>
+#include <vector>
 
 // Optimization problem:
 // min obj^T * x
 // s.t. A * x = rhs
-//      x - xl = lower 
+//      x - xl = lower
 //      x + xu = upper
 //      xl, xu >= 0
 //
@@ -16,53 +16,40 @@
 // is stored in CSC format using:
 // colptr, rowind, values
 //
-// See Schork, Gondzio "Implementation of an interior point method with basis preconditioning", Math. Prog. Comput. 12, 2020 
+// See Schork, Gondzio "Implementation of an interior point method with basis
+// preconditioning", Math. Prog. Comput. 12, 2020
 //
 
 // double infinity
 const double INF = std::numeric_limits<double>::infinity();
 
+class IPM_model {
 
-class IPM_model{
+  int num_var{};
+  int num_con{};
+  std::vector<double> obj{};
+  std::vector<double> rhs{};
+  std::vector<double> lower{};
+  std::vector<double> upper{};
+  SparseMatrix A{};
 
-    int num_var{};
-    int num_con{};
-    std::vector<double> obj{};
-    std::vector<double> rhs{};
-    std::vector<double> lower{};
-    std::vector<double> upper{};
-    SparseMatrix A{};
+public:
+  // =======================================================================
+  // RESIZE THE MODEL
+  // =======================================================================
+  // Allocate space for model with given number of variables and constraints
+  void resize(int input_var, // number of variables in the model
+              int input_con  // number of constraints in the model
+  );
 
-    public:
+  // =======================================================================
+  // FIND FINITE BOUNDS
+  // =======================================================================
+  // check if variable has finite lower/upper bound
+  bool has_lb(int j) const { return lower[j] != -INF; }
+  bool has_ub(int j) const { return upper[j] != INF; }
 
-    // =======================================================================
-    // RESIZE THE MODEL
-    // =======================================================================
-    // Allocate space for model with given number of variables and constraints
-    void resize(
-        int input_var,          // number of variables in the model
-        int input_con           // number of constraints in the model
-    );
-
-
-    // =======================================================================
-    // FIND FINITE BOUNDS
-    // =======================================================================
-    // check if variable has finite lower/upper bound
-    bool has_lb(int j) const{return lower[j] != -INF;}
-    bool has_ub(int j) const{return upper[j] !=  INF;}
-
-
-    friend class IPM_caller;
-
+  friend class IPM_caller;
 };
-
-
-
-
-
-
-
-
 
 #endif

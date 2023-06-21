@@ -5,24 +5,18 @@
 #include "VectorOperations.h"
 #include <vector>
 
-class NormalEquations{
+class NormalEquations {
 
-    const SparseMatrix& A{};
-    const std::vector<double>& scaling{};
+  const SparseMatrix &A{};
+  const std::vector<double> &scaling{};
 
-    public:
+public:
+  // constructor
+  NormalEquations(const SparseMatrix &input_A,
+                  const std::vector<double> &input_scaling);
 
-    // constructor
-    NormalEquations(const SparseMatrix& input_A,const std::vector<double>& input_scaling);
-
-    // apply matrix: lhs = A * Theta * A^T * rhs
-    void Apply(const std::vector<double>& rhs,std::vector<double>& lhs) const;
-
+  // apply matrix: lhs = A * Theta * A^T * rhs
+  void Apply(const std::vector<double> &rhs, std::vector<double> &lhs) const;
 };
-
-
-
-
-
 
 #endif
