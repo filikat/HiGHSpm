@@ -14,10 +14,14 @@ void CG_solve(
 
   int n = rhs.size();
 
+  // initialize zero solution
+  std::fill(lhs.begin(), lhs.end(), 0.0);
+
   std::vector<double> r(rhs);
   std::vector<double> p(r);
   double rho_old = DotProd(r, r);
   double rho_new{};
+  double norm_rhs = Norm2(rhs);
 
   int iter{};
   while (iter < maxit) {
@@ -27,7 +31,7 @@ void CG_solve(
     VectorAdd(lhs, p, alpha);
     VectorAdd(r, Ap, -alpha);
     rho_new = DotProd(r, r);
-    if (std::sqrt(rho_new) < tol * Norm2(rhs)) {
+    if (std::sqrt(rho_new) < tol * norm_rhs) {
       break;
     }
     VectorAdd(p, r, rho_old / rho_new);

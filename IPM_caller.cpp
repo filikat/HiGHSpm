@@ -131,6 +131,9 @@ Output IPM_caller::Solve(const int itmax, const double tol) {
   // initialize starting point
   It = Iterate(m, n);
 
+  // comment the following line to use default starting point
+  ComputeStartingPoint();
+
   // initialize residuals
   Residuals Res(m, n);
 
@@ -146,10 +149,6 @@ Output IPM_caller::Solve(const int itmax, const double tol) {
 
   printf("\n");
   while (iter < itmax) {
-    // Possibly print header
-    if (iter % 20 == 0)
-      printf(" iter            obj_v       pinf       dinf         mu        "
-             "alpha_p    alpha_d\n");
 
     // Stopping criterion
     if (iter > 0 && mu < tol &&                     // complementarity measure
@@ -160,6 +159,11 @@ Output IPM_caller::Solve(const int itmax, const double tol) {
       printf("Objective: %20.10e\n\n", DotProd(It.x, model.obj));
       break;
     }
+
+    // Possibly print header
+    if (iter % 20 == 0)
+      printf(" iter            obj_v       pinf       dinf         mu        "
+             "alpha_p    alpha_d\n");
 
     ++iter;
 
@@ -419,4 +423,143 @@ void IPM_caller::ComputeStepSizes(const NewtonDir &Delta, double &alpha_primal,
     }
   }
   alpha_dual *= alpha_interior_scaling;
+}
+
+// ===================================================================================
+// COMPUTE STARTING POINT
+// ===================================================================================
+void IPM_caller::ComputeStartingPoint() {
+
+  // *********************************************************************
+  // x starting point
+  // *********************************************************************
+  // compute feasible x
+  for (int i = 0; i < n; ++i) {
+    It.x[i] = 0.0;
+    It.x[i] = std::max(It.x[i], model.lower[i]);
+    It.x[i] = std::min(It.x[i], model.upper[i]);
+  }
+
+  // use y to store b-A*x
+  It.y = model.rhs;
+  mat_vec(model.A, It.x, It.y, -1.0, 'n');
+
+  // solve A*A^T * dx = b-A*x with CG and store the result in temp_m
+  std::vector<double> temp_scaling(n, 1.0);
+  NormalEquations N(model.A, temp_scaling);
+
+  std::vector<double> temp_m(m);
+  CG_solve(N, It.y, 1e-6, 100, temp_m);
+
+  // compute dx = A^T * (A*A^T)^{-1} * (b-A*x) and store the result in xl
+  std::fill(It.xl.begin(), It.xl.end(), 0.0);
+  mat_vec(model.A, temp_m, It.xl, 1.0, 't');
+
+  // x += dx;
+  VectorAdd(It.x, It.xl, 1.0);
+  // *********************************************************************
+
+  // *********************************************************************
+  // xl, xu starting point
+  // *********************************************************************
+  // compute xl, xu that satisfy linear constraints
+  double violation{};
+  for (int i = 0; i < n; ++i) {
+    It.xl[i] = It.x[i] - model.lower[i];
+    It.xu[i] = model.upper[i] - It.x[i];
+
+    violation = std::min(violation, It.xl[i]);
+    violation = std::min(violation, It.xu[i]);
+  }
+
+  // shift to be positive
+  violation = 1.0 + std::max(0.0, -1.5 * violation);
+  VectorAdd(It.xl, violation);
+  VectorAdd(It.xu, violation);
+  // *********************************************************************
+
+  // *********************************************************************
+  // y starting point
+  // *********************************************************************
+  // compute A*c
+  std::fill(temp_m.begin(), temp_m.end(), 0.0);
+  mat_vec(model.A, model.obj, temp_m, 1.0, 'n');
+
+  // compute (A*A^T)^{-1} * A*c and store in y
+  CG_solve(N, temp_m, 1e-6, 100, It.y);
+  // *********************************************************************
+
+  // *********************************************************************
+  // zl, zu starting point
+  // *********************************************************************
+  // compute c - A^T * y and store in zl
+  It.zl = model.obj;
+  mat_vec(model.A, It.y, It.zl, -1.0, 't');
+
+  // split result between zl and zu
+  violation = 0.0;
+  for (int i = 0; i < n; ++i) {
+    double val = It.zl[i];
+    It.zl[i] = 0.0;
+    It.zu[i] = 0.0;
+
+    if (model.has_lb(i) && model.has_ub(i)) {
+      It.zl[i] = 0.5 * val;
+      It.zu[i] = -0.5 * val;
+    } else if (model.has_lb(i)) {
+      It.zl[i] = val;
+    } else if (model.has_ub(i)) {
+      It.zu[i] = -val;
+    }
+
+    violation = std::min(violation, It.zl[i]);
+    violation = std::min(violation, It.zu[i]);
+  }
+
+  // shift to be positive
+  violation = 1.0 + std::max(0.0, -1.5 * violation);
+  for (int i = 0; i < n; ++i) {
+    if (model.has_lb(i)) {
+      It.zl[i] += violation;
+    }
+    if (model.has_ub(i)) {
+      It.zu[i] += violation;
+    }
+  }
+  // *********************************************************************
+
+  // *********************************************************************
+  // improve centrality
+  // *********************************************************************
+  double xsum{1.0};
+  double zsum{1.0};
+  double mu{1.0};
+
+  for (int i = 0; i < n; ++i) {
+    if (model.has_lb(i)) {
+      xsum += It.xl[i];
+      zsum += It.zl[i];
+      mu += It.xl[i] * It.zl[i];
+    }
+    if (model.has_ub(i)) {
+      xsum += It.xu[i];
+      zsum += It.zu[i];
+      mu += It.xu[i] * It.zu[i];
+    }
+  }
+
+  double dx = 0.5 * mu / zsum;
+  double dz = 0.5 * mu / xsum;
+
+  VectorAdd(It.xl, dx);
+  VectorAdd(It.xu, dx);
+  for (int i = 0; i < n; ++i) {
+    if (model.has_lb(i)) {
+      It.zl[i] += dz;
+    }
+    if (model.has_ub(i)) {
+      It.zu[i] += dz;
+    }
+  }
+  // *********************************************************************
 }

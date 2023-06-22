@@ -8,6 +8,9 @@
 void VectorAdd(std::vector<double> &v1, const std::vector<double> &v2,
                double alpha);
 
+// v1[i] + alpha
+void VectorAdd(std::vector<double> &v1, const double alpha);
+
 // alpha * v1[i] * v2[i] + beta
 void VectorMultiply(std::vector<double> &v1, const std::vector<double> &v2,
                     double alpha, double beta);

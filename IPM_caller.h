@@ -108,7 +108,7 @@ private:
   //  Theta^{-1}_{ii} = zl(i) / xl(i) + zu(i) / xu(i)
   //
   // Theta^{-1} only considers the terms above if the corresponding upper/lower
-  // bound are finite.
+  // bound is finite.
   //
   // ===================================================================================
   void ComputeScaling(
@@ -131,8 +131,7 @@ private:
   //  Theta^{-1} = diag( scaling )
   //
   // (the computation of res7 takes into account only the components for which
-  // the
-  //  correspoding upper/lower bounds are finite)
+  // the correspoding upper/lower bounds are finite)
   //
   // OR
   //
@@ -203,6 +202,17 @@ private:
       double &alpha_primal, // primal step-size
       double &alpha_dual    // dual step-size
   );
+
+  // ===================================================================================
+  // COMPUTE STARTING POINT
+  // ===================================================================================
+  // Compute the Mehrotra starting point.
+  // In doing so, CG is used to solve two linear systems with matrix A*A^T.
+  // This task does not need a factorization and can continue to use CG, because
+  // these linear systems are very easy to solve with CG.
+  //
+  // ===================================================================================
+  void ComputeStartingPoint();
 };
 
 #endif
