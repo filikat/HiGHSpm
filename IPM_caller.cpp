@@ -1,8 +1,7 @@
 #include "IPM_caller.h"
+#include <cassert>
 #include <cmath>
 #include <iostream>
-
-#include <fstream>
 
 // =======================================================================
 // LOAD THE PROBLEM
@@ -149,6 +148,9 @@ Output IPM_caller::Solve(const int itmax, const double tol) {
 
   printf("\n");
   while (iter < itmax) {
+
+    // Check that iterate is not NaN
+    assert(!It.isNaN());
 
     // Stopping criterion
     if (iter > 0 && mu < tol &&                     // complementarity measure
@@ -303,6 +305,9 @@ void IPM_caller::ComputeResiduals(const double sigmaMu, Residuals &Res) {
       Res.res6[i] = 0.0;
     }
   }
+
+  // Check for NaN
+  assert(!Res.isNaN());
 }
 
 // =======================================================================
@@ -394,6 +399,9 @@ void IPM_caller::RecoverDirection(const Residuals &Res, NewtonDir &Delta) {
   Delta.zu = Res.res6;
   VectorAddMult(Delta.zu, It.zu, Delta.xu, -1.0);
   VectorDivide(Delta.zu, It.xu);
+
+  // Check for NaN
+  assert(!Delta.isNaN());
 }
 
 // =======================================================================
@@ -423,6 +431,9 @@ void IPM_caller::ComputeStepSizes(const NewtonDir &Delta, double &alpha_primal,
     }
   }
   alpha_dual *= alpha_interior_scaling;
+
+  assert(alpha_primal > 0 && alpha_primal < 1 && alpha_dual > 0 &&
+         alpha_dual < 1);
 }
 
 // ===================================================================================

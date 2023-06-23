@@ -32,3 +32,6 @@ double DotProd(const std::vector<double> &v1, const std::vector<double> &v2);
 
 // Euclidean norm
 double Norm2(const std::vector<double> &x);
+
+// check for NaN
+bool isnan(const std::vector<double> &x);

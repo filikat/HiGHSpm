@@ -1,4 +1,5 @@
 #include "IPM_aux.h"
+#include "VectorOperations.h"
 #include <iostream>
 
 Residuals::Residuals(int m, int n)
@@ -33,8 +34,27 @@ void Residuals::Print() const {
   std::cout << '\n';
 }
 
+bool Residuals::isNaN() const {
+  if (isnan(res1) || isnan(res2) || isnan(res3) || isnan(res4) || isnan(res5) ||
+      isnan(res6))
+    return true;
+  return false;
+}
+
 Iterate::Iterate(int m, int n)
     : x(n, 0.0), y(m, 0.0), xl(n, 1.0), xu(n, 1.0), zl(n, 1.0), zu(n, 1.0) {}
 
+bool Iterate::isNaN() const {
+  if (isnan(x) || isnan(xl) || isnan(xu) || isnan(y) || isnan(zl) || isnan(zu))
+    return true;
+  return false;
+}
+
 NewtonDir::NewtonDir(int m, int n)
     : x(n, 0.0), y(m, 0.0), xl(n, 0.0), xu(n, 0.0), zl(n, 0.0), zu(n, 0.0) {}
+
+bool NewtonDir::isNaN() const {
+  if (isnan(x) || isnan(xl) || isnan(xu) || isnan(y) || isnan(zl) || isnan(zu))
+    return true;
+  return false;
+}

@@ -26,6 +26,7 @@ public:
   Residuals(int m, int n);
 
   void Print() const;
+  bool isNaN() const;
 
   friend class IPM_caller;
 };
@@ -46,6 +47,8 @@ public:
   Iterate() = default;
   Iterate(int m, int n);
 
+  bool isNaN() const;
+
   friend class IPM_caller;
 };
 
@@ -64,6 +67,8 @@ class NewtonDir {
 public:
   NewtonDir() = default;
   NewtonDir(int m, int n);
+
+  bool isNaN() const;
 
   friend class IPM_caller;
 };
