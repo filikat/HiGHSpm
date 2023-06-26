@@ -58,7 +58,7 @@ double Norm2(const std::vector<double> &x) {
 
 bool isnan(const std::vector<double> &x) {
   for (int i = 0; i < x.size(); ++i) {
-    if (isnan(x[i]))
+    if (std::isnan(x[i]))
       return true;
   }
   return false;
