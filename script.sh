@@ -5,7 +5,7 @@ YOUR_PATH_TO_INCLUDE="/usr/local/include/highs/"
 
 YOUR_PATH_TO_LIBRARY="/usr/local/lib/"
 
-AUX_LIBRARY_FOR_MAC="/Library/Developer/CommandLineTools/SDKs/MacOSX13.1.sdk/usr/lib/"
+AUX_LIBRARY_FOR_MAC="/Library/Developer/CommandLineTools/SDKs/MacOSX13.3.sdk/usr/lib/"
 
 FLAGS="-std=c++11 -O3 -o ipm"
 
@@ -14,7 +14,7 @@ $YOUR_CPP_COMPILER \
         -I$YOUR_PATH_TO_INCLUDE \
         -L$YOUR_PATH_TO_LIBRARY -lhighs \
         -L$AUX_LIBRARY_FOR_MAC -lz \
-        mainIPM.cpp \
+	 mainIPM.cpp \
         IPM_caller.cpp \
         IPM_model.cpp \
         SparseMatrix.cpp \
