@@ -135,11 +135,12 @@ Output IPM_caller::Solve(const int itmax, const double tol) {
 
   // initialize residuals
   Residuals Res(m, n);
+  ComputeResiduals_1234(Res);
 
   // initialize infeasibilities and mu
-  double primal_infeas{};
-  double dual_infeas{};
-  double mu{};
+  double primal_infeas = Norm2(Res.res1) / Norm2(model.rhs);
+  double dual_infeas = Norm2(Res.res4) / Norm2(model.obj);
+  double mu = ComputeMu();
   double objective_value{};
 
   // ------------------------------------------
@@ -153,9 +154,9 @@ Output IPM_caller::Solve(const int itmax, const double tol) {
     assert(!It.isNaN());
 
     // Stopping criterion
-    if (iter > 0 && mu < tol &&                     // complementarity measure
-        Norm2(Res.res1) / Norm2(model.rhs) < tol && // primal feasibility
-        Norm2(Res.res4) / Norm2(model.obj) < tol    // dual feasibility
+    if (iter > 0 && mu < tol && // complementarity measure
+        primal_infeas < tol &&  // primal feasibility
+        dual_infeas < tol       // dual feasibility
     ) {
       printf("\n===== Optimal solution found =====\n\n");
       printf("Objective: %20.10e\n\n", DotProd(It.x, model.obj));
@@ -180,11 +181,8 @@ Output IPM_caller::Solve(const int itmax, const double tol) {
       sigma = std::min(sigma, sigma_max);
     }
 
-    // Find mu
-    mu = ComputeMu();
-
-    // Compute residuals
-    ComputeResiduals(sigma * mu, Res);
+    // Compute last two residuals with correct value of sigma
+    ComputeResiduals_56(sigma * mu, Res);
 
     // Compute diagonal scaling
     std::vector<double> scaling(n, 0.0);
@@ -209,6 +207,12 @@ Output IPM_caller::Solve(const int itmax, const double tol) {
     VectorAdd(It.y, Delta.y, alpha_dual);
     VectorAdd(It.zl, Delta.zl, alpha_dual);
     VectorAdd(It.zu, Delta.zu, alpha_dual);
+
+    // Compute first four residuals of the new iterate
+    ComputeResiduals_1234(Res);
+
+    // Compute mu of the new iterate
+    mu = ComputeMu();
 
     // Print output to screen
     primal_infeas = Norm2(Res.res1) / Norm2(model.rhs);
@@ -252,7 +256,7 @@ double IPM_caller::ComputeMu() {
 // =======================================================================
 // COMPUTE RESIDUALS
 // =======================================================================
-void IPM_caller::ComputeResiduals(const double sigmaMu, Residuals &Res) {
+void IPM_caller::ComputeResiduals_1234(Residuals &Res) {
 
   // res1
   Res.res1 = model.rhs;
@@ -288,26 +292,27 @@ void IPM_caller::ComputeResiduals(const double sigmaMu, Residuals &Res) {
     }
   }
 
-  // res5
+  // Check for NaN
+  assert(!Res.isNaN());
+}
+
+void IPM_caller::ComputeResiduals_56(const double sigmaMu, Residuals &Res) {
   for (int i = 0; i < n; ++i) {
+
+    // res5
     if (model.has_lb(i)) {
       Res.res5[i] = sigmaMu - It.xl[i] * It.zl[i];
     } else {
       Res.res5[i] = 0.0;
     }
-  }
 
-  // res6
-  for (int i = 0; i < n; ++i) {
+    // res6
     if (model.has_ub(i)) {
       Res.res6[i] = sigmaMu - It.xu[i] * It.zu[i];
     } else {
       Res.res6[i] = 0.0;
     }
   }
-
-  // Check for NaN
-  assert(!Res.isNaN());
 }
 
 // =======================================================================
@@ -363,7 +368,7 @@ void IPM_caller::SolveNewtonSystem(const SparseMatrix &A,
   // Currently this is done using Conjugate Gradient. The solution for
   // Delta.y can be substituted with a positive definite factorization.
   NormalEquations N(A, scaling);
-  CG_solve(N, res8, 1e-12, 5000, Delta.y);
+  CG_solve(N, res8, 1e-12, 10000, Delta.y, nullptr);
 
   // Compute Delta.x
   // *********************************************************************
@@ -460,7 +465,9 @@ void IPM_caller::ComputeStartingPoint() {
   NormalEquations N(model.A, temp_scaling);
 
   std::vector<double> temp_m(m);
-  CG_solve(N, It.y, 1e-6, 100, temp_m);
+  int cg_iter{};
+  CG_solve(N, It.y, 1e-4, 100, temp_m, &cg_iter);
+  int cg_iter_starting_point{cg_iter};
 
   // compute dx = A^T * (A*A^T)^{-1} * (b-A*x) and store the result in xl
   std::fill(It.xl.begin(), It.xl.end(), 0.0);
@@ -497,7 +504,9 @@ void IPM_caller::ComputeStartingPoint() {
   mat_vec(model.A, model.obj, temp_m, 1.0, 'n');
 
   // compute (A*A^T)^{-1} * A*c and store in y
-  CG_solve(N, temp_m, 1e-6, 100, It.y);
+  CG_solve(N, temp_m, 1e-4, 100, It.y, &cg_iter);
+  cg_iter_starting_point += cg_iter;
+  printf("Starting point required %d CG iterations\n", cg_iter_starting_point);
   // *********************************************************************
 
   // *********************************************************************
