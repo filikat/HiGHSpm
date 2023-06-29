@@ -361,12 +361,15 @@ void IPM_caller::SolveNewtonSystem(const SparseMatrix &A,
     option_nla == kOptionNlaNewtonCg;
   // Shouldn't be trying to solve both the augmented and Newton system!
   assert(use_direct_augmented || !use_direct_newton);
+
+  // Until the direct solvers are implemented correctly, the IPM
+  // solver is driven by CG, so check for this
+  assert(use_cg);
     
   // Identify whether the CG result should be used to check the result
   // obtained using the direct solver
   const bool check_with_cg = use_cg && option_nla != kOptionNlaCg;
   
-
   // Augmented system is
   //
   // [-scaling A^T][dx] = [res7]
@@ -393,9 +396,28 @@ void IPM_caller::SolveNewtonSystem(const SparseMatrix &A,
     // Solve normal equations
     // Currently this is done using Conjugate Gradient. The solution for
     // Delta.y can be substituted with a positive definite factorization.
-    NormalEquations N(A, scaling);
-    CG_solve(N, res8, 1e-12, 5000, Delta.y);
-
+    //
+    if (use_cg) {
+      NormalEquations N(A, scaling);
+      CG_solve(N, res8, 1e-12, 5000, Delta.y);
+    }
+    if (use_direct_newton) {
+      // Solve the Newton system directly into newton_delta_y
+      std::vector<double> newton_delta_y;
+      newton_delta_y.assign(m, 0);
+      Newton_solve(A, scaling, res8, newton_delta_y);
+      if (check_with_cg) {
+	double inf_norm_solution_diff = infNormDiff(newton_delta_y, Delta.y);
+	if (inf_norm_solution_diff > kSolutionDiffTolerance) {
+	  cout << "Newton Direct-CG solution error = " << inf_norm_solution_diff << "\n";
+	}
+      }
+      if (!use_cg) {
+	// Once CG is not being used, use the Newton solution for dy
+	Delta.y = newton_delta_y;
+      }
+    }
+    
     // Compute Delta.x
     // *********************************************************************
     // Deltax = A^T * Deltay - res7;
