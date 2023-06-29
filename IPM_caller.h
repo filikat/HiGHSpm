@@ -83,7 +83,7 @@ private:
   double ComputeMu();
 
   // ===================================================================================
-  // COMPUTE RESIDUALS
+  // COMPUTE RESIDUALS 1,2,3,4
   // ===================================================================================
   // Compute:
   //
@@ -91,14 +91,29 @@ private:
   //  res2 = lower - x + xl
   //  res3 = upper - x - xu
   //  res4 = c - A^T * y - zl + zu
-  //  res5 = sigma * mu * e - Xl * Zl * e
-  //  res6 = sigma * mu * e - Xu * Zu * e
   //
-  // Components of residuals 2,3,5,6 are set to zero if the corresponding
+  // Components of residuals 2,3 are set to zero if the corresponding
   // upper/lower bound is not finite.
   //
   // ===================================================================================
-  void ComputeResiduals(
+  void ComputeResiduals_1234(
+      // OUTPUT
+      Residuals &Res // residuals
+  );
+
+  // ===================================================================================
+  // COMPUTE RESIDUALS 5,6
+  // ===================================================================================
+  // Compute:
+  //
+  //  res5 = sigma * mu * e - Xl * Zl * e
+  //  res6 = sigma * mu * e - Xu * Zu * e
+  //
+  // Components of residuals 5,6 are set to zero if the corresponding
+  // upper/lower bound is not finite.
+  //
+  // ===================================================================================
+  void ComputeResiduals_56(
       // INPUT
       const double sigmaMu, // sigma * mu
       // OUTPUT

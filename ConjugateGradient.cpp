@@ -10,7 +10,7 @@ void CG_solve(
     const NormalEquations &A, const std::vector<double> &rhs, double tol,
     int maxit,
     // OUTPUT
-    std::vector<double> &lhs) {
+    std::vector<double> &lhs, int *cg_iter) {
 
   int n = rhs.size();
 
@@ -40,5 +40,6 @@ void CG_solve(
     ++iter;
   }
 
-  // std::cout<<"CG iter: "<<iter<<'\n';
+  if (cg_iter)
+    *cg_iter = iter;
 }
