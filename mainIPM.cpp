@@ -136,12 +136,15 @@ int main(int argc, char **argv) {
   // ===================================================================================
   // Identify the NLA option and check its validity
   // ===================================================================================
-  ipm.option_nla = argc > kOptionNlaArg ? atoi(argv[kOptionNlaArg]) : kOptionNlaDefault;
+  ipm.option_nla =
+      argc > kOptionNlaArg ? atoi(argv[kOptionNlaArg]) : kOptionNlaDefault;
   if (ipm.option_nla < kOptionNlaMin || ipm.option_nla > kOptionNlaMax) {
-    std::cerr << "Illegal value of " << ipm.option_nla << " for option_nla: must be in [" << kOptionNlaMin << ", " << kOptionNlaMax << "]\n";
+    std::cerr << "Illegal value of " << ipm.option_nla
+              << " for option_nla: must be in [" << kOptionNlaMin << ", "
+              << kOptionNlaMax << "]\n";
     return 1;
   }
-    
+
   // load the problem
   ipm.Load(n, m, obj.data(), rhs.data(), lower.data(), upper.data(),
            colptr.data(), rowind.data(), values.data(), constraints.data());

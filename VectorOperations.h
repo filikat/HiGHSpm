@@ -33,5 +33,8 @@ double DotProd(const std::vector<double> &v1, const std::vector<double> &v2);
 // Euclidean norm
 double Norm2(const std::vector<double> &x);
 
+// Infinity norm of the difference of two vectors
+double infNormDiff(const std::vector<double> &x, const std::vector<double> &y);
+
 // check for NaN
 bool isnan(const std::vector<double> &x);

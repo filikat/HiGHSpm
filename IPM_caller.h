@@ -2,6 +2,7 @@
 #define IPM_CALLER
 
 #include "ConjugateGradient.h"
+#include "Direct.h"
 #include "IPM_aux.h"
 #include "IPM_const.h"
 #include "IPM_model.h"

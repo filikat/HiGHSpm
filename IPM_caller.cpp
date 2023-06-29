@@ -153,9 +153,11 @@ Output IPM_caller::Solve() {
     assert(!It.isNaN());
 
     // Stopping criterion
-    if (iter > 0 && mu < option_ipm_tolerance &&                     // complementarity measure
-        Norm2(Res.res1) / Norm2(model.rhs) < option_ipm_tolerance && // primal feasibility
-        Norm2(Res.res4) / Norm2(model.obj) < option_ipm_tolerance    // dual feasibility
+    if (iter > 0 && mu < option_ipm_tolerance && // complementarity measure
+        Norm2(Res.res1) / Norm2(model.rhs) <
+            option_ipm_tolerance && // primal feasibility
+        Norm2(Res.res4) / Norm2(model.obj) <
+            option_ipm_tolerance // dual feasibility
     ) {
       printf("\n===== Optimal solution found =====\n\n");
       printf("Objective: %20.10e\n\n", DotProd(It.x, model.obj));
@@ -347,29 +349,26 @@ void IPM_caller::SolveNewtonSystem(const SparseMatrix &A,
   // *********************************************************************
 
   // Identify whether CG should be used
-  const bool use_cg =
-    option_nla == kOptionNlaCg ||
-    option_nla == kOptionNlaAugmentedCg ||
-    option_nla == kOptionNlaNewtonCg;
+  const bool use_cg = option_nla == kOptionNlaCg ||
+                      option_nla == kOptionNlaAugmentedCg ||
+                      option_nla == kOptionNlaNewtonCg;
   // Identify whether the augmented system should be solved directly
   const bool use_direct_augmented =
-    option_nla == kOptionNlaAugmented ||
-    option_nla == kOptionNlaAugmentedCg;
+      option_nla == kOptionNlaAugmented || option_nla == kOptionNlaAugmentedCg;
   // Identify whether the Newton system should be solved directly
   const bool use_direct_newton =
-    option_nla == kOptionNlaNewton ||
-    option_nla == kOptionNlaNewtonCg;
+      option_nla == kOptionNlaNewton || option_nla == kOptionNlaNewtonCg;
   // Shouldn't be trying to solve both the augmented and Newton system!
   assert(use_direct_augmented || !use_direct_newton);
 
   // Until the direct solvers are implemented correctly, the IPM
   // solver is driven by CG, so check for this
   assert(use_cg);
-    
+
   // Identify whether the CG result should be used to check the result
   // obtained using the direct solver
   const bool check_with_cg = use_cg && option_nla != kOptionNlaCg;
-  
+
   // Augmented system is
   //
   // [-scaling A^T][dx] = [res7]
@@ -405,19 +404,20 @@ void IPM_caller::SolveNewtonSystem(const SparseMatrix &A,
       // Solve the Newton system directly into newton_delta_y
       std::vector<double> newton_delta_y;
       newton_delta_y.assign(m, 0);
-      Newton_solve(A, scaling, res8, newton_delta_y);
+      newtonSolve(A, scaling, res8, newton_delta_y);
       if (check_with_cg) {
-	double inf_norm_solution_diff = infNormDiff(newton_delta_y, Delta.y);
-	if (inf_norm_solution_diff > kSolutionDiffTolerance) {
-	  cout << "Newton Direct-CG solution error = " << inf_norm_solution_diff << "\n";
-	}
+        double inf_norm_solution_diff = infNormDiff(newton_delta_y, Delta.y);
+        if (inf_norm_solution_diff > kSolutionDiffTolerance) {
+          std::cout << "Newton Direct-CG solution error = "
+                    << inf_norm_solution_diff << "\n";
+        }
       }
       if (!use_cg) {
-	// Once CG is not being used, use the Newton solution for dy
-	Delta.y = newton_delta_y;
+        // Once CG is not being used, use the Newton solution for dy
+        Delta.y = newton_delta_y;
       }
     }
-    
+
     // Compute Delta.x
     // *********************************************************************
     // Deltax = A^T * Deltay - res7;
@@ -429,7 +429,7 @@ void IPM_caller::SolveNewtonSystem(const SparseMatrix &A,
     VectorDivide(Delta.x, scaling);
     // *********************************************************************
   } else {
-    assert(1==0);
+    assert(1 == 0);
   }
 }
 
