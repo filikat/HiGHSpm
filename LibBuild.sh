@@ -22,6 +22,7 @@ $CPP_COMPILER \
         SparseMatrix.cpp \
         NormalEquations.cpp \
         ConjugateGradient.cpp \
+        Direct.cpp \
         VectorOperations.cpp \
         IPM_aux.cpp
 

@@ -110,7 +110,7 @@ void IPM_caller::Load(const int num_var, const int num_con, const double *obj,
 // =======================================================================
 // SOLVE THE LP
 // =======================================================================
-Output IPM_caller::Solve(const int itmax, const double tol) {
+Output IPM_caller::Solve() {
 
   // solve only if model is loaded
   if (!model_ready)
@@ -148,15 +148,15 @@ Output IPM_caller::Solve(const int itmax, const double tol) {
   // ------------------------------------------
 
   printf("\n");
-  while (iter < itmax) {
+  while (iter < option_iteration_limit) {
 
     // Check that iterate is not NaN
     assert(!It.isNaN());
 
     // Stopping criterion
-    if (iter > 0 && mu < tol && // complementarity measure
-        primal_infeas < tol &&  // primal feasibility
-        dual_infeas < tol       // dual feasibility
+    if (iter > 0 && mu < option_ipm_tolerance && // complementarity measure
+        primal_infeas < option_ipm_tolerance &&  // primal feasibility
+        dual_infeas < option_ipm_tolerance       // dual feasibility
     ) {
       printf("\n===== Optimal solution found =====\n\n");
       printf("Objective: %20.10e\n\n", DotProd(It.x, model.obj));
@@ -351,35 +351,89 @@ void IPM_caller::SolveNewtonSystem(const SparseMatrix &A,
   }
   // *********************************************************************
 
-  // Compute res8
-  // *********************************************************************
-  std::vector<double> res8(Res.res1);
-  std::vector<double> temp(res7);
+  // Identify whether CG should be used
+  const bool use_cg = option_nla == kOptionNlaCg ||
+                      option_nla == kOptionNlaAugmentedCg ||
+                      option_nla == kOptionNlaNewtonCg;
+  // Identify whether the augmented system should be solved directly
+  const bool use_direct_augmented =
+      option_nla == kOptionNlaAugmented || option_nla == kOptionNlaAugmentedCg;
+  // Identify whether the Newton system should be solved directly
+  const bool use_direct_newton =
+      option_nla == kOptionNlaNewton || option_nla == kOptionNlaNewtonCg;
+  // Shouldn't be trying to solve both the augmented and Newton system!
+  assert(use_direct_augmented || !use_direct_newton);
 
-  // temp = Theta * res7
-  VectorDivide(temp, scaling);
+  // Until the direct solvers are implemented correctly, the IPM
+  // solver is driven by CG, so check for this
+  assert(use_cg);
 
-  // res8 += A * temp
-  mat_vec(A, temp, res8, 1.0, 'n');
-  temp.clear();
-  // *********************************************************************
+  // Identify whether the CG result should be used to check the result
+  // obtained using the direct solver
+  const bool check_with_cg = use_cg && option_nla != kOptionNlaCg;
 
-  // Solve normal equations
-  // Currently this is done using Conjugate Gradient. The solution for
-  // Delta.y can be substituted with a positive definite factorization.
-  NormalEquations N(A, scaling);
-  CG_solve(N, res8, 1e-12, 10000, Delta.y, nullptr);
+  // Augmented system is
+  //
+  // [-scaling A^T][dx] = [res7]
+  // [A        0  ][dy]   [res1]
+  //
+  if (use_cg || use_direct_newton) {
+    // Have to solve the Newton system
+    //
+    // A.scaling.A^T = res8
+    //
+    // Compute res8
+    // *********************************************************************
+    std::vector<double> res8(Res.res1);
+    std::vector<double> temp(res7);
 
-  // Compute Delta.x
-  // *********************************************************************
-  // Deltax = A^T * Deltay - res7;
-  Delta.x = res7;
-  mat_vec(A, Delta.y, Delta.x, -1.0, 't');
-  VectorScale(Delta.x, -1.0);
+    // temp = Theta * res7
+    VectorDivide(temp, scaling);
 
-  // Deltax = Theta * Deltax
-  VectorDivide(Delta.x, scaling);
-  // *********************************************************************
+    // res8 += A * temp
+    mat_vec(A, temp, res8, 1.0, 'n');
+    temp.clear();
+    // *********************************************************************
+
+    // Solve normal equations
+    // Currently this is done using Conjugate Gradient. The solution for
+    // Delta.y can be substituted with a positive definite factorization.
+    //
+    if (use_cg) {
+      NormalEquations N(A, scaling);
+      CG_solve(N, res8, 1e-12, 5000, Delta.y, nullptr);
+    }
+    if (use_direct_newton) {
+      // Solve the Newton system directly into newton_delta_y
+      std::vector<double> newton_delta_y;
+      newton_delta_y.assign(m, 0);
+      newtonSolve(A, scaling, res8, newton_delta_y);
+      if (check_with_cg) {
+        double inf_norm_solution_diff = infNormDiff(newton_delta_y, Delta.y);
+        if (inf_norm_solution_diff > kSolutionDiffTolerance) {
+          std::cout << "Newton Direct-CG solution error = "
+                    << inf_norm_solution_diff << "\n";
+        }
+      }
+      if (!use_cg) {
+        // Once CG is not being used, use the Newton solution for dy
+        Delta.y = newton_delta_y;
+      }
+    }
+
+    // Compute Delta.x
+    // *********************************************************************
+    // Deltax = A^T * Deltay - res7;
+    Delta.x = res7;
+    mat_vec(A, Delta.y, Delta.x, -1.0, 't');
+    VectorScale(Delta.x, -1.0);
+
+    // Deltax = Theta * Deltax
+    VectorDivide(Delta.x, scaling);
+    // *********************************************************************
+  } else {
+    assert(1 == 0);
+  }
 }
 
 // =======================================================================

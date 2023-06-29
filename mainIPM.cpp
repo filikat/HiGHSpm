@@ -3,10 +3,15 @@
 #include <cassert>
 #include <iostream>
 
+const int kMinArgC = 2;
+const int kModelFileArg = 1;
+const int kOptionNlaArg = 2;
+const int kMaxArgC = kOptionNlaArg + 1;
+
 int main(int argc, char **argv) {
 
-  if (argc < 2 || argc > 3) {
-    std::cerr << "======= How to use: ./ipm LP_name.mps =======\n";
+  if (argc < kMinArgC || argc > kMaxArgC) {
+    std::cerr << "======= How to use: ./ipm LP_name.mps nla_option =======\n";
     return 1;
   }
 
@@ -17,7 +22,7 @@ int main(int argc, char **argv) {
   // Read LP using Highs MPS read
   Highs highs;
   highs.setOptionValue("output_flag", false);
-  HighsStatus status = highs.readModel(argv[1]);
+  HighsStatus status = highs.readModel(argv[kModelFileArg]);
   assert(status == HighsStatus::kOk);
   HighsLp lp = highs.getLp();
 
@@ -128,12 +133,24 @@ int main(int argc, char **argv) {
   // create instance of IPM
   IPM_caller ipm{};
 
+  // ===================================================================================
+  // Identify the NLA option and check its validity
+  // ===================================================================================
+  ipm.option_nla =
+      argc > kOptionNlaArg ? atoi(argv[kOptionNlaArg]) : kOptionNlaDefault;
+  if (ipm.option_nla < kOptionNlaMin || ipm.option_nla > kOptionNlaMax) {
+    std::cerr << "Illegal value of " << ipm.option_nla
+              << " for option_nla: must be in [" << kOptionNlaMin << ", "
+              << kOptionNlaMax << "]\n";
+    return 1;
+  }
+
   // load the problem
   ipm.Load(n, m, obj.data(), rhs.data(), lower.data(), upper.data(),
            colptr.data(), rowind.data(), values.data(), constraints.data());
 
   // solve LP
-  ipm.Solve(100, 1e-6);
+  ipm.Solve();
 
   return 0;
 }

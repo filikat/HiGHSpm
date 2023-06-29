@@ -1,4 +1,5 @@
 #include "VectorOperations.h"
+#include <cassert>
 #include <cmath>
 
 void VectorAdd(std::vector<double> &v1, const std::vector<double> &v2,
@@ -54,6 +55,16 @@ double Norm2(const std::vector<double> &x) {
     norm += (x[i] * x[i]);
   }
   return std::sqrt(norm);
+}
+
+double infNormDiff(const std::vector<double> &x, const std::vector<double> &y) {
+  assert(x.size() == y.size());
+  double inf_norm_diff = 0;
+  for (int i = 0; i < int(x.size()); i++) {
+    double diff = std::abs(x[i] - y[i]);
+    inf_norm_diff = std::max(diff, inf_norm_diff);
+  }
+  return inf_norm_diff;
 }
 
 bool isnan(const std::vector<double> &x) {

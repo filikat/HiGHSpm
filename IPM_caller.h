@@ -2,7 +2,9 @@
 #define IPM_CALLER
 
 #include "ConjugateGradient.h"
+#include "Direct.h"
 #include "IPM_aux.h"
+#include "IPM_const.h"
 #include "IPM_model.h"
 #include "NormalEquations.h"
 #include "SparseMatrix.h"
@@ -25,6 +27,13 @@ class IPM_caller {
   Iterate It{};
 
 public:
+  // ===================================================================================
+  // Run-time options
+  // ===================================================================================
+  int option_iteration_limit = 100;
+  double option_ipm_tolerance = 1e-6;
+  int option_nla = kOptionNlaDefault;
+
   // ===================================================================================
   // LOAD THE PROBLEM
   // ===================================================================================
@@ -57,11 +66,7 @@ public:
   // ===================================================================================
   // SOLVE THE LP
   // ===================================================================================
-  Output Solve(
-      // INPUT
-      const int itmax, // maximum number of IPM iterations
-      const double tol // tolerance on primal/dual feasibility and mu
-  );
+  Output Solve();
 
 private:
   // ===================================================================================
