@@ -3,10 +3,15 @@
 #include <cassert>
 #include <iostream>
 
+const int kMinArgC = 2;
+const int kModelFileArg = 1;
+const int kNlaOptionArg = 2;
+const int kMaxArgC = kNlaOptionArg + 1;
+
 int main(int argc, char **argv) {
 
-  if (argc < 2 || argc > 3) {
-    std::cerr << "======= How to use: ./ipm LP_name.mps =======\n";
+  if (argc < kMinArgC || argc > kMaxArgC) {
+    std::cerr << "======= How to use: ./ipm LP_name.mps nla_option =======\n";
     return 1;
   }
 
@@ -17,9 +22,19 @@ int main(int argc, char **argv) {
   // Read LP using Highs MPS read
   Highs highs;
   highs.setOptionValue("output_flag", false);
-  HighsStatus status = highs.readModel(argv[1]);
+  HighsStatus status = highs.readModel(argv[kModelFileArg]);
   assert(status == HighsStatus::kOk);
   HighsLp lp = highs.getLp();
+
+  // ===================================================================================
+  // Identify the NLA option and check its validity
+  // ===================================================================================
+  const int nla_option = argc > kNlaOptionArg ? atoi(argv[kNlaOptionArg]) : kNlaOptionDefault;
+  if (nla_option < kNlaOptionMin || nla_option > kNlaOptionMax) {
+    std::cerr << "Illegal value of " << nla_option << " for nla_option: must be in [" << kNlaOptionMin << ", " << kNlaOptionMax << "]\n";
+    return 1;
+  }
+    
 
   // ===================================================================================
   // CHANGE FORMULATION

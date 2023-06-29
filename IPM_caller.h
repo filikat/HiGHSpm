@@ -3,6 +3,7 @@
 
 #include "ConjugateGradient.h"
 #include "IPM_aux.h"
+#include "IPM_const.h"
 #include "IPM_model.h"
 #include "NormalEquations.h"
 #include "SparseMatrix.h"
