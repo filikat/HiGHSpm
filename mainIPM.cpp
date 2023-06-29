@@ -5,8 +5,8 @@
 
 const int kMinArgC = 2;
 const int kModelFileArg = 1;
-const int kNlaOptionArg = 2;
-const int kMaxArgC = kNlaOptionArg + 1;
+const int kOptionNlaArg = 2;
+const int kMaxArgC = kOptionNlaArg + 1;
 
 int main(int argc, char **argv) {
 
@@ -25,16 +25,6 @@ int main(int argc, char **argv) {
   HighsStatus status = highs.readModel(argv[kModelFileArg]);
   assert(status == HighsStatus::kOk);
   HighsLp lp = highs.getLp();
-
-  // ===================================================================================
-  // Identify the NLA option and check its validity
-  // ===================================================================================
-  const int nla_option = argc > kNlaOptionArg ? atoi(argv[kNlaOptionArg]) : kNlaOptionDefault;
-  if (nla_option < kNlaOptionMin || nla_option > kNlaOptionMax) {
-    std::cerr << "Illegal value of " << nla_option << " for nla_option: must be in [" << kNlaOptionMin << ", " << kNlaOptionMax << "]\n";
-    return 1;
-  }
-    
 
   // ===================================================================================
   // CHANGE FORMULATION
@@ -143,12 +133,21 @@ int main(int argc, char **argv) {
   // create instance of IPM
   IPM_caller ipm{};
 
+  // ===================================================================================
+  // Identify the NLA option and check its validity
+  // ===================================================================================
+  ipm.option_nla = argc > kOptionNlaArg ? atoi(argv[kOptionNlaArg]) : kOptionNlaDefault;
+  if (ipm.option_nla < kOptionNlaMin || ipm.option_nla > kOptionNlaMax) {
+    std::cerr << "Illegal value of " << ipm.option_nla << " for option_nla: must be in [" << kOptionNlaMin << ", " << kOptionNlaMax << "]\n";
+    return 1;
+  }
+    
   // load the problem
   ipm.Load(n, m, obj.data(), rhs.data(), lower.data(), upper.data(),
            colptr.data(), rowind.data(), values.data(), constraints.data());
 
   // solve LP
-  ipm.Solve(100, 1e-6);
+  ipm.Solve();
 
   return 0;
 }
