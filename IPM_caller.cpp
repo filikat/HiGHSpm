@@ -101,6 +101,7 @@ void IPM_caller::Load(const int num_var, const int num_con, const double *obj,
 
   model.A = SparseMatrix(temp_rowind, temp_colptr, temp_values, num_con,
                          num_var + num_slacks);
+  assert(equalMatrix("In load"));
 
   m = model.num_con;
   n = model.num_var;
@@ -380,7 +381,7 @@ void IPM_caller::SolveNewtonSystem(const SparseMatrix &A,
   if (use_cg || use_direct_newton) {
     // Have to solve the Newton system
     //
-    // A.scaling.A^T = res8
+    // A.scaling.A^T Delta.y = res8
     //
     // Compute res8
     // *********************************************************************
@@ -636,4 +637,16 @@ void IPM_caller::ComputeStartingPoint() {
     }
   }
   // *********************************************************************
+}
+
+bool IPM_caller::equalMatrix(const std::string& where) {
+  bool equal = true;
+  equal = equal &&
+    model.A.rows() == int(model.highs_a.num_row_);
+  equal = equal &&
+    model.A.cols() == int(model.highs_a.num_col_);
+  equal = equal &&
+    model.A.nnz() == int(model.highs_a.numNz());
+  if (!equal) std::cout << "Matrices A and highs_a differ after " << where << "\n";
+  return equal;
 }

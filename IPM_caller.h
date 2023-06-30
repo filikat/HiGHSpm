@@ -233,6 +233,7 @@ private:
   //
   // ===================================================================================
   void ComputeStartingPoint();
+  bool equalMatrix(const std::string& where = "");
 };
 
 #endif
