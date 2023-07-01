@@ -1,9 +1,7 @@
 #include "NormalEquations.h"
 
-NormalEquations::NormalEquations(//const SparseMatrix &input_A,
-				 const HighsSparseMatrix &input_highs_a,
+NormalEquations::NormalEquations(const HighsSparseMatrix &input_highs_a,
                                  const std::vector<double> &input_scaling)
-  : //A{input_A},
   highs_a{input_highs_a}, scaling{input_scaling} {}
 
 void NormalEquations::Apply(const std::vector<double> &rhs,
