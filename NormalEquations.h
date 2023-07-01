@@ -8,11 +8,13 @@
 class NormalEquations {
 
   const SparseMatrix &A{};
+  const HighsSparseMatrix &highs_a{};
   const std::vector<double> &scaling{};
 
 public:
   // constructor
   NormalEquations(const SparseMatrix &input_A,
+		  const HighsSparseMatrix &highs_a,
                   const std::vector<double> &input_scaling);
 
   // apply matrix: lhs = A * Theta * A^T * rhs

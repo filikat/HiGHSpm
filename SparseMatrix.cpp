@@ -1,4 +1,5 @@
 #include "SparseMatrix.h"
+#include "VectorOperations.h"
 
 // =======================================================================
 // CONSTRUCTOR
@@ -14,9 +15,13 @@ SparseMatrix::SparseMatrix(int num_row, int num_col, int num_nnz) {
 // =======================================================================
 // MATRIX-VECTOR PRODUCT
 // =======================================================================
-void mat_vec(const SparseMatrix &A, const std::vector<double> &x,
+void mat_vec(const SparseMatrix &A,
+	     const HighsSparseMatrix &highs_a,
+	     const std::vector<double> &x,
              std::vector<double> &y, double alpha, char tran = 'n') {
-  if (tran == 't' || tran == 'T') {
+  std::vector<double> highs_y(y);
+  const bool transpose = tran == 't' || tran == 'T';
+  if (transpose) {
     // loop through columns of A
     for (int i = 0; i < A.cols(); ++i) {
       // loop through nonzero entries of column
@@ -33,6 +38,9 @@ void mat_vec(const SparseMatrix &A, const std::vector<double> &x,
       }
     }
   }
+  highs_a.product(alpha, x, highs_y, transpose);
+  assert(infNormDiff(y, highs_y) <= 0);//1e-14);
+  
 }
 
 // =======================================================================

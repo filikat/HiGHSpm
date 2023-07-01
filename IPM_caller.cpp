@@ -122,6 +122,8 @@ Output IPM_caller::Solve() {
   if (!model_ready)
     return Output{};
 
+  assert(equalMatrix("Entering Solve()"));
+
   // ------------------------------------------
   // ---- INITIALIZE --------------------------
   // ------------------------------------------
@@ -198,7 +200,7 @@ Output IPM_caller::Solve() {
     NewtonDir Delta(m, n);
 
     // Solve Newton system
-    SolveNewtonSystem(model.A, scaling, Res, Delta);
+    SolveNewtonSystem(model.A, model.highs_a, scaling, Res, Delta);
 
     // Compute full Newton direction
     RecoverDirection(Res, Delta);
@@ -266,7 +268,7 @@ void IPM_caller::ComputeResiduals_1234(Residuals &Res) {
 
   // res1
   Res.res1 = model.rhs;
-  mat_vec(model.A, It.x, Res.res1, -1.0, 'n');
+  mat_vec(model.A, model.highs_a, It.x, Res.res1, -1.0, 'n');
 
   // res2
   for (int i = 0; i < n; ++i) {
@@ -288,7 +290,7 @@ void IPM_caller::ComputeResiduals_1234(Residuals &Res) {
 
   // res4
   Res.res4 = model.obj;
-  mat_vec(model.A, It.y, Res.res4, -1.0, 't');
+  mat_vec(model.A, model.highs_a, It.y, Res.res4, -1.0, 't');
   for (int i = 0; i < n; ++i) {
     if (model.has_lb(i)) {
       Res.res4[i] -= It.zl[i];
@@ -340,6 +342,7 @@ void IPM_caller::ComputeScaling(std::vector<double> &scaling) {
 // SOLVE NEWTON SYSTEM
 // =======================================================================
 void IPM_caller::SolveNewtonSystem(const SparseMatrix &A,
+				   const HighsSparseMatrix &highs_a,
                                    const std::vector<double> &scaling,
                                    const Residuals &Res, NewtonDir &Delta) {
 
@@ -397,7 +400,7 @@ void IPM_caller::SolveNewtonSystem(const SparseMatrix &A,
     VectorDivide(temp, scaling);
 
     // res8 += A * temp
-    mat_vec(A, temp, res8, 1.0, 'n');
+    mat_vec(A, highs_a, temp, res8, 1.0, 'n');
     temp.clear();
     // *********************************************************************
 
@@ -406,7 +409,7 @@ void IPM_caller::SolveNewtonSystem(const SparseMatrix &A,
     // Delta.y can be substituted with a positive definite factorization.
     //
     if (use_cg) {
-      NormalEquations N(A, scaling);
+      NormalEquations N(A, highs_a, scaling);
       CG_solve(N, res8, 1e-12, 5000, Delta.y, nullptr);
     }
     if (use_direct_newton) {
@@ -431,7 +434,7 @@ void IPM_caller::SolveNewtonSystem(const SparseMatrix &A,
     // *********************************************************************
     // Deltax = A^T * Deltay - res7;
     Delta.x = res7;
-    mat_vec(A, Delta.y, Delta.x, -1.0, 't');
+    mat_vec(A, highs_a, Delta.y, Delta.x, -1.0, 't');
     VectorScale(Delta.x, -1.0);
 
     // Deltax = Theta * Deltax
@@ -518,11 +521,11 @@ void IPM_caller::ComputeStartingPoint() {
 
   // use y to store b-A*x
   It.y = model.rhs;
-  mat_vec(model.A, It.x, It.y, -1.0, 'n');
+  mat_vec(model.A, model.highs_a, It.x, It.y, -1.0, 'n');
 
   // solve A*A^T * dx = b-A*x with CG and store the result in temp_m
   std::vector<double> temp_scaling(n, 1.0);
-  NormalEquations N(model.A, temp_scaling);
+  NormalEquations N(model.A, model.highs_a, temp_scaling);
 
   std::vector<double> temp_m(m);
   int cg_iter{};
@@ -531,7 +534,7 @@ void IPM_caller::ComputeStartingPoint() {
 
   // compute dx = A^T * (A*A^T)^{-1} * (b-A*x) and store the result in xl
   std::fill(It.xl.begin(), It.xl.end(), 0.0);
-  mat_vec(model.A, temp_m, It.xl, 1.0, 't');
+  mat_vec(model.A, model.highs_a, temp_m, It.xl, 1.0, 't');
 
   // x += dx;
   VectorAdd(It.x, It.xl, 1.0);
@@ -561,7 +564,7 @@ void IPM_caller::ComputeStartingPoint() {
   // *********************************************************************
   // compute A*c
   std::fill(temp_m.begin(), temp_m.end(), 0.0);
-  mat_vec(model.A, model.obj, temp_m, 1.0, 'n');
+  mat_vec(model.A, model.highs_a, model.obj, temp_m, 1.0, 'n');
 
   // compute (A*A^T)^{-1} * A*c and store in y
   CG_solve(N, temp_m, 1e-4, 100, It.y, &cg_iter);
@@ -574,7 +577,7 @@ void IPM_caller::ComputeStartingPoint() {
   // *********************************************************************
   // compute c - A^T * y and store in zl
   It.zl = model.obj;
-  mat_vec(model.A, It.y, It.zl, -1.0, 't');
+  mat_vec(model.A, model.highs_a, It.y, It.zl, -1.0, 't');
 
   // split result between zl and zu
   violation = 0.0;
