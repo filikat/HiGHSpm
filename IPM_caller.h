@@ -7,7 +7,7 @@
 #include "IPM_const.h"
 #include "IPM_model.h"
 #include "NormalEquations.h"
-#include "SparseMatrix.h"
+#include "util/HighsSparseMatrix.h"
 #include "VectorOperations.h"
 
 class IPM_caller {

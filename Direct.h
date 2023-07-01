@@ -1,7 +1,7 @@
 #ifndef DIRECT_H
 #define DIRECT_H
 
-#include "SparseMatrix.h"
+#include "util/HighsSparseMatrix.h"
 
 void newtonSolve(const HighsSparseMatrix &highs_a,
 		 const std::vector<double> &theta,

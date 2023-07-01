@@ -1,7 +1,7 @@
 #ifndef NORMALEQUATIONS_H
 #define NORMALEQUATIONS_H
 
-#include "SparseMatrix.h"
+#include "util/HighsSparseMatrix.h"
 #include "VectorOperations.h"
 #include <vector>
 

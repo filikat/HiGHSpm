@@ -1,7 +1,6 @@
 #ifndef IPM_MODEL_H
 #define IPM_MODEL_H
 
-#include "SparseMatrix.h"
 #include "util/HighsSparseMatrix.h"
 #include <limits>
 #include <vector>
