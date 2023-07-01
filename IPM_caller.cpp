@@ -101,6 +101,11 @@ void IPM_caller::Load(const int num_var, const int num_con, const double *obj,
 
   model.A = SparseMatrix(temp_rowind, temp_colptr, temp_values, num_con,
                          num_var + num_slacks);
+  model.highs_a.num_col_ = num_var + num_slacks;
+  model.highs_a.num_row_ = num_con;
+  model.highs_a.start_ = temp_colptr;
+  model.highs_a.index_ = temp_rowind;
+  model.highs_a.value_ = temp_values;
   assert(equalMatrix("In load"));
 
   m = model.num_con;
@@ -647,6 +652,16 @@ bool IPM_caller::equalMatrix(const std::string& where) {
     model.A.cols() == int(model.highs_a.num_col_);
   equal = equal &&
     model.A.nnz() == int(model.highs_a.numNz());
+  equal = equal &&
+    model.A.begin(0) == model.highs_a.start_[0];
+  for (int iCol = 0; iCol < model.highs_a.num_col_; iCol++) {
+    equal = equal &&
+      model.A.begin(iCol+1) == model.highs_a.start_[iCol+1];
+    for (int iEl = model.highs_a.start_[iCol]; iEl < model.highs_a.start_[iCol+1]; iEl++)
+      equal = equal &&
+	model.A.Row(iEl) == model.highs_a.index_[iEl] &&
+	model.A.Val(iEl) == model.highs_a.value_[iEl];
+  }      
   if (!equal) std::cout << "Matrices A and highs_a differ after " << where << "\n";
   return equal;
 }
