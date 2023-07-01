@@ -58,7 +58,7 @@ public:
   //
   // =======================================================================
   friend void mat_vec(              // length
-      const SparseMatrix &A,        // m x n
+				    //      const SparseMatrix &A,        // m x n
       const HighsSparseMatrix &highs_a,        // m x n
       const std::vector<double> &x, // n (or m if 'T')
       std::vector<double> &y,       // m (or n if 'T')

@@ -171,7 +171,7 @@ private:
   // ===================================================================================
   void SolveNewtonSystem(
       // INPUT
-      const SparseMatrix &A,              // constraint matrix
+			 //      const SparseMatrix &A,              // constraint matrix
       const HighsSparseMatrix &highs_a,   // constraint matrix
       const std::vector<double> &scaling, // diagonal scaling, length n
       const Residuals &Res,               // current residuals
@@ -234,7 +234,7 @@ private:
   //
   // ===================================================================================
   void ComputeStartingPoint();
-  bool equalMatrix(const std::string& where = "");
+  //  bool equalMatrix(const std::string& where = "");
 };
 
 #endif
