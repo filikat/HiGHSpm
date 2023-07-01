@@ -99,8 +99,6 @@ void IPM_caller::Load(const int num_var, const int num_con, const double *obj,
     }
   }
 
-  //  model.A = SparseMatrix(temp_rowind, temp_colptr, temp_values, num_con,
-  //                         num_var + num_slacks);
   model.highs_a.num_col_ = num_var + num_slacks;
   model.highs_a.num_row_ = num_con;
   model.highs_a.start_ = temp_colptr;
@@ -343,8 +341,7 @@ void IPM_caller::ComputeScaling(std::vector<double> &scaling) {
 // =======================================================================
 // SOLVE NEWTON SYSTEM
 // =======================================================================
-void IPM_caller::SolveNewtonSystem(//const SparseMatrix &A,
-				   const HighsSparseMatrix &highs_a,
+void IPM_caller::SolveNewtonSystem(const HighsSparseMatrix &highs_a,
                                    const std::vector<double> &scaling,
                                    const Residuals &Res, NewtonDir &Delta) {
 
