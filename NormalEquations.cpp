@@ -13,13 +13,11 @@ void NormalEquations::Apply(const std::vector<double> &rhs,
   std::vector<double> temp(highs_a.num_col_, 0.0);
 
   // temp = A^T * rhs
-  mat_vec(//A,
-	  highs_a, rhs, temp, 1.0, 't');
+  highs_a.product(1.0, rhs, temp, true);
 
   // temp = temp * theta
   VectorDivide(temp, scaling);
 
   // lhs = A * temp
-  mat_vec(//A,
-	  highs_a, temp, lhs, 1.0, 'n');
+  highs_a.product(1.0, temp, lhs);
 }

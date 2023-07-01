@@ -270,9 +270,7 @@ void IPM_caller::ComputeResiduals_1234(Residuals &Res) {
 
   // res1
   Res.res1 = model.rhs;
-  mat_vec(
-	  //model.A,
-	  model.highs_a, It.x, Res.res1, -1.0, 'n');
+  model.highs_a.product(-1.0, It.x, Res.res1);
 
   // res2
   for (int i = 0; i < n; ++i) {
@@ -294,9 +292,7 @@ void IPM_caller::ComputeResiduals_1234(Residuals &Res) {
 
   // res4
   Res.res4 = model.obj;
-  mat_vec(
-	  //model.A,
-	  model.highs_a, It.y, Res.res4, -1.0, 't');
+  model.highs_a.product(-1.0, It.y, Res.res4, true);
   for (int i = 0; i < n; ++i) {
     if (model.has_lb(i)) {
       Res.res4[i] -= It.zl[i];
@@ -406,8 +402,7 @@ void IPM_caller::SolveNewtonSystem(//const SparseMatrix &A,
     VectorDivide(temp, scaling);
 
     // res8 += A * temp
-    mat_vec(//A,
-	    highs_a, temp, res8, 1.0, 'n');
+    highs_a.product(1.0, temp, res8);
     temp.clear();
     // *********************************************************************
 
@@ -444,8 +439,7 @@ void IPM_caller::SolveNewtonSystem(//const SparseMatrix &A,
     // *********************************************************************
     // Deltax = A^T * Deltay - res7;
     Delta.x = res7;
-    mat_vec(//A,
-	    highs_a, Delta.y, Delta.x, -1.0, 't');
+    highs_a.product(-1.0, Delta.y, Delta.x, true);
     VectorScale(Delta.x, -1.0);
 
     // Deltax = Theta * Deltax
@@ -532,9 +526,7 @@ void IPM_caller::ComputeStartingPoint() {
 
   // use y to store b-A*x
   It.y = model.rhs;
-  mat_vec(
-	  //model.A,
-	  model.highs_a, It.x, It.y, -1.0, 'n');
+  model.highs_a.product(-1.0, It.x, It.y);
 
   // solve A*A^T * dx = b-A*x with CG and store the result in temp_m
   std::vector<double> temp_scaling(n, 1.0);
@@ -549,9 +541,7 @@ void IPM_caller::ComputeStartingPoint() {
 
   // compute dx = A^T * (A*A^T)^{-1} * (b-A*x) and store the result in xl
   std::fill(It.xl.begin(), It.xl.end(), 0.0);
-  mat_vec(
-	  //model.A,
-	  model.highs_a, temp_m, It.xl, 1.0, 't');
+  model.highs_a.product(1.0, temp_m, It.xl, true);
 
   // x += dx;
   VectorAdd(It.x, It.xl, 1.0);
@@ -581,9 +571,7 @@ void IPM_caller::ComputeStartingPoint() {
   // *********************************************************************
   // compute A*c
   std::fill(temp_m.begin(), temp_m.end(), 0.0);
-  mat_vec(
-	  //model.A,
-	  model.highs_a, model.obj, temp_m, 1.0, 'n');
+  model.highs_a.product(1.0, model.obj, temp_m);
 
   // compute (A*A^T)^{-1} * A*c and store in y
   CG_solve(N, temp_m, 1e-4, 100, It.y, &cg_iter);
@@ -596,9 +584,7 @@ void IPM_caller::ComputeStartingPoint() {
   // *********************************************************************
   // compute c - A^T * y and store in zl
   It.zl = model.obj;
-  mat_vec(
-	  //model.A,
-	  model.highs_a, It.y, It.zl, -1.0, 't');
+  model.highs_a.product(-1.0, It.y, It.zl, true);
 
   // split result between zl and zu
   violation = 0.0;
