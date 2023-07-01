@@ -198,9 +198,7 @@ Output IPM_caller::Solve() {
     NewtonDir Delta(m, n);
 
     // Solve Newton system
-    SolveNewtonSystem(
-		      //		      model.A,
-		      model.highs_a, scaling, Res, Delta);
+    SolveNewtonSystem(model.highs_a, scaling, Res, Delta);
 
     // Compute full Newton direction
     RecoverDirection(Res, Delta);
@@ -408,17 +406,14 @@ void IPM_caller::SolveNewtonSystem(const HighsSparseMatrix &highs_a,
     // Delta.y can be substituted with a positive definite factorization.
     //
     if (use_cg) {
-      NormalEquations N(//A,
-			highs_a, scaling);
+      NormalEquations N(highs_a, scaling);
       CG_solve(N, res8, 1e-12, 5000, Delta.y, nullptr);
     }
     if (use_direct_newton) {
       // Solve the Newton system directly into newton_delta_y
       std::vector<double> newton_delta_y;
       newton_delta_y.assign(m, 0);
-      newtonSolve(//A,
-		  highs_a,
-		  scaling, res8, newton_delta_y);
+      newtonSolve(highs_a, scaling, res8, newton_delta_y);
       if (check_with_cg) {
         double inf_norm_solution_diff = infNormDiff(newton_delta_y, Delta.y);
         if (inf_norm_solution_diff > kSolutionDiffTolerance) {
@@ -527,9 +522,7 @@ void IPM_caller::ComputeStartingPoint() {
 
   // solve A*A^T * dx = b-A*x with CG and store the result in temp_m
   std::vector<double> temp_scaling(n, 1.0);
-  NormalEquations N(
-		    //model.A,
-		    model.highs_a, temp_scaling);
+  NormalEquations N(model.highs_a, temp_scaling);
 
   std::vector<double> temp_m(m);
   int cg_iter{};
@@ -651,26 +644,3 @@ void IPM_caller::ComputeStartingPoint() {
   // *********************************************************************
 }
 
-/*
-bool IPM_caller::equalMatrix(const std::string& where) {
-  bool equal = true;
-  equal = equal &&
-    model.A.rows() == int(model.highs_a.num_row_);
-  equal = equal &&
-    model.A.cols() == int(model.highs_a.num_col_);
-  equal = equal &&
-    model.A.nnz() == int(model.highs_a.numNz());
-  equal = equal &&
-    model.A.begin(0) == model.highs_a.start_[0];
-  for (int iCol = 0; iCol < model.highs_a.num_col_; iCol++) {
-    equal = equal &&
-      model.A.begin(iCol+1) == model.highs_a.start_[iCol+1];
-    for (int iEl = model.highs_a.start_[iCol]; iEl < model.highs_a.start_[iCol+1]; iEl++)
-      equal = equal &&
-	model.A.Row(iEl) == model.highs_a.index_[iEl] &&
-	model.A.Val(iEl) == model.highs_a.value_[iEl];
-  }      
-  if (!equal) std::cout << "Matrices A and highs_a differ after " << where << "\n";
-  return equal;
-}
-*/
