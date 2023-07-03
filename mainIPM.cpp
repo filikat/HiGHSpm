@@ -3,15 +3,19 @@
 #include <cassert>
 #include <iostream>
 
-const int kMinArgC = 2;
-const int kModelFileArg = 1;
-const int kOptionNlaArg = 2;
-const int kMaxArgC = kOptionNlaArg + 1;
+enum ArgC {
+  kMinArgC = 2,
+  kModelFileArg = 1,
+  kOptionNlaArg,
+  kOptionMaxDenseColArg,
+  kOptionDenseColToleranceArg,
+  kMaxArgC
+};
 
 int main(int argc, char **argv) {
 
   if (argc < kMinArgC || argc > kMaxArgC) {
-    std::cerr << "======= How to use: ./ipm LP_name.mps nla_option =======\n";
+    std::cerr << "======= How to use: ./ipm LP_name.mps nla_option max_dense_col_option dense_col_tolerance_option =======\n";
     return 1;
   }
 
@@ -134,7 +138,7 @@ int main(int argc, char **argv) {
   IPM_caller ipm{};
 
   // ===================================================================================
-  // Identify the NLA option and check its validity
+  // Identify the option values and check their validity
   // ===================================================================================
   ipm.option_nla =
       argc > kOptionNlaArg ? atoi(argv[kOptionNlaArg]) : kOptionNlaDefault;
@@ -142,6 +146,25 @@ int main(int argc, char **argv) {
     std::cerr << "Illegal value of " << ipm.option_nla
               << " for option_nla: must be in [" << kOptionNlaMin << ", "
               << kOptionNlaMax << "]\n";
+    return 1;
+  }
+
+  ipm.option_max_dense_col =
+      argc > kOptionMaxDenseColArg ? atoi(argv[kOptionMaxDenseColArg]) : kOptionMaxDenseColDefault;
+  if (ipm.option_max_dense_col < kOptionMaxDenseColMin || ipm.option_max_dense_col > kOptionMaxDenseColMax) {
+    std::cerr << "Illegal value of " << ipm.option_max_dense_col
+              << " for option_max_dense_col: must be in [" << kOptionMaxDenseColMin << ", "
+              << kOptionMaxDenseColMax << "]\n";
+    return 1;
+  }
+
+  ipm.option_dense_col_tolerance =
+      argc > kOptionDenseColToleranceArg ? atoi(argv[kOptionDenseColToleranceArg]) : kOptionDenseColToleranceDefault;
+  if (ipm.option_dense_col_tolerance < kOptionDenseColToleranceMin ||
+      ipm.option_dense_col_tolerance > kOptionDenseColToleranceMax) {
+    std::cerr << "Illegal value of " << ipm.option_dense_col_tolerance
+              << " for option_dense_col_tolerance: must be in [" << kOptionDenseColToleranceMin << ", "
+              << kOptionDenseColToleranceMax << "]\n";
     return 1;
   }
 

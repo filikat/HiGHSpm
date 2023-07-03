@@ -31,8 +31,10 @@ public:
   // Run-time options
   // ===================================================================================
   int option_iteration_limit = 100;
-  double option_ipm_tolerance = 1e-6;
   int option_nla = kOptionNlaDefault;
+  int option_max_dense_col = kOptionMaxDenseColDefault;
+  double option_ipm_tolerance = 1e-6;
+  double option_dense_col_tolerance = kOptionDenseColToleranceDefault;
 
   // ===================================================================================
   // LOAD THE PROBLEM
@@ -233,7 +235,6 @@ private:
   //
   // ===================================================================================
   void ComputeStartingPoint();
-  //  bool equalMatrix(const std::string& where = "");
 };
 
 #endif
