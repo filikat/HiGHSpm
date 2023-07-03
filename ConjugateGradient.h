@@ -2,7 +2,7 @@
 #define CONJUGATEGRADIENT_H
 
 #include "NormalEquations.h"
-#include "SparseMatrix.h"
+#include "util/HighsSparseMatrix.h"
 #include "VectorOperations.h"
 
 void CG_solve(const NormalEquations &A, const std::vector<double> &rhs,

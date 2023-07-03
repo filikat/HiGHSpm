@@ -7,7 +7,7 @@
 #include "IPM_const.h"
 #include "IPM_model.h"
 #include "NormalEquations.h"
-#include "SparseMatrix.h"
+#include "util/HighsSparseMatrix.h"
 #include "VectorOperations.h"
 
 class IPM_caller {
@@ -171,7 +171,7 @@ private:
   // ===================================================================================
   void SolveNewtonSystem(
       // INPUT
-      const SparseMatrix &A,              // constraint matrix
+      const HighsSparseMatrix &highs_a,   // constraint matrix
       const std::vector<double> &scaling, // diagonal scaling, length n
       const Residuals &Res,               // current residuals
       // OUTPUT
@@ -233,6 +233,7 @@ private:
   //
   // ===================================================================================
   void ComputeStartingPoint();
+  //  bool equalMatrix(const std::string& where = "");
 };
 
 #endif

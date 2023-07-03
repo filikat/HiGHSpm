@@ -1,20 +1,20 @@
 #include "NormalEquations.h"
 
-NormalEquations::NormalEquations(const SparseMatrix &input_A,
+NormalEquations::NormalEquations(const HighsSparseMatrix &input_highs_a,
                                  const std::vector<double> &input_scaling)
-    : A{input_A}, scaling{input_scaling} {}
+: highs_a{input_highs_a}, scaling{input_scaling} {}
 
 void NormalEquations::Apply(const std::vector<double> &rhs,
                             std::vector<double> &lhs) const {
 
-  std::vector<double> temp(A.cols(), 0.0);
+  std::vector<double> temp(highs_a.num_col_, 0.0);
 
   // temp = A^T * rhs
-  mat_vec(A, rhs, temp, 1.0, 't');
+  highs_a.product(1.0, rhs, temp, true);
 
   // temp = temp * theta
   VectorDivide(temp, scaling);
 
   // lhs = A * temp
-  mat_vec(A, temp, lhs, 1.0, 'n');
+  highs_a.product(1.0, temp, lhs);
 }

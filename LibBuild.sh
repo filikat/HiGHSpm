@@ -19,7 +19,6 @@ $CPP_COMPILER \
         mainIPM.cpp \
         IPM_caller.cpp \
         IPM_model.cpp \
-        SparseMatrix.cpp \
         NormalEquations.cpp \
         ConjugateGradient.cpp \
         Direct.cpp \

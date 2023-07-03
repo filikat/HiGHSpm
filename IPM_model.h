@@ -1,7 +1,7 @@
 #ifndef IPM_MODEL_H
 #define IPM_MODEL_H
 
-#include "SparseMatrix.h"
+#include "util/HighsSparseMatrix.h"
 #include <limits>
 #include <vector>
 
@@ -36,7 +36,7 @@ class IPM_model {
   std::vector<double> rhs{};
   std::vector<double> lower{};
   std::vector<double> upper{};
-  SparseMatrix A{};
+  HighsSparseMatrix highs_a{};
 
 public:
   // =======================================================================
