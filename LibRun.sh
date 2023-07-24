@@ -6,4 +6,8 @@ highs_build_dir="${highs_root}/build"
 
 #VALGRIND="valgrind"
 
-LD_LIBRARY_PATH=${highs_build_dir}/lib $VALGRIND ./ipm $1
+echo "FRED"
+
+echo "$VALGRIND ./ipm $1 $2"
+LD_LIBRARY_PATH=${highs_build_dir}/lib $VALGRIND ./ipm $1 $2
+

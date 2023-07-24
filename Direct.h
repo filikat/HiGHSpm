@@ -3,6 +3,8 @@
 
 #include "util/HighsSparseMatrix.h"
 
+HighsSparseMatrix computeAThetaAT_inner_product(const HighsSparseMatrix& matrix, const double* theta);
+
 void newtonSolve(const HighsSparseMatrix &highs_a,
 		 const std::vector<double> &theta,
                  const std::vector<double> &rhs,

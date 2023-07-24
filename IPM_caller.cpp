@@ -368,7 +368,7 @@ void IPM_caller::SolveNewtonSystem(const HighsSparseMatrix &highs_a,
   const bool use_direct_newton =
       option_nla == kOptionNlaNewton || option_nla == kOptionNlaNewtonCg;
   // Shouldn't be trying to solve both the augmented and Newton system!
-  assert(use_direct_augmented || !use_direct_newton);
+  assert(!use_direct_augmented || !use_direct_newton);
 
   // Until the direct solvers are implemented correctly, the IPM
   // solver is driven by CG, so check for this
@@ -420,6 +420,7 @@ void IPM_caller::SolveNewtonSystem(const HighsSparseMatrix &highs_a,
         if (inf_norm_solution_diff > kSolutionDiffTolerance) {
           std::cout << "Newton Direct-CG solution error = "
                     << inf_norm_solution_diff << "\n";
+	  assert(1==0);
         }
       }
       if (!use_cg) {
