@@ -1,8 +1,21 @@
-#include "experimentData.h"
 #include "Direct.h"
+#include "spral.h"
 #include <cmath>
 
-//double getWallTime();
+double getWallTime() {
+    using namespace std::chrono;
+    using wall_clock = std::chrono::high_resolution_clock;
+    return duration_cast<duration<double> >(wall_clock::now().time_since_epoch()).count();
+}
+
+double fillIn_LL(int nnz_AAT, int nnz_L, int MatrixSize) {
+    return (double) (2*nnz_L - MatrixSize)/ nnz_AAT;
+}
+
+std::ostream& operator<<(std::ostream& os, const ExperimentData& data) {
+    os << "decomposer: " <<data.decomposer << "\n model name:" << data.model_name << "\n model size: " << data.model_size << "\n nnz in AAT: " << data.nnz_AAT << "\n nnz in L: " << data.nnz_L << "\n solution error: " << data.solution_error << "\n residual error: " << data.residual_error << "\n fill-in: " << data.fill_in_factor << "\n analyse time: " << data.analysis_time<< "\n factorization time: " << data.factorization_time<< "\n solve time: " << data.solve_time << "\n time taken: " << data.time_taken << "\n";
+    return os;
+}
 
 bool increasing_index(const HighsSparseMatrix& matrix) {
   if (matrix.isRowwise()) {
@@ -26,7 +39,7 @@ HighsSparseMatrix computeAThetaAT_inner_product(const HighsSparseMatrix& matrix,
     AAT.num_col_ = AAT_dim;
     AAT.num_row_ = AAT_dim;
     AAT.start_.resize(AAT_dim+1,0);
- 
+
     std::vector<std::tuple<int, int, double>> non_zero_values;
 
     // First pass to calculate the number of non-zero elements in each column
@@ -97,8 +110,12 @@ int newtonSolve(const HighsSparseMatrix &highs_a,
 		const std::vector<double> &rhs,
 		std::vector<double> &lhs,
 		const int option_max_dense_col,
-		const double option_dense_col_tolerance) {
+		const double option_dense_col_tolerance,
+		ExperimentData& data) {
   HighsSparseMatrix AAT = computeAThetaAT_inner_product(highs_a, theta.data());
+  data.reset();
+  data.decomposer = "ssids";
+  data.nnz_AAT = AAT.numNz();
   // Prepare data structures for SPRAL
   std::vector<long> ptr;
   std::vector<int> row;
@@ -127,7 +144,6 @@ int newtonSolve(const HighsSparseMatrix &highs_a,
 
   // Derived types
   void *akeep, *fkeep;
-  /*
   struct spral_ssids_options options;
   struct spral_ssids_inform inform;
 
@@ -137,8 +153,8 @@ int newtonSolve(const HighsSparseMatrix &highs_a,
   options.array_base = 1; // Need to set to 1 if using Fortran 1-based indexing 
   
   // Dense vector B 
-  std::vector<double> B = b_RHS;
-  
+  std::vector<double> B = rhs;
+
   // Perform analyse and factorise with data checking 
   bool check = true;
   double start_time = getWallTime();
@@ -191,6 +207,5 @@ int newtonSolve(const HighsSparseMatrix &highs_a,
     throw std::runtime_error("CUDA error in spral_ssids_free");
   }
   data.fill_in_factor = fillIn_LL(data.nnz_AAT, data.nnz_L, data.model_size);
-  */
   return 1;
 }
