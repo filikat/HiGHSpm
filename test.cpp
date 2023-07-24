@@ -13,13 +13,14 @@ int main() {
   matrix.index_ = {0, 1, 2, 0, 1, 3};
   matrix.value_ = {1, 1, 1, 1, -1, 1};
   const std::vector<double> theta = {1, 1, 1, 1};
-  const HighsSparseMatrix AThetaAT =  computeAThetaAT_inner_product(matrix, theta.data());
+  const HighsSparseMatrix AThetaAT;
+  //=  computeAThetaAT_inner_product(matrix, theta.data());
   const std::vector<double> x_star = {1, 1};
   std::vector<double> rhs;
   rhs.assign(dim, 0);
   AThetaAT.product(1, x_star, rhs);
   std::vector<double> lhs(dim);
-  newtonSolve(matrix, theta, rhs, lhs, 0, 0);
+  //  newtonSolve(matrix, theta, rhs, lhs, 0, 0);
   double solution_error = 0;
   for (int ix = 0; ix < dim; ix++)
     solution_error = std::max(std::fabs(x_star[ix] - lhs[ix]), solution_error);
