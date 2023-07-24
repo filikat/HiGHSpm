@@ -29,11 +29,11 @@ int main() {
     matrix.index_ = {0, 1, 2, 0, 1, 3};
     matrix.value_ = {1, 1, 1, 1, -1, 1};
   }
-  std::vector<double> theta(dim);
-  for (int ix = 0; ix < dim; ix++) theta[ix] = 1;
+  HighsRandom random;
+  std::vector<double> theta(matrix.num_col_);
+  for (int ix = 0; ix < matrix.num_col_; ix++) theta[ix] = 1.0;// + 1e-3 * random.fraction();
   const HighsSparseMatrix AThetaAT =  computeAThetaAT_inner_product(matrix, theta.data());
   std::vector<double> x_star(dim);
-  HighsRandom random;
   for (int ix = 0; ix < dim; ix++)
     x_star[ix] = random.fraction();
   std::vector<double> rhs;
@@ -41,7 +41,7 @@ int main() {
   AThetaAT.product(1, x_star, rhs);
   std::vector<double> lhs(dim);
   ExperimentData data;
-  newtonSolve(matrix, theta, rhs, lhs, 0, 0, data);
+  newtonSolve(matrix, theta, rhs, lhs, 0, 0.8, data);
 
   double solution_error = 0;
   for (int ix = 0; ix < dim; ix++)
@@ -52,12 +52,12 @@ int main() {
   double residual_error = 0;
   for (int ix = 0; ix < dim; ix++)
     residual_error = std::max(std::fabs(residual[ix]), residual_error);
-  assert(solution_error < 1e-6);
-  assert(residual_error < 1e-6);
 
   data.model_size = dim;
   data.solution_error = solution_error;
   data.residual_error = residual_error;
   std::cout << data << "\n";
+  assert(solution_error < 1e-6);
+  assert(residual_error < 1e-6);
 }
 

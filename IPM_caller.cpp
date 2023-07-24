@@ -413,8 +413,9 @@ void IPM_caller::SolveNewtonSystem(const HighsSparseMatrix &highs_a,
       // Solve the Newton system directly into newton_delta_y
       std::vector<double> newton_delta_y;
       newton_delta_y.assign(m, 0);
+      ExperimentData data;
       newtonSolve(highs_a, scaling, res8, newton_delta_y,
-		  option_max_dense_col, option_dense_col_tolerance);
+		  option_max_dense_col, option_dense_col_tolerance, data);
       if (check_with_cg) {
         double inf_norm_solution_diff = infNormDiff(newton_delta_y, Delta.y);
         if (inf_norm_solution_diff > kSolutionDiffTolerance) {

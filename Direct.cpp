@@ -112,9 +112,23 @@ int newtonSolve(const HighsSparseMatrix &highs_a,
 		const int option_max_dense_col,
 		const double option_dense_col_tolerance,
 		ExperimentData& data) {
+
+  int num_dense_col = 0;
+  double max_density = 0; 
+  for (int col = 0; col < highs_a.num_col_; col++) {
+    double density = double(highs_a.start_[col+1] - highs_a.start_[col]) / double(highs_a.num_row_);
+    if (density > option_dense_col_tolerance) {
+      max_density = std::max(density, max_density);
+      num_dense_col++;
+    }
+  }
+  printf("Problem has %d dense columns (max = %g) for tolerance of %g\n",
+	 int(num_dense_col), max_density, option_dense_col_tolerance);
+
   HighsSparseMatrix AAT = computeAThetaAT_inner_product(highs_a, theta.data());
   data.reset();
   data.decomposer = "ssids";
+  data.model_size = highs_a.num_row_;
   data.nnz_AAT = AAT.numNz();
   // Prepare data structures for SPRAL
   std::vector<long> ptr;
