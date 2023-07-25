@@ -39,6 +39,14 @@ int main() {
   std::vector<double> rhs;
   rhs.assign(dim, 0);
   AThetaAT.product(1, x_star, rhs);
+  std::vector<double> check_rhs;
+  check_rhs.assign(dim, 0);
+  productAThetaAT(matrix, theta.data(), x_star, check_rhs);
+  double rhs_error = 0;
+  for (int ix = 0; ix < dim; ix++)
+    rhs_error = std::max(std::fabs(rhs[ix] - check_rhs[ix]), rhs_error);
+  printf("RHS error = %g\n", rhs_error);
+  
   std::vector<double> lhs(dim);
   ExperimentData data;
   newtonSolve(matrix, theta, rhs, lhs, 0, 0.8, data);

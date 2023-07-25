@@ -30,6 +30,21 @@ bool increasing_index(const HighsSparseMatrix& matrix) {
   return true;
 }
 
+void productAThetaAT(const HighsSparseMatrix& matrix, const double* theta,
+		     const std::vector<double>& x, std::vector<double>& y) {
+  assert(int(x.size()) == matrix.num_row_);
+  assert(int(y.size()) == matrix.num_row_);
+  assert(matrix.isColwise());
+  std::vector<double> ATx;
+  ATx.assign(matrix.num_col_, 0);
+  matrix.product(1, x, ATx, true);
+  if (theta) {
+    for(int ix = 0; ix < matrix.num_col_; ix++)
+      ATx[ix] *= theta[ix];
+  }
+  matrix.product(1, ATx, y);
+}
+
 HighsSparseMatrix computeAThetaAT_inner_product(const HighsSparseMatrix& matrix, const double* theta){
     HighsSparseMatrix AAT;
     HighsSparseMatrix AT = matrix;
