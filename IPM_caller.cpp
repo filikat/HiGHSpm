@@ -266,7 +266,7 @@ void IPM_caller::ComputeResiduals_1234(Residuals &Res) {
 
   // res1
   Res.res1 = model.rhs;
-  model.highs_a.product(-1.0, It.x, Res.res1);
+  model.highs_a.alphaProductPlusY(-1.0, It.x, Res.res1);
 
   // res2
   for (int i = 0; i < n; ++i) {
@@ -288,7 +288,7 @@ void IPM_caller::ComputeResiduals_1234(Residuals &Res) {
 
   // res4
   Res.res4 = model.obj;
-  model.highs_a.product(-1.0, It.y, Res.res4, true);
+  model.highs_a.alphaProductPlusY(-1.0, It.y, Res.res4, true);
   for (int i = 0; i < n; ++i) {
     if (model.has_lb(i)) {
       Res.res4[i] -= It.zl[i];
@@ -397,7 +397,7 @@ void IPM_caller::SolveNewtonSystem(const HighsSparseMatrix &highs_a,
     VectorDivide(temp, scaling);
 
     // res8 += A * temp
-    highs_a.product(1.0, temp, res8);
+    highs_a.alphaProductPlusY(1.0, temp, res8);
     temp.clear();
     // *********************************************************************
 
@@ -413,9 +413,11 @@ void IPM_caller::SolveNewtonSystem(const HighsSparseMatrix &highs_a,
       // Solve the Newton system directly into newton_delta_y
       std::vector<double> newton_delta_y;
       newton_delta_y.assign(m, 0);
-      ExperimentData data;
+      //      ExperimentData data;
       newtonSolve(highs_a, scaling, res8, newton_delta_y,
-		  option_max_dense_col, option_dense_col_tolerance, data);
+		  option_max_dense_col, option_dense_col_tolerance
+		  //		  , data
+		  );
       if (check_with_cg) {
         double inf_norm_solution_diff = infNormDiff(newton_delta_y, Delta.y);
         if (inf_norm_solution_diff > kSolutionDiffTolerance) {
@@ -434,7 +436,7 @@ void IPM_caller::SolveNewtonSystem(const HighsSparseMatrix &highs_a,
     // *********************************************************************
     // Deltax = A^T * Deltay - res7;
     Delta.x = res7;
-    highs_a.product(-1.0, Delta.y, Delta.x, true);
+    highs_a.alphaProductPlusY(-1.0, Delta.y, Delta.x, true);
     VectorScale(Delta.x, -1.0);
 
     // Deltax = Theta * Deltax
@@ -521,7 +523,7 @@ void IPM_caller::ComputeStartingPoint() {
 
   // use y to store b-A*x
   It.y = model.rhs;
-  model.highs_a.product(-1.0, It.x, It.y);
+  model.highs_a.alphaProductPlusY(-1.0, It.x, It.y);
 
   // solve A*A^T * dx = b-A*x with CG and store the result in temp_m
   std::vector<double> temp_scaling(n, 1.0);
@@ -534,7 +536,7 @@ void IPM_caller::ComputeStartingPoint() {
 
   // compute dx = A^T * (A*A^T)^{-1} * (b-A*x) and store the result in xl
   std::fill(It.xl.begin(), It.xl.end(), 0.0);
-  model.highs_a.product(1.0, temp_m, It.xl, true);
+  model.highs_a.alphaProductPlusY(1.0, temp_m, It.xl, true);
 
   // x += dx;
   VectorAdd(It.x, It.xl, 1.0);
@@ -564,7 +566,7 @@ void IPM_caller::ComputeStartingPoint() {
   // *********************************************************************
   // compute A*c
   std::fill(temp_m.begin(), temp_m.end(), 0.0);
-  model.highs_a.product(1.0, model.obj, temp_m);
+  model.highs_a.alphaProductPlusY(1.0, model.obj, temp_m);
 
   // compute (A*A^T)^{-1} * A*c and store in y
   CG_solve(N, temp_m, 1e-4, 100, It.y, &cg_iter);
@@ -577,7 +579,7 @@ void IPM_caller::ComputeStartingPoint() {
   // *********************************************************************
   // compute c - A^T * y and store in zl
   It.zl = model.obj;
-  model.highs_a.product(-1.0, It.y, It.zl, true);
+  model.highs_a.alphaProductPlusY(-1.0, It.y, It.zl, true);
 
   // split result between zl and zu
   violation = 0.0;
