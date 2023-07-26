@@ -1,10 +1,19 @@
 #include "Direct.h"
 #include "Highs.h"
 
+bool infNormDiffOk(const std::vector<double> x0, const std::vector<double> x1) {
+  assert(x1.size() >= x0.size());
+  double norm_diff = 0;
+  for (HighsInt ix = 0; ix < HighsInt(x0.size()); ix++)
+    norm_diff = std::max(std::abs(x0[ix] - x1[ix]), norm_diff);
+  return norm_diff < 1e-12;
+}
+
 int main() {
 
   const bool use_lp = true;
-  int dim;
+  int x_dim;
+  int y_dim;
   HighsSparseMatrix matrix;
   if (use_lp) {
     Highs highs;
@@ -12,43 +21,80 @@ int main() {
     HighsStatus status = highs.readModel("ml.mps");
     assert(status == HighsStatus::kOk);
     matrix = highs.getLp().a_matrix_;
-    dim = matrix.num_row_;
+    y_dim = matrix.num_row_;
     int nnz = matrix.numNz();
-    for (int ix = 0; ix < dim; ix++) {
+    for (int ix = 0; ix < y_dim; ix++) {
       matrix.start_.push_back(++nnz);
       matrix.index_.push_back(ix);
       matrix.value_.push_back(1);
     }
-    matrix.num_col_ += dim;
+    matrix.num_col_ += y_dim;
+    x_dim = matrix.num_col_;
   } else {
-    dim = 2;
-    matrix.num_row_ = dim;
-    matrix.num_col_ = 4;
+    x_dim = 4;
+    y_dim = 2;
+    matrix.num_row_ = y_dim;
+    matrix.num_col_ = x_dim;
     matrix.format_ = MatrixFormat::kRowwise;
     matrix.start_ = {0, 3, 6};
     matrix.index_ = {0, 1, 2, 0, 1, 3};
     matrix.value_ = {1, 1, 1, 1, -1, 1};
   }
   HighsRandom random;
-  std::vector<double> theta(matrix.num_col_);
-  for (int ix = 0; ix < matrix.num_col_; ix++) theta[ix] = 1.0;// + 1e-3 * random.fraction();
-  std::vector<double> x_star(dim);
-  for (int ix = 0; ix < dim; ix++)
+  std::vector<double> theta;
+  for (int ix = 0; ix < x_dim; ix++) theta.push_back(1.0);// + 1e-3 * random.fraction();
+
+  // Test solution of
+  //
+  // [-\Theta A^T ][x_star] = [rhs_x]
+  // [    A    0  ][y_star]   [rhs_y]
+  //
+  // First directly, and then by solving
+  //
+  // A\Theta.A^T y_star = rhs_y + A\Theta.rhs_x
+  //
+  // before substituting x_star = \Theta(A^Ty_star - rhs_x)
+  
+  std::vector<double> x_star(x_dim);
+  for (int ix = 0; ix < x_dim; ix++)
     x_star[ix] = random.fraction();
 
-  std::vector<double> rhs;
-  productAThetaAT(matrix, theta, x_star, rhs);
+  std::vector<double> y_star(y_dim);
+  for (int ix = 0; ix < y_dim; ix++)
+    y_star[ix] = random.fraction();
+
+  // Form rhs_x = -\Theta.x_star + A^T.y_star
+  std::vector<double> at_y_star;
+  matrix.productTranspose(at_y_star, y_star);
+  std::vector<double> rhs_x = x_star;
+  for (int ix = 0; ix < x_dim; ix++) {
+    rhs_x[ix] *= -theta[ix];
+    rhs_x[ix] += at_y_star[ix];
+  }
+  // Form rhs_y = A.x_star
+   std::vector<double> rhs_y;
+  matrix.product(rhs_y, x_star);
+
+  // Now solve the Newton equation
+  // 
+  // Form rhs_newton == rhs_y + A\Theta.rhs_x
+  std::vector<double> theta_rhs_x = rhs_x;
+  for (int ix = 0; ix < x_dim; ix++) theta_rhs_x[ix] *= theta[ix];
+  std::vector<double> a_theta_rhs_x;
+  matrix.product(a_theta_rhs_x, theta_rhs_x);
+  std::vector<double> rhs_newton = rhs_y;
+  for (int ix = 0; ix < y_dim; ix++) rhs_newton[ix] += a_theta_rhs_x[ix];
   
-  std::vector<double> lhs(dim);
+  std::vector<double> lhs(y_dim);
   ExperimentData data;
-  newtonSolve(matrix, theta, rhs, lhs, 0, 0.8, data);
+  newtonSolve(matrix, theta, rhs_newton, lhs, 0, 0.8, data);
 
   double solution_error = 0;
-  for (int ix = 0; ix < dim; ix++)
-    solution_error = std::max(std::fabs(x_star[ix] - lhs[ix]), solution_error);
-  double residual_error = residualErrorAThetaAT(matrix, theta, rhs, lhs);
+  for (int ix = 0; ix < y_dim; ix++)
+    solution_error = std::max(std::fabs(y_star[ix] - lhs[ix]), solution_error);
+  double residual_error = residualErrorAThetaAT(matrix, theta, rhs_newton, lhs);
 
-  data.model_size = dim;
+  data.model_size = y_dim;
   data.solution_error = solution_error;
   data.residual_error = residual_error;
   std::cout << data << "\n";
