@@ -32,7 +32,6 @@ int main() {
   HighsRandom random;
   std::vector<double> theta(matrix.num_col_);
   for (int ix = 0; ix < matrix.num_col_; ix++) theta[ix] = 1.0;// + 1e-3 * random.fraction();
-  const HighsSparseMatrix AThetaAT = computeAThetaAT(matrix, theta);
   std::vector<double> x_star(dim);
   for (int ix = 0; ix < dim; ix++)
     x_star[ix] = random.fraction();
