@@ -25,8 +25,8 @@ LIBS="-lhighs -lspral -lblas -llapack -lm -lstdc++ -lgfortran -lz -lmetis"
 # Define the compiler flags to use in C and C++.
 # 
 # When you're doing performance tests, use -O3
-#COMPILER_FLAGS="-g -fopenmp "
-COMPILER_FLAGS="-O3 -fopenmp "
+COMPILER_FLAGS="-g -fopenmp "
+#COMPILER_FLAGS="-O3 -fopenmp "
 
 # Define source file - that might change
 SOURCE_FILE="testSolve.cpp Direct.cpp ExperimentData.cpp"

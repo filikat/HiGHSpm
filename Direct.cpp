@@ -5,11 +5,11 @@
 bool increasing_index(const HighsSparseMatrix& matrix) {
   if (matrix.isRowwise()) {
     for (int iRow = 0; iRow < matrix.num_row_; iRow++)
-      for (int iEl = matrix.start_[iRow]+1; iEl < matrix.start_[iRow+1]; iRow++) 
+      for (int iEl = matrix.start_[iRow]+1; iEl < matrix.start_[iRow+1]; iEl++) 
 	if (matrix.index_[iEl] <= matrix.index_[iEl-1]) return false;
   } else {
     for (int iCol = 0; iCol < matrix.num_col_; iCol++)
-      for (int iEl = matrix.start_[iCol]+1; iEl < matrix.start_[iCol+1]; iCol++)
+      for (int iEl = matrix.start_[iCol]+1; iEl < matrix.start_[iCol+1]; iEl++)
 	if (matrix.index_[iEl] <= matrix.index_[iEl-1]) return false;
   }
   return true;
@@ -29,7 +29,7 @@ void productAThetaAT(const HighsSparseMatrix& matrix,
 
 HighsSparseMatrix computeAThetaAT(const HighsSparseMatrix& matrix,
 				  const std::vector<double>& theta) {
-  const bool scatter = false;
+  const bool scatter = true;
   // Create a row-wise copy of the matrix
   HighsSparseMatrix AT = matrix;
   AT.ensureRowwise();
@@ -41,13 +41,33 @@ HighsSparseMatrix computeAThetaAT(const HighsSparseMatrix& matrix,
   AAT.start_.resize(AAT_dim+1,0);
 
   std::vector<std::tuple<int, int, double>> non_zero_values;
+  std::vector<std::tuple<int, int, double>> check_non_zero_values;
+  std::vector<int> check_start(AAT_dim+1,0);
 
   // First pass to calculate the number of non-zero elements in each column
   //
-  // Value to add for implicit identity matrix
-  const double identity_term = 1;
-  if (scatter) {
-  } else {
+  //  if (scatter) {
+    std::vector<double> matrix_row(matrix.num_col_, 0);
+    for (int iRow = 0; iRow < AAT_dim; iRow++) {
+      const double theta_i = !theta.empty() ? theta[iRow] : 1;
+      for (int iEl = AT.start_[iRow]; iEl < AT.start_[iRow+1]; iEl++) 
+	matrix_row[AT.index_[iEl]] = AT.value_[iEl];
+      for (int iCol = iRow; iCol < AAT_dim; iCol++) {
+	double dot = 0.0;
+	for (int iEl = AT.start_[iCol]; iEl < AT.start_[iCol+1]; iEl++) 
+	  dot += theta_i * matrix_row[AT.index_[iEl]] * AT.value_[iEl];
+	if (dot != 0.0) {
+	  check_non_zero_values.emplace_back(iRow, iCol, dot);
+	  check_start[iRow+1]++;
+	  if (iRow != iCol) check_start[iCol+1]++;
+	}
+      }
+      for (int iEl = AT.start_[iRow]; iEl < AT.start_[iRow+1]; iEl++) 
+	matrix_row[AT.index_[iEl]] = 0;
+      for (int ix = 0; ix < matrix.num_col_; ix++)
+	assert(!matrix_row[ix]);
+    }
+    //  } else {
     assert(increasing_index(AT));
     for (int i = 0; i < AAT_dim; ++i) {
       const double theta_i = !theta.empty() ? theta[i] : 1;
@@ -73,7 +93,17 @@ HighsSparseMatrix computeAThetaAT(const HighsSparseMatrix& matrix,
 	}
       }
     }
+    //  }
+
+  for (int i = 0; i < AAT_dim; ++i)
+    assert(AAT.start_[i] == check_start[i]);
+  for (int k = 0; k< non_zero_values.size(); k++) {
+    assert(std::get<0>(non_zero_values[k]) == std::get<0>(check_non_zero_values[k]));
+    assert(std::get<1>(non_zero_values[k]) == std::get<1>(check_non_zero_values[k]));
+    assert(std::get<2>(non_zero_values[k]) == std::get<2>(check_non_zero_values[k]));
   }
+
+
   // Prefix sum to get the correct column pointers
   for (int i = 0; i < AAT_dim; ++i) 
     AAT.start_[i+1] += AAT.start_[i];
@@ -125,6 +155,7 @@ int newtonSolve(const HighsSparseMatrix &highs_a,
 		const double option_dense_col_tolerance,
 		ExperimentData& data) {
 
+  assert(highs_a.isColwise());
   std::vector<double> use_theta = theta;
   double use_dense_col_tolerance = option_dense_col_tolerance;
   //  use_dense_col_tolerance = 1.2;

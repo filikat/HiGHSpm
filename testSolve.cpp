@@ -39,6 +39,7 @@ int main() {
     matrix.start_ = {0, 3, 6};
     matrix.index_ = {0, 1, 2, 0, 1, 3};
     matrix.value_ = {1, 1, 1, 1, -1, 1};
+    matrix.ensureColwise();
   }
   HighsRandom random;
   std::vector<double> theta;
