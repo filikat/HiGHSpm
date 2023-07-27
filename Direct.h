@@ -12,6 +12,14 @@ void productAThetaAT(const HighsSparseMatrix& matrix,
 HighsSparseMatrix computeAThetaAT(const HighsSparseMatrix& matrix,
 				  const std::vector<double>& theta);
 
+int augmentedSolve(const HighsSparseMatrix &highs_a,
+		    const std::vector<double> &scaling,
+		    const std::vector<double> &rhs_x,
+		    const std::vector<double> &rhs_y,
+		    std::vector<double> &lhs_x,
+		    std::vector<double> &lhs_y,
+		    ExperimentData& data);
+
 int newtonSolve(const HighsSparseMatrix &highs_a,
 		const std::vector<double> &theta,
 		const std::vector<double> &rhs,
@@ -20,10 +28,4 @@ int newtonSolve(const HighsSparseMatrix &highs_a,
 		const double option_dense_col_tolerance,
 		ExperimentData& data);
 
-/*
-void augmentedSolve(const HighsSparseMatrix &highs_a,
-                 const std::vector<double> &scaling,
-                 const std::vector<double> &rhs,
-                 std::vector<double> &lhs);
-*/
 #endif

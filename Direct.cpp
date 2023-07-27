@@ -29,21 +29,26 @@ void productAThetaAT(const HighsSparseMatrix& matrix,
 
 HighsSparseMatrix computeAThetaAT(const HighsSparseMatrix& matrix,
 				  const std::vector<double>& theta) {
-    HighsSparseMatrix AAT;
-    HighsSparseMatrix AT = matrix;
-    AT.ensureRowwise();
+  const bool scatter = false;
+  // Create a row-wise copy of the matrix
+  HighsSparseMatrix AT = matrix;
+  AT.ensureRowwise();
+
+  int AAT_dim = matrix.num_row_;
+  HighsSparseMatrix AAT;
+  AAT.num_col_ = AAT_dim;
+  AAT.num_row_ = AAT_dim;
+  AAT.start_.resize(AAT_dim+1,0);
+
+  std::vector<std::tuple<int, int, double>> non_zero_values;
+
+  // First pass to calculate the number of non-zero elements in each column
+  //
+  // Value to add for implicit identity matrix
+  const double identity_term = 1;
+  if (scatter) {
+  } else {
     assert(increasing_index(AT));
-    int AAT_dim = matrix.num_row_;
-    AAT.num_col_ = AAT_dim;
-    AAT.num_row_ = AAT_dim;
-    AAT.start_.resize(AAT_dim+1,0);
-
-    std::vector<std::tuple<int, int, double>> non_zero_values;
-
-    // First pass to calculate the number of non-zero elements in each column
-    //
-    // Value to add for implicit identity matrix
-    const double identity_term = 1;
     for (int i = 0; i < AAT_dim; ++i) {
       const double theta_i = !theta.empty() ? theta[i] : 1;
       for (int j = i; j < AAT_dim; ++j) {
@@ -68,38 +73,48 @@ HighsSparseMatrix computeAThetaAT(const HighsSparseMatrix& matrix,
 	}
       }
     }
-    
-    // Prefix sum to get the correct column pointers
-    for (int i = 0; i < AAT_dim; ++i) 
-      AAT.start_[i+1] += AAT.start_[i];
+  }
+  // Prefix sum to get the correct column pointers
+  for (int i = 0; i < AAT_dim; ++i) 
+    AAT.start_[i+1] += AAT.start_[i];
  
-    AAT.index_.resize(AAT.start_.back());
-    AAT.value_.resize(AAT.start_.back());
-    AAT.p_end_ = AAT.start_;
-    AAT.p_end_.back() = AAT.index_.size();
+  AAT.index_.resize(AAT.start_.back());
+  AAT.value_.resize(AAT.start_.back());
+  AAT.p_end_ = AAT.start_;
+  AAT.p_end_.back() = AAT.index_.size();
  
-    std::vector<int> current_positions = AAT.start_;
+  std::vector<int> current_positions = AAT.start_;
  
-    // Second pass to actually fill in the indices and values
-    for (const auto& val : non_zero_values){
-        int i = std::get<0>(val);
-        int j = std::get<1>(val);
-        double dot = std::get<2>(val);
+  // Second pass to actually fill in the indices and values
+  for (const auto& val : non_zero_values){
+    int i = std::get<0>(val);
+    int j = std::get<1>(val);
+    double dot = std::get<2>(val);
  
-        AAT.index_[current_positions[i]] = j;
-        AAT.value_[current_positions[i]] = dot;
-        current_positions[i]++;
-        AAT.p_end_[i] = current_positions[i];
+    AAT.index_[current_positions[i]] = j;
+    AAT.value_[current_positions[i]] = dot;
+    current_positions[i]++;
+    AAT.p_end_[i] = current_positions[i];
  
-        if (i != j){
-            AAT.index_[current_positions[j]] = i;
-            AAT.value_[current_positions[j]] = dot;
-            current_positions[j]++;
-            AAT.p_end_[j] = current_positions[j];
-        }
+    if (i != j){
+      AAT.index_[current_positions[j]] = i;
+      AAT.value_[current_positions[j]] = dot;
+      current_positions[j]++;
+      AAT.p_end_[j] = current_positions[j];
     }
-    AAT.p_end_.clear();
-    return AAT;
+  }
+  AAT.p_end_.clear();
+  return AAT;
+}
+
+int augmentedSolve(const HighsSparseMatrix &highs_a,
+		   const std::vector<double> &scaling,
+		   const std::vector<double> &rhs_x,
+		   const std::vector<double> &rhs_y,
+		   std::vector<double> &lhs_x,
+		   std::vector<double> &lhs_y,
+		   ExperimentData& data) {
+  return 1;
 }
 
 int newtonSolve(const HighsSparseMatrix &highs_a,
@@ -115,6 +130,8 @@ int newtonSolve(const HighsSparseMatrix &highs_a,
   //  use_dense_col_tolerance = 1.2;
   //  use_dense_col_tolerance = 0.1;
 
+  double start_time0 = getWallTime();
+  double start_time = start_time0;
   int num_dense_col = 0;
   int col_max_nz = 0;
   std::vector<double> density;
@@ -137,8 +154,8 @@ int newtonSolve(const HighsSparseMatrix &highs_a,
   HighsSparseMatrix AAT = computeAThetaAT(highs_a, use_theta);
   data.reset();
   data.decomposer = "ssids";
-  data.model_size = highs_a.num_row_;
-  data.nnz_AAT = AAT.numNz();
+  data.system_size = highs_a.num_row_;
+  data.system_nnz = AAT.numNz();
 
   // Prepare data structures for SPRAL
   std::vector<long> ptr;
@@ -176,25 +193,25 @@ int newtonSolve(const HighsSparseMatrix &highs_a,
   spral_ssids_default_options(&options);
   options.array_base = 1; // Need to set to 1 if using Fortran 1-based indexing 
   
+  data.form_time = getWallTime() - start_time;
+
   // Compute solution in lhs
   lhs = rhs;
 
   // Perform analyse and factorise with data checking 
   bool check = true;
-  double start_time = getWallTime();
+  start_time = getWallTime();
   spral_ssids_analyse(check, AAT.num_col_, NULL, ptr_ptr, row_ptr, NULL, &akeep, &options, &inform);
-  double end_time = getWallTime();
-  data.analysis_time = end_time - start_time;
+  data.analysis_time = getWallTime() - start_time;
   if(inform.flag<0) {
     spral_ssids_free(&akeep, &fkeep);
-    throw std::runtime_error("Error in spral_ssids_analyse");
+    return 1;
   }
   
   bool positive_definite =true;
-  double start_time2 = getWallTime();
+  start_time = getWallTime();
   spral_ssids_factor(positive_definite, NULL, NULL, val_ptr, NULL, akeep, &fkeep, &options, &inform);
-  double end_time2 = getWallTime();
-  data.factorization_time = end_time2 - start_time2;
+  data.factorization_time = getWallTime() - start_time;
   if(inform.flag<0) {
     spral_ssids_free(&akeep, &fkeep);
     throw std::runtime_error("Error in spral_ssids_factor");
@@ -209,27 +226,28 @@ int newtonSolve(const HighsSparseMatrix &highs_a,
 				  double *d);
   if (inform.flag<0){
     spral_ssids_free(&akeep, &fkeep);
-    throw std::runtime_error("Error in spral_ssids_enquire_posdef");
+    return 1;
   }
 
   // Solve 
-  double start_time3 = getWallTime();
+  start_time = getWallTime();
   spral_ssids_solve1(0, lhs.data(), akeep, fkeep, &options, &inform);
-  double end_time3 = getWallTime();
-  data.solve_time = end_time3 - start_time3;
+  data.solve_time = getWallTime() - start_time;
   if(inform.flag<0) {
     spral_ssids_free(&akeep, &fkeep);
     throw std::runtime_error("Error in spral_ssids_solve1");
   }
   data.nnz_L = inform.num_factor;
-  data.time_taken = data.analysis_time + data.factorization_time + data.solve_time;
+  data.time_taken = getWallTime() - start_time0;
+
+  data.fillIn_LL();
+  data.residual_error = residualErrorAThetaAT(highs_a, theta, rhs, lhs);
+
   // Free the memory allocated for SPRAL
   int cuda_error = spral_ssids_free(&akeep, &fkeep);
   if (cuda_error != 0){
-    throw std::runtime_error("CUDA error in spral_ssids_free");
+    return 1;
   }
-  data.fill_in_factor = fillIn_LL(data.nnz_AAT, data.nnz_L, data.model_size);
-  data.residual_error = residualErrorAThetaAT(highs_a, theta, rhs, lhs);
 
-  return 1;
+  return 0;
 }

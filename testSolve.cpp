@@ -72,8 +72,18 @@ int main() {
     rhs_x[ix] += at_y_star[ix];
   }
   // Form rhs_y = A.x_star
-   std::vector<double> rhs_y;
+  std::vector<double> rhs_y;
   matrix.product(rhs_y, x_star);
+
+  // Solve the augmented system
+  
+  ExperimentData data;
+  std::vector<double> lhs_x;
+  std::vector<double> lhs_y;
+  augmentedSolve(matrix, theta, rhs_x, rhs_y,
+		 lhs_x, lhs_y, data);
+  data.model_num_col = x_dim;
+  data.model_num_row = y_dim;
 
   // Now solve the Newton equation
   // 
@@ -86,7 +96,6 @@ int main() {
   for (int ix = 0; ix < y_dim; ix++) rhs_newton[ix] += a_theta_rhs_x[ix];
   
   std::vector<double> lhs(y_dim);
-  ExperimentData data;
   newtonSolve(matrix, theta, rhs_newton, lhs, 0, 0.8, data);
 
   double solution_error = 0;
@@ -94,7 +103,8 @@ int main() {
     solution_error = std::max(std::fabs(y_star[ix] - lhs[ix]), solution_error);
   double residual_error = residualErrorAThetaAT(matrix, theta, rhs_newton, lhs);
 
-  data.model_size = y_dim;
+  data.model_num_col = x_dim;
+  data.model_num_row = y_dim;
   data.solution_error = solution_error;
   data.residual_error = residual_error;
   std::cout << data << "\n";
