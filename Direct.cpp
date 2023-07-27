@@ -41,12 +41,10 @@ HighsSparseMatrix computeAThetaAT(const HighsSparseMatrix& matrix,
   AAT.start_.resize(AAT_dim+1,0);
 
   std::vector<std::tuple<int, int, double>> non_zero_values;
-  std::vector<std::tuple<int, int, double>> check_non_zero_values;
-  std::vector<int> check_start(AAT_dim+1,0);
 
   // First pass to calculate the number of non-zero elements in each column
   //
-  //  if (scatter) {
+  if (scatter) {
     std::vector<double> matrix_row(matrix.num_col_, 0);
     for (int iRow = 0; iRow < AAT_dim; iRow++) {
       const double theta_i = !theta.empty() ? theta[iRow] : 1;
@@ -57,9 +55,9 @@ HighsSparseMatrix computeAThetaAT(const HighsSparseMatrix& matrix,
 	for (int iEl = AT.start_[iCol]; iEl < AT.start_[iCol+1]; iEl++) 
 	  dot += theta_i * matrix_row[AT.index_[iEl]] * AT.value_[iEl];
 	if (dot != 0.0) {
-	  check_non_zero_values.emplace_back(iRow, iCol, dot);
-	  check_start[iRow+1]++;
-	  if (iRow != iCol) check_start[iCol+1]++;
+	  non_zero_values.emplace_back(iRow, iCol, dot);
+	  AAT.start_[iRow+1]++;
+	  if (iRow != iCol) AAT.start_[iCol+1]++;
 	}
       }
       for (int iEl = AT.start_[iRow]; iEl < AT.start_[iRow+1]; iEl++) 
@@ -67,7 +65,7 @@ HighsSparseMatrix computeAThetaAT(const HighsSparseMatrix& matrix,
       for (int ix = 0; ix < matrix.num_col_; ix++)
 	assert(!matrix_row[ix]);
     }
-    //  } else {
+  } else {
     assert(increasing_index(AT));
     for (int i = 0; i < AAT_dim; ++i) {
       const double theta_i = !theta.empty() ? theta[i] : 1;
@@ -93,16 +91,7 @@ HighsSparseMatrix computeAThetaAT(const HighsSparseMatrix& matrix,
 	}
       }
     }
-    //  }
-
-  for (int i = 0; i < AAT_dim; ++i)
-    assert(AAT.start_[i] == check_start[i]);
-  for (int k = 0; k< non_zero_values.size(); k++) {
-    assert(std::get<0>(non_zero_values[k]) == std::get<0>(check_non_zero_values[k]));
-    assert(std::get<1>(non_zero_values[k]) == std::get<1>(check_non_zero_values[k]));
-    assert(std::get<2>(non_zero_values[k]) == std::get<2>(check_non_zero_values[k]));
   }
-
 
   // Prefix sum to get the correct column pointers
   for (int i = 0; i < AAT_dim; ++i) 
