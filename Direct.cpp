@@ -124,9 +124,7 @@ int augmentedSolve(const HighsSparseMatrix &highs_a,
 
   // Free the memory allocated for SPRAL
   int cuda_error = spral_ssids_free(&akeep, &fkeep);
-  if (cuda_error != 0){
-    return 1;
-  }
+  if (cuda_error != 0) return 1;
   return 0;
 }
 
@@ -152,13 +150,17 @@ int newtonSolve(const HighsSparseMatrix &highs_a,
   std::vector<std::pair<double, int>> density_index;
   std::vector<double> analyse_density;
   std::vector<int> dense_col;
+  double max_sparse_col_density = 0;
   for (int iCol = 0; iCol < highs_a.num_col_; iCol++) {
     int col_nz = highs_a.start_[iCol+1] - highs_a.start_[iCol];
     double density_value = double(col_nz) / double(system_size);
     col_max_nz = std::max(col_nz, col_max_nz);
     analyse_density.push_back(density_value);
-    if (density_value >= use_dense_col_tolerance) 
+    if (density_value >= use_dense_col_tolerance) {
       density_index.push_back(std::make_pair(density_value, iCol));
+    } else {
+      max_sparse_col_density = std::max(density_value, max_sparse_col_density);
+    }
   }
   const int model_num_dense_col = density_index.size();
   struct {
@@ -170,6 +172,8 @@ int newtonSolve(const HighsSparseMatrix &highs_a,
   // Take the first use_num_dense_col entries as dense
   for (int ix = 0; ix < use_num_dense_col; ix++) 
     dense_col.push_back(density_index[ix].second);
+  if (use_num_dense_col < model_num_dense_col)
+    max_sparse_col_density = density_index[use_num_dense_col].first;
   
   double max_density = double(col_max_nz)/ double(system_size);
   printf("Problem has %d rows and %d columns (max nonzeros = %d; density = %g) with %d dense at a tolerance of %g\n",
@@ -195,6 +199,7 @@ int newtonSolve(const HighsSparseMatrix &highs_a,
   data.dense_col_tolerance = use_dense_col_tolerance;
   if (model_num_dense_col) assert(density_index[0].first == max_density);
   data.model_max_dense_col = max_density;
+  data.system_max_dense_col = max_sparse_col_density;
 
   // Prepare data structures for SPRAL
   std::vector<long> ptr;
@@ -213,9 +218,7 @@ int newtonSolve(const HighsSparseMatrix &highs_a,
     }
   }
 
-  for (auto& p : ptr) {
-    ++p;
-  }
+  for (auto& p : ptr) ++p;
   ptr.push_back(val.size() + 1);
 
   long* ptr_ptr = ptr.data();
@@ -288,25 +291,23 @@ int newtonSolve(const HighsSparseMatrix &highs_a,
     std::vector<double> d_rhs;
     std::vector<double> d_sol;
     d_matrix.resize(use_num_dense_col);
-    for (int d_col = 0; d_col < use_num_dense_col; d_col++)
+    offset = 0;
+    for (int d_col = 0; d_col < use_num_dense_col; d_col++) {
       d_matrix[d_col].resize(use_num_dense_col);
-    for (int d_row = 0; d_row < use_num_dense_col; d_row++) {
-      int iCol = dense_col[d_row];
-      int offset = 0;
-      for (int d_col = 0; d_col < use_num_dense_col; d_col++) {
+      for (int d_row = 0; d_row < use_num_dense_col; d_row++) {
+	int iCol = dense_col[d_row];
 	double value = 0;
 	for (int iEl = highs_a.start_[iCol]; iEl < highs_a.start_[iCol+1]; iEl++)
 	  value += hatA[offset+highs_a.index_[iEl]] * highs_a.value_[iEl];
 	d_matrix[d_col][d_row] = value;
-	offset += system_size;
       }
-      d_matrix[d_row][d_row] += 1/theta_d[d_row];
+      d_matrix[d_col][d_col] += 1/theta_d[d_col];
+      double value = 0;
+      for (int iRow = 0; iRow < system_size; iRow++) 
+	value += hatA[offset+iRow] * rhs[iRow];
+      d_rhs.push_back(value);
+      offset += system_size;
     }
-    double value = 0;
-    for (int iRow = 0; iRow < system_size; iRow++) 
-      value += hatA[offset+iRow] * rhs[iRow];
-    d_rhs.push_back(value);
-    
     int gepp_status = gepp(d_matrix, d_rhs, d_sol);
     if (gepp_status) return 1;
     
@@ -314,7 +315,7 @@ int newtonSolve(const HighsSparseMatrix &highs_a,
     offset = 0;
     for (int d_col = 0; d_col < use_num_dense_col; d_col++) {
       for (int iRow = 0; iRow < system_size; iRow++) 
-	d_sol[iRow] -= hatA[offset+iRow] * d_sol[d_col];
+	lhs[iRow] -= hatA[offset+iRow] * d_sol[d_col];
       offset += system_size;
     }
   }

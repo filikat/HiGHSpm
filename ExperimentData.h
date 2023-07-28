@@ -25,10 +25,11 @@ public:
   int system_type;
   int system_size;
   //bool is_A_positive_definite;
+  double system_max_dense_col;
   int system_nnz;
   int nnz_L;
   double solution_error;
-  double residual_error;
+  std::pair<double, double> residual_error;
   double fill_in_factor;
 
   //time
@@ -48,10 +49,12 @@ public:
     use_num_dense_col = kDataNotSet;
     system_type = kDataNotSet;
     system_size = kDataNotSet;
+    system_max_dense_col = kDataNotSet;
     system_nnz = kDataNotSet;
     nnz_L = kDataNotSet;
     solution_error = kDataNotSet;
-    residual_error = kDataNotSet;
+    residual_error.first = kDataNotSet;
+    residual_error.second = kDataNotSet;
     fill_in_factor = kDataNotSet;
     time_taken = kDataNotSet;
     analysis_time = kDataNotSet;
@@ -68,14 +71,14 @@ double getWallTime();
 
 std::ostream& operator<<(std::ostream& os, const ExperimentData& data);
 void writeDataToCSV(const std::vector<ExperimentData>& data, const std::string& filename);
-double residualErrorAugmented(const HighsSparseMatrix& A, 
-			      const std::vector<double> &theta,
-			      const std::vector<double> &rhs_x,
-			      const std::vector<double> &rhs_y,
-			      std::vector<double> &lhs_x,
-			      std::vector<double> &lhs_y);
-double residualErrorNewton(const HighsSparseMatrix& A,
-			   const std::vector<double>& theta,
-			   const std::vector<double>& rhs,
-			   const std::vector<double>& lhs);
+std::pair<double, double> residualErrorAugmented(const HighsSparseMatrix& A, 
+					 const std::vector<double> &theta,
+					 const std::vector<double> &rhs_x,
+					 const std::vector<double> &rhs_y,
+					 std::vector<double> &lhs_x,
+					 std::vector<double> &lhs_y);
+std::pair<double, double> residualErrorNewton(const HighsSparseMatrix& A,
+				      const std::vector<double>& theta,
+				      const std::vector<double>& rhs,
+				      const std::vector<double>& lhs);
 #endif

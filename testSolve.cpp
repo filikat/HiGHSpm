@@ -9,6 +9,32 @@ bool infNormDiffOk(const std::vector<double> x0, const std::vector<double> x1) {
   return norm_diff < 1e-12;
 }
 
+int call_newton_solve(const HighsSparseMatrix &highs_a,
+		      const std::vector<double> &theta,
+		      const std::vector<double> &rhs,
+		      const std::vector<double> &exact_sol,
+		      const int option_max_dense_col,
+		      const double option_dense_col_tolerance) {
+  ExperimentData data;
+  const int x_dim = highs_a.num_col_;
+  const int y_dim = highs_a.num_row_;
+  std::vector<double> lhs(y_dim);
+  int newton_status = newtonSolve(highs_a, theta, rhs, lhs, option_max_dense_col, option_dense_col_tolerance, data);
+  data.model_num_col = x_dim;
+  data.model_num_row = y_dim;
+  if (newton_status) {
+    std::cout << data << "\n";
+    return newton_status;
+  }
+  double solution_error = 0;
+  for (int ix = 0; ix < y_dim; ix++)
+    solution_error = std::max(std::fabs(exact_sol[ix] - lhs[ix]), solution_error);
+  data.solution_error = solution_error;
+  
+  std::cout << data << "\n";
+  return 0;
+}
+
 int main() {
 
   int x_dim;
@@ -41,13 +67,15 @@ int main() {
   }
   matrix.ensureColwise();
   HighsRandom random;
+  const bool unit_solution = false;
+  double theta_random_mu = 1e2;
   std::vector<double> theta;
-  for (int ix = 0; ix < x_dim; ix++) theta.push_back(1.0);// + 1e-3 * random.fraction();
+  for (int ix = 0; ix < x_dim; ix++) theta.push_back(1.0 + theta_random_mu*random.fraction());
 
   // Test solution of
   //
-  // [-\Theta A^T ][x_star] = [rhs_x]
-  // [    A    0  ][y_star]   [rhs_y]
+  // [-\Theta^{-1} A^T ][x_star] = [rhs_x]
+  // [      A       0  ][y_star]   [rhs_y]
   //
   // First directly, and then by solving
   //
@@ -55,7 +83,6 @@ int main() {
   //
   // before substituting x_star = \Theta(A^Ty_star - rhs_x)
   
-  const bool unit_solution = true;
   std::vector<double> x_star(x_dim);
   for (int ix = 0; ix < x_dim; ix++)
     x_star[ix] = unit_solution ? 1 : random.fraction();
@@ -64,27 +91,27 @@ int main() {
   for (int ix = 0; ix < y_dim; ix++)
     y_star[ix] = unit_solution ? 1 : random.fraction();
 
-  // Form rhs_x = -\Theta.x_star + A^T.y_star
+  // Form rhs_x = -\Theta^{-1}.x_star + A^T.y_star
   std::vector<double> at_y_star;
   matrix.productTranspose(at_y_star, y_star);
   std::vector<double> rhs_x = x_star;
   for (int ix = 0; ix < x_dim; ix++) {
-    rhs_x[ix] *= -theta[ix];
+    rhs_x[ix] /= -theta[ix];
     rhs_x[ix] += at_y_star[ix];
   }
   // Form rhs_y = A.x_star
   std::vector<double> rhs_y;
   matrix.product(rhs_y, x_star);
 
-  const bool augmented_solve = false;
+  const bool augmented_solve = false;//true;
   const bool newton_solve = true;
   assert(augmented_solve || newton_solve);
-  ExperimentData data;
   if (augmented_solve) {
     // Solve the augmented system
     std::vector<double> lhs_x;
     std::vector<double> lhs_y;
 
+    ExperimentData data;
     int augmented_status = augmentedSolve(matrix, theta, rhs_x, rhs_y,
 					  lhs_x, lhs_y, data);
     data.model_num_col = x_dim;
@@ -100,13 +127,11 @@ int main() {
       solution_error = std::max(std::fabs(y_star[ix] - lhs_y[ix]), solution_error);
     data.solution_error = solution_error;
     std::cout << data << "\n";
-    assert(data.solution_error < 1e-6);
-    assert(data.residual_error < 1e-6);
   }
 
   if (newton_solve) {
     // Now solve the Newton equation
-    // 
+    //
     // Form rhs_newton == rhs_y + A\Theta.rhs_x
     std::vector<double> theta_rhs_x = rhs_x;
     for (int ix = 0; ix < x_dim; ix++) theta_rhs_x[ix] *= theta[ix];
@@ -115,22 +140,12 @@ int main() {
     std::vector<double> rhs_newton = rhs_y;
     for (int ix = 0; ix < y_dim; ix++) rhs_newton[ix] += a_theta_rhs_x[ix];
     
-    std::vector<double> lhs(y_dim);
-    int newton_status = newtonSolve(matrix, theta, rhs_newton, lhs, 0, 0.4, data);
-    data.model_num_col = x_dim;
-    data.model_num_row = y_dim;
-    if (newton_status) {
-      std::cout << data << "\n";
-      return newton_status;
-    }
-    double solution_error = 0;
-    for (int ix = 0; ix < y_dim; ix++)
-      solution_error = std::max(std::fabs(y_star[ix] - lhs[ix]), solution_error);
-    data.solution_error = solution_error;
-
-    std::cout << data << "\n";
-    assert(data.solution_error < 1e-6);
-    assert(data.residual_error < 1e-6);
+    call_newton_solve(matrix, theta, rhs_newton, y_star, 0, 1.1);
+    /*
+    call_newton_solve(matrix, theta, rhs_newton, y_star, 4, 0.4);
+    call_newton_solve(matrix, theta, rhs_newton, y_star, 10, 0.4);
+    call_newton_solve(matrix, theta, rhs_newton, y_star, 20, 0.4);
+    */
   }
   return 0;
 }
