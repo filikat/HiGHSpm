@@ -11,16 +11,13 @@ bool infNormDiffOk(const std::vector<double> x0, const std::vector<double> x1) {
 
 int main() {
 
-  const bool use_lp = false;
-  //  const int test_matrix = 1;
   int x_dim;
   int y_dim;
   HighsSparseMatrix matrix;
-  if (use_lp) {
-    Highs highs;
-    highs.setOptionValue("output_flag", false);
-    HighsStatus status = highs.readModel("ml.mps");
-    assert(status == HighsStatus::kOk);
+  Highs highs;
+  highs.setOptionValue("output_flag", false);
+  HighsStatus status = highs.readModel("ml.mps");
+  if (status == HighsStatus::kOk) {
     matrix = highs.getLp().a_matrix_;
     y_dim = matrix.num_row_;
     int nnz = matrix.numNz();
@@ -32,6 +29,7 @@ int main() {
     matrix.num_col_ += y_dim;
     x_dim = matrix.num_col_;
   } else {
+    // Use a test matrix if there's no ml.mps
     x_dim = 4;
     y_dim = 2;
     matrix.num_row_ = y_dim;
@@ -118,7 +116,7 @@ int main() {
     for (int ix = 0; ix < y_dim; ix++) rhs_newton[ix] += a_theta_rhs_x[ix];
     
     std::vector<double> lhs(y_dim);
-    int newton_status = newtonSolve(matrix, theta, rhs_newton, lhs, 1, 0.4, data);
+    int newton_status = newtonSolve(matrix, theta, rhs_newton, lhs, 0, 0.4, data);
     data.model_num_col = x_dim;
     data.model_num_row = y_dim;
     if (newton_status) {
