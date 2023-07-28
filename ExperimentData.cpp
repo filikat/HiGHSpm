@@ -11,14 +11,17 @@ int roundDouble2Int(const double value) {
   return int(value+0.5);
 }
 std::ostream& operator<<(std::ostream& os, const ExperimentData& data) {
-  const int text_width = 20;
+  const int text_width = 30;
   const int num_width = 12;
+  const int short_num_width = 4;
   const int pct_width = 8;
   const int int_pct_width = 3;
   double float_dim = double(data.system_size);
+  assert(data.system_type != kDataNotSet);
   
     const double system_density = data.system_size ? 1e2 * double(data.system_nnz) / (float_dim * float_dim) : -1;
-  const double l_density = data.system_size ? 1e2 * double(data.nnz_L) / (float_dim * double(data.system_size+1) * 0.5) : -1;
+  const double l_density = data.system_size && data.nnz_L >= 0 ?
+    1e2 * double(data.nnz_L) / (float_dim * double(data.system_size+1) * 0.5) : -1;
   const double sum_time = data.form_time + data.analysis_time + data.factorization_time + data.solve_time;
   const double pct_sum_time = data.time_taken > 0 ? 1e2 * sum_time / data.time_taken : -1;
   const double pct_form_time = data.time_taken > 0 ? 1e2 * data.form_time / data.time_taken : -1;
@@ -32,7 +35,7 @@ std::ostream& operator<<(std::ostream& os, const ExperimentData& data) {
     << std::right << std::setw(num_width) << data.model_num_col << "\n" 
     << std::left << std::setw(text_width) << "model num_row:" 
     << std::right << std::setw(num_width) << data.model_num_row << "\n";
-  if (data.newton_solve) {
+  if (data.system_type == kSystemTypeNewton) {
     os 
       << std::left << std::setw(text_width) << "Newton system: ";
   } else {
@@ -41,10 +44,21 @@ std::ostream& operator<<(std::ostream& os, const ExperimentData& data) {
   }
   os
     << std::right << std::setw(num_width) << data.decomposer << "\n";
+
+  if (data.system_type == kSystemTypeNewton) {
+    os 
+      << std::left << std::setw(text_width) << "model max_dense_col:" 
+      << std::right << std::setw(num_width) << data.model_max_dense_col << "\n"
+      << std::left << std::setw(23) << "model num_dense_col (@"
+      << std::setw(short_num_width) << data.dense_col_tolerance << "): "
+      << std::right << std::setw(num_width) << data.model_num_dense_col << "\n"
+      << std::left << std::setw(text_width) << "use   num_dense_col:" 
+      << std::right << std::setw(num_width) << data.use_num_dense_col << "\n";
+  }
   os
     << std::left << std::setw(text_width) << "system size: " 
     << std::right << std::setw(num_width) << data.system_size << "\n";
-  if (data.newton_solve) {
+  if (data.system_type == kSystemTypeNewton) {
     os << std::left << std::setw(text_width) << "AAT nnz: "; 
   } else {
     os << std::left << std::setw(text_width) << "system nnz: "; 
@@ -110,26 +124,38 @@ void writeDataToCSV(const std::vector<ExperimentData>& data, const std::string& 
     outputFile.close();
 }
 
-double residualError(const HighsSparseMatrix& A,
-		     const std::vector<double>& b,
-		     const std::vector<double>& x){
-  std::vector<double> residual = b;
-  A.alphaProductPlusY(-1, x, residual);
+double residualErrorAugmented(const HighsSparseMatrix& A, 
+			      const std::vector<double> &theta,
+			      const std::vector<double> &rhs_x,
+			      const std::vector<double> &rhs_y,
+			      std::vector<double> &lhs_x,
+			      std::vector<double> &lhs_y) {
+  std::vector<double> ATy;
+  A.productTranspose(ATy, lhs_y);
+  std::vector<double> Ax;
+  A.product(Ax, lhs_x);
   double residual_error = 0;
-  for (int ix = 0; ix < b.size(); ix++)
-    residual_error = std::max(std::fabs(residual[ix]), residual_error);
+  for (int ix = 0; ix < rhs_x.size(); ix++) {
+    const double theta_i = !theta.empty() ? theta[ix] : 1;
+    double residual = -theta_i * lhs_x[ix] + ATy[ix] - rhs_x[ix];
+    residual_error = std::max(std::fabs(residual), residual_error);
+  }
+  for (int ix = 0; ix < rhs_y.size(); ix++) {
+    double residual = Ax[ix] - rhs_y[ix];
+    residual_error = std::max(std::fabs(residual), residual_error);
+  }
   return residual_error;
 }
 
-double residualErrorAThetaAT(const HighsSparseMatrix& A,
-			     const std::vector<double>& theta,
-			     const std::vector<double>& b,
-			     const std::vector<double>& x){
+double residualErrorNewton(const HighsSparseMatrix& A,
+			   const std::vector<double>& theta,
+			   const std::vector<double>& rhs,
+			   const std::vector<double>& lhs){
   std::vector<double> AThetaATx;
-  productAThetaAT(A, theta, x, AThetaATx);
+  productAThetaAT(A, theta, lhs, AThetaATx);
   double residual_error = 0;
-  for (int ix = 0; ix < b.size(); ix++)
-    residual_error = std::max(std::fabs(AThetaATx[ix]-b[ix]), residual_error);
+  for (int ix = 0; ix < rhs.size(); ix++)
+    residual_error = std::max(std::fabs(AThetaATx[ix]-rhs[ix]), residual_error);
   return residual_error;
 }
 

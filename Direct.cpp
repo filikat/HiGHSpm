@@ -2,6 +2,342 @@
 #include "spral.h"
 #include <cmath>
 
+int augmentedSolve(const HighsSparseMatrix &highs_a,
+		   const std::vector<double> &theta,
+		   const std::vector<double> &rhs_x,
+		   const std::vector<double> &rhs_y,
+		   std::vector<double> &lhs_x,
+		   std::vector<double> &lhs_y,
+		   ExperimentData& data) {
+  assert(highs_a.isColwise());
+  double start_time0 = getWallTime();
+  double start_time = start_time0;
+  data.reset();
+  data.decomposer = "ssids";
+  data.system_type = kSystemTypeAugmented;
+  data.system_size = highs_a.num_col_ + highs_a.num_row_;
+  data.system_nnz = highs_a.num_col_ + 2*highs_a.numNz();
+
+  // Prepare data structures for SPRAL
+  std::vector<long> ptr;
+  std::vector<int> row;
+  std::vector<double> val;
+  struct spral_ssids_options options;
+  spral_ssids_default_options(&options);
+
+  // Extract lower triangular part of augmented system
+  //
+  // First the columns for [-\Theta]
+  //                       [    A  ]
+  const int array_base = 0;
+  int row_index_offset = highs_a.num_col_;
+  for (int iCol = 0; iCol < highs_a.num_col_; iCol++) {
+    const double theta_i = !theta.empty() ? theta[iCol] : 1;
+    ptr.push_back(val.size());
+    val.push_back(-theta_i);
+    row.push_back(iCol + array_base);
+    for (int iEl = highs_a.start_[iCol]; iEl < highs_a.start_[iCol+1]; iEl++) {
+      int iRow = highs_a.index_[iEl];
+      val.push_back(highs_a.value_[iEl]);
+      row.push_back(row_index_offset + iRow + array_base);
+    }
+  }
+  // Now the (zero) columns for [A^T]
+  //                            [ 0 ]
+  
+  const double diagonal = options.small;//1e-20;
+  for (int iRow = 0; iRow < highs_a.num_row_; iRow++) {
+    ptr.push_back(val.size());
+    if (diagonal) {
+      val.push_back(diagonal);
+      row.push_back(row_index_offset + iRow + array_base);
+    }
+  }
+  // Possibly add 1 to all the pointers
+  if (array_base) for (auto& p : ptr) ++p;
+
+  // Add the last pointer
+  ptr.push_back(val.size() + array_base);
+ 
+  long* ptr_ptr = ptr.data();
+  int* row_ptr = row.data();
+  double* val_ptr = val.data();
+
+  // Derived types
+  void *akeep, *fkeep;
+  struct spral_ssids_inform inform;
+
+  // Initialize derived types
+  akeep = nullptr; fkeep = nullptr;
+  // Need to set to 1 if using Fortran 1-based indexing 
+  options.array_base = array_base; 
+  //  options.print_level = 2; 
+  
+  std::vector<double> rhs;
+  for (int iCol = 0; iCol < highs_a.num_col_; iCol++)
+    rhs.push_back(rhs_x[iCol]);
+  for (int iRow = 0; iRow < highs_a.num_row_; iRow++)
+    rhs.push_back(rhs_y[iRow]);
+  
+
+  data.form_time = getWallTime() - start_time;
+
+  // Perform analyse and factorise with data checking 
+  bool check = true;
+  start_time = getWallTime();
+  spral_ssids_analyse(check, data.system_size, nullptr, ptr_ptr, row_ptr, nullptr, &akeep, &options, &inform);
+  data.analysis_time = getWallTime() - start_time;
+  if (inform.flag < 0) {
+    spral_ssids_free(&akeep, &fkeep);
+    return 1;
+  }
+  
+  bool positive_definite = false;
+  start_time = getWallTime();
+  spral_ssids_factor(positive_definite, nullptr, nullptr, val_ptr, nullptr, akeep, &fkeep, &options, &inform);
+  data.factorization_time = getWallTime() - start_time;
+  if(inform.flag<0) {
+    spral_ssids_free(&akeep, &fkeep);
+    return 1;
+  }
+  // Solve 
+  start_time = getWallTime();
+  spral_ssids_solve1(0, rhs.data(), akeep, fkeep, &options, &inform);
+  data.solve_time = getWallTime() - start_time;
+  if(inform.flag<0) {
+    spral_ssids_free(&akeep, &fkeep);
+    return 1;
+  }
+  data.nnz_L = inform.num_factor;
+  data.time_taken = getWallTime() - start_time0;
+
+  data.fillIn_LL();
+
+  lhs_x.resize( highs_a.num_col_);
+  lhs_y.resize( highs_a.num_row_);
+  for (int iCol = 0; iCol < highs_a.num_col_; iCol++)
+    lhs_x[iCol] = rhs[iCol];
+  for (int iRow = 0; iRow < highs_a.num_row_; iRow++)
+    lhs_y[iRow] = rhs[row_index_offset + iRow];
+
+  data.residual_error = residualErrorAugmented(highs_a, theta, rhs_x, rhs_y, lhs_x, lhs_y);
+
+  // Free the memory allocated for SPRAL
+  int cuda_error = spral_ssids_free(&akeep, &fkeep);
+  if (cuda_error != 0){
+    return 1;
+  }
+  return 0;
+}
+
+int newtonSolve(const HighsSparseMatrix &highs_a,
+		const std::vector<double> &theta,
+		const std::vector<double> &rhs,
+		std::vector<double> &lhs,
+		const int option_max_dense_col,
+		const double option_dense_col_tolerance,
+		ExperimentData& data) {
+
+  assert(highs_a.isColwise());
+  const int system_size = highs_a.num_row_;
+  std::vector<double> use_theta = theta;
+  std::vector<double> theta_d;
+  double use_dense_col_tolerance = option_dense_col_tolerance;
+  //  use_dense_col_tolerance = 1.2;
+  //  use_dense_col_tolerance = 0.1;
+
+  double start_time0 = getWallTime();
+  double start_time = start_time0;
+  int col_max_nz = 0;
+  std::vector<std::pair<double, int>> density_index;
+  std::vector<double> analyse_density;
+  std::vector<int> dense_col;
+  for (int iCol = 0; iCol < highs_a.num_col_; iCol++) {
+    int col_nz = highs_a.start_[iCol+1] - highs_a.start_[iCol];
+    double density_value = double(col_nz) / double(system_size);
+    col_max_nz = std::max(col_nz, col_max_nz);
+    analyse_density.push_back(density_value);
+    if (density_value >= use_dense_col_tolerance) 
+      density_index.push_back(std::make_pair(density_value, iCol));
+  }
+  const int model_num_dense_col = density_index.size();
+  struct {
+    bool operator()(std::pair<double, int> a, std::pair<double, int> b) const { return a.first > b.first; }
+  }
+  customMore;
+  std::sort(density_index.begin(), density_index.end(), customMore);
+  const int use_num_dense_col = std::min(model_num_dense_col, option_max_dense_col);
+  // Take the first use_num_dense_col entries as dense
+  for (int ix = 0; ix < use_num_dense_col; ix++) 
+    dense_col.push_back(density_index[ix].second);
+  
+  double max_density = double(col_max_nz)/ double(system_size);
+  printf("Problem has %d rows and %d columns (max nonzeros = %d; density = %g) with %d dense at a tolerance of %g\n",
+	 int(system_size), int(highs_a.num_col_),
+	 int(col_max_nz), max_density, int(model_num_dense_col), use_dense_col_tolerance);
+  analyseVectorValues(nullptr, "Column density", highs_a.num_col_, analyse_density);
+
+  // Zero the entries of use_theta corresponding to dense columns
+  for (int ix = 0; ix < use_num_dense_col; ix++) {
+    int iCol = dense_col[ix];
+    theta_d.push_back(theta[iCol]);
+    use_theta[iCol] = 0;
+  }
+
+  HighsSparseMatrix AAT = computeAThetaAT(highs_a, use_theta);
+  data.reset();
+  data.decomposer = "ssids";
+  data.system_type = kSystemTypeNewton;
+  data.system_size = system_size;
+  data.system_nnz = AAT.numNz();
+  data.model_num_dense_col = model_num_dense_col;
+  data.use_num_dense_col = use_num_dense_col;
+  data.dense_col_tolerance = use_dense_col_tolerance;
+  if (model_num_dense_col) assert(density_index[0].first == max_density);
+  data.model_max_dense_col = max_density;
+
+  // Prepare data structures for SPRAL
+  std::vector<long> ptr;
+  std::vector<int> row;
+  std::vector<double> val;
+
+  // Extract lower triangular part of AAT
+  for (int col = 0; col < AAT.num_col_; col++){
+    ptr.push_back(val.size());
+    for (int idx = AAT.start_[col]; idx < AAT.start_[col+1]; idx++){
+      int row_idx = AAT.index_[idx];
+      if (row_idx >= col){
+	val.push_back(AAT.value_[idx]);
+	row.push_back(row_idx + 1);
+      }
+    }
+  }
+
+  for (auto& p : ptr) {
+    ++p;
+  }
+  ptr.push_back(val.size() + 1);
+
+  long* ptr_ptr = ptr.data();
+  int* row_ptr = row.data();
+  double* val_ptr = val.data();
+
+  // Derived types
+  void *akeep, *fkeep;
+  struct spral_ssids_options options;
+  struct spral_ssids_inform inform;
+
+  // Initialize derived types
+  akeep = nullptr; fkeep = nullptr;
+  spral_ssids_default_options(&options);
+  options.array_base = 1; // Need to set to 1 if using Fortran 1-based indexing 
+  
+  data.form_time = getWallTime() - start_time;
+
+  // Perform analyse and factorise with data checking 
+  bool check = true;
+  start_time = getWallTime();
+  spral_ssids_analyse(check, AAT.num_col_, nullptr, ptr_ptr, row_ptr, nullptr, &akeep, &options, &inform);
+  data.analysis_time = getWallTime() - start_time;
+  if(inform.flag<0) {
+    spral_ssids_free(&akeep, &fkeep);
+    return 1;
+  }
+  
+  bool positive_definite =true;
+  start_time = getWallTime();
+  spral_ssids_factor(positive_definite, nullptr, nullptr, val_ptr, nullptr, akeep, &fkeep, &options, &inform);
+  data.factorization_time = getWallTime() - start_time;
+  if(inform.flag<0) {
+    spral_ssids_free(&akeep, &fkeep);
+    return 1;
+  }
+  //Return the diagonal entries of the Cholesky factor
+  std::vector<double> d(AAT.num_col_);
+  
+  void spral_ssids_enquire_posdef(const void *akeep,
+				  const void *fkeep,
+				  const struct spral_ssids_options *options,
+				  struct spral_ssids_inform *inform,
+				  double *d);
+  if (inform.flag<0){
+    spral_ssids_free(&akeep, &fkeep);
+    return 1;
+  }
+
+  // Solve
+  start_time = getWallTime();
+  // Compute solution in lhs
+  lhs = rhs;
+  // Solve G_s lhs = rhs
+  spral_ssids_solve1(0, lhs.data(), akeep, fkeep, &options, &inform);
+  if (use_num_dense_col) {
+    // First form \hat{A}_d for the dense columns
+    std::vector<double> hatA(use_num_dense_col*system_size, 0);
+    int offset = 0;
+    for (int ix = 0; ix < use_num_dense_col; ix++) {
+      int iCol = dense_col[ix];
+      for (int iEl = highs_a.start_[iCol]; iEl < highs_a.start_[iCol+1]; iEl++) 
+	hatA[offset+highs_a.index_[iEl]] = highs_a.value_[iEl];
+      offset += system_size;
+    }
+    spral_ssids_solve(0, use_num_dense_col, hatA.data(), system_size, akeep, fkeep, &options, &inform);
+    // Now form D = \Theta_d^{-1} + \hat{A}_d^TA_d and \hat_b = \hat{A}_d^Tb
+    
+    std::vector<std::vector<double>> d_matrix;
+    std::vector<double> d_rhs;
+    std::vector<double> d_sol;
+    d_matrix.resize(use_num_dense_col);
+    for (int d_col = 0; d_col < use_num_dense_col; d_col++)
+      d_matrix[d_col].resize(use_num_dense_col);
+    for (int d_row = 0; d_row < use_num_dense_col; d_row++) {
+      int iCol = dense_col[d_row];
+      int offset = 0;
+      for (int d_col = 0; d_col < use_num_dense_col; d_col++) {
+	double value = 0;
+	for (int iEl = highs_a.start_[iCol]; iEl < highs_a.start_[iCol+1]; iEl++)
+	  value += hatA[offset+highs_a.index_[iEl]] * highs_a.value_[iEl];
+	d_matrix[d_col][d_row] = value;
+	offset += system_size;
+      }
+      d_matrix[d_row][d_row] += 1/theta_d[d_row];
+    }
+    double value = 0;
+    for (int iRow = 0; iRow < system_size; iRow++) 
+      value += hatA[offset+iRow] * rhs[iRow];
+    d_rhs.push_back(value);
+    
+    int gepp_status = gepp(d_matrix, d_rhs, d_sol);
+    if (gepp_status) return 1;
+    
+    // Subtract \hat{A}_d^Td_sol from lhs
+    offset = 0;
+    for (int d_col = 0; d_col < use_num_dense_col; d_col++) {
+      for (int iRow = 0; iRow < system_size; iRow++) 
+	d_sol[iRow] -= hatA[offset+iRow] * d_sol[d_col];
+      offset += system_size;
+    }
+  }
+  data.solve_time = getWallTime() - start_time;
+  if(inform.flag<0) {
+    spral_ssids_free(&akeep, &fkeep);
+    return 1;
+  }
+  data.nnz_L = inform.num_factor;
+  data.time_taken = getWallTime() - start_time0;
+
+  data.fillIn_LL();
+  data.residual_error = residualErrorNewton(highs_a, theta, rhs, lhs);
+
+  // Free the memory allocated for SPRAL
+  int cuda_error = spral_ssids_free(&akeep, &fkeep);
+  if (cuda_error != 0){
+    return 1;
+  }
+
+  return 0;
+}
+
 bool increasing_index(const HighsSparseMatrix& matrix) {
   if (matrix.isRowwise()) {
     for (int iRow = 0; iRow < matrix.num_row_; iRow++)
@@ -47,13 +383,15 @@ HighsSparseMatrix computeAThetaAT(const HighsSparseMatrix& matrix,
   if (scatter) {
     std::vector<double> matrix_row(matrix.num_col_, 0);
     for (int iRow = 0; iRow < AAT_dim; iRow++) {
-      const double theta_i = !theta.empty() ? theta[iRow] : 1;
       for (int iEl = AT.start_[iRow]; iEl < AT.start_[iRow+1]; iEl++) 
 	matrix_row[AT.index_[iEl]] = AT.value_[iEl];
       for (int iCol = iRow; iCol < AAT_dim; iCol++) {
 	double dot = 0.0;
-	for (int iEl = AT.start_[iCol]; iEl < AT.start_[iCol+1]; iEl++) 
-	  dot += theta_i * matrix_row[AT.index_[iEl]] * AT.value_[iEl];
+	for (int iEl = AT.start_[iCol]; iEl < AT.start_[iCol+1]; iEl++) {
+	  const int ix = AT.index_[iEl];
+	  const double theta_i = !theta.empty() ? theta[ix] : 1;
+	  dot += theta_i * matrix_row[ix] * AT.value_[iEl];
+	}
 	if (dot != 0.0) {
 	  non_zero_values.emplace_back(iRow, iCol, dot);
 	  AAT.start_[iRow+1]++;
@@ -68,7 +406,6 @@ HighsSparseMatrix computeAThetaAT(const HighsSparseMatrix& matrix,
   } else {
     assert(increasing_index(AT));
     for (int i = 0; i < AAT_dim; ++i) {
-      const double theta_i = !theta.empty() ? theta[i] : 1;
       for (int j = i; j < AAT_dim; ++j) {
 	double dot = 0.0;
 	int k = AT.start_[i];
@@ -79,6 +416,7 @@ HighsSparseMatrix computeAThetaAT(const HighsSparseMatrix& matrix,
 	  } else if (AT.index_[k] > AT.index_[l]) {
 	    ++l;
 	  } else {                 
+	    const double theta_i = !theta.empty() ? theta[AT.index_[k]] : 1;
 	    dot += theta_i * AT.value_[k] * AT.value_[l];
 	    ++k;
 	    ++l;
@@ -126,148 +464,59 @@ HighsSparseMatrix computeAThetaAT(const HighsSparseMatrix& matrix,
   return AAT;
 }
 
-int augmentedSolve(const HighsSparseMatrix &highs_a,
-		   const std::vector<double> &scaling,
-		   const std::vector<double> &rhs_x,
-		   const std::vector<double> &rhs_y,
-		   std::vector<double> &lhs_x,
-		   std::vector<double> &lhs_y,
-		   ExperimentData& data) {
-  return 1;
-}
+// Gaussian elimination with partial pivoting for a dense matrix
+//
+// Returns 0 if it's successful
+//
+// Returns -1 if GE fails due to pivot less than kMinAbsPivot
 
-int newtonSolve(const HighsSparseMatrix &highs_a,
-		const std::vector<double> &theta,
-		const std::vector<double> &rhs,
-		std::vector<double> &lhs,
-		const int option_max_dense_col,
-		const double option_dense_col_tolerance,
-		ExperimentData& data) {
-
-  assert(highs_a.isColwise());
-  std::vector<double> use_theta = theta;
-  double use_dense_col_tolerance = option_dense_col_tolerance;
-  //  use_dense_col_tolerance = 1.2;
-  //  use_dense_col_tolerance = 0.1;
-
-  double start_time0 = getWallTime();
-  double start_time = start_time0;
-  int num_dense_col = 0;
-  int col_max_nz = 0;
-  std::vector<double> density;
-  for (int col = 0; col < highs_a.num_col_; col++) {
-    int col_nz = highs_a.start_[col+1] - highs_a.start_[col];
-    double density_value = double(col_nz) / double(highs_a.num_row_);
-    density.push_back(density_value);
-    col_max_nz = std::max(col_nz, col_max_nz);
-    if (density_value > use_dense_col_tolerance) {
-      num_dense_col++;
-      //      use_theta[col] = 0;
-    }
-  }
-  double max_density = double(col_max_nz)/ double(highs_a.num_row_);
-  printf("Problem has %d rows and %d columns (max nonzeros = %d; density = %g) with %d dense at a tolerance of %g\n",
-	 int(highs_a.num_row_), int(highs_a.num_col_),
-	 int(col_max_nz), max_density, int(num_dense_col), use_dense_col_tolerance);
-  analyseVectorValues(nullptr, "Column density", highs_a.num_col_, density);
-
-  HighsSparseMatrix AAT = computeAThetaAT(highs_a, use_theta);
-  data.reset();
-  data.decomposer = "ssids";
-  data.system_size = highs_a.num_row_;
-  data.system_nnz = AAT.numNz();
-
-  // Prepare data structures for SPRAL
-  std::vector<long> ptr;
-  std::vector<int> row;
-  std::vector<double> val;
-
-  // Extract upper triangular part of AAT
-  for (int col = 0; col < AAT.num_col_; col++){
-    ptr.push_back(val.size());
-    for (int idx = AAT.start_[col]; idx < AAT.start_[col+1]; idx++){
-      int row_idx = AAT.index_[idx];
-      if (row_idx >= col){
-	val.push_back(AAT.value_[idx]);
-	row.push_back(row_idx + 1);
+const double kMinAbsPivot = 1e-12;
+int gepp(const std::vector<std::vector<double>>& matrix,
+	 const std::vector<double>& rhs,
+	 std::vector<double>& solution) {
+  std::vector<std::vector<double>> ge_matrix = matrix;
+  solution = rhs;
+  int dim = int(rhs.size());
+  for (int k = 0; k < dim; k++) {
+    double max_pivot_col_value = kMinAbsPivot;
+    int pivot_row = -1;
+    for (int l = k; l < dim; l++) {
+      double abs_pivot_col_value = std::abs(ge_matrix[l][k]);
+      if (max_pivot_col_value < abs_pivot_col_value) {
+	max_pivot_col_value = abs_pivot_col_value;
+	pivot_row = l;
       }
     }
+    // No pivot so matrix is singular
+    if (pivot_row < 0) return -1;
+    if (pivot_row != k) {
+      // Perform row interchange
+      for (int iCol = k; iCol < dim; iCol++) {
+	double row_k_v = ge_matrix[k][iCol];
+	ge_matrix[k][iCol] = ge_matrix[pivot_row][iCol];
+	ge_matrix[pivot_row][iCol] = row_k_v;
+      }
+      double rhs_k_v = solution[k];
+      solution[k] = solution[pivot_row];
+      solution[pivot_row] = rhs_k_v;
+    }
+    assert(ge_matrix[k][k] != 0);
+    for (int iRow = k+1; iRow < dim; iRow++) {
+      double multiplier = ge_matrix[iRow][k] / ge_matrix[k][k] ;
+      assert(std::fabs(multiplier) <= 1);
+      for (int iCol = k+1; iCol < dim; iCol++) 
+	ge_matrix[iRow][iCol] -= multiplier * ge_matrix[k][iCol];
+      solution[iRow] -= multiplier * solution[k];
+    }
   }
-
-  for (auto& p : ptr) {
-    ++p;
+  for (int iRow = dim-1; iRow >= 0; iRow--) {
+    for (int iCol = iRow+1; iCol < dim; iCol++)
+      solution[iRow] -= solution[iCol] * ge_matrix[iRow][iCol];
+    solution[iRow] /= ge_matrix[iRow][iRow];
   }
-  ptr.push_back(val.size() + 1);
-
-  long* ptr_ptr = ptr.data();
-  int* row_ptr = row.data();
-  double* val_ptr = val.data();
-
-  // Derived types
-  void *akeep, *fkeep;
-  struct spral_ssids_options options;
-  struct spral_ssids_inform inform;
-
-  // Initialize derived types
-  akeep = NULL; fkeep = NULL;
-  spral_ssids_default_options(&options);
-  options.array_base = 1; // Need to set to 1 if using Fortran 1-based indexing 
-  
-  data.form_time = getWallTime() - start_time;
-
-  // Compute solution in lhs
-  lhs = rhs;
-
-  // Perform analyse and factorise with data checking 
-  bool check = true;
-  start_time = getWallTime();
-  spral_ssids_analyse(check, AAT.num_col_, NULL, ptr_ptr, row_ptr, NULL, &akeep, &options, &inform);
-  data.analysis_time = getWallTime() - start_time;
-  if(inform.flag<0) {
-    spral_ssids_free(&akeep, &fkeep);
-    return 1;
-  }
-  
-  bool positive_definite =true;
-  start_time = getWallTime();
-  spral_ssids_factor(positive_definite, NULL, NULL, val_ptr, NULL, akeep, &fkeep, &options, &inform);
-  data.factorization_time = getWallTime() - start_time;
-  if(inform.flag<0) {
-    spral_ssids_free(&akeep, &fkeep);
-    throw std::runtime_error("Error in spral_ssids_factor");
-  }
-  //Return the diagonal entries of the Cholesky factor
-  std::vector<double> d(AAT.num_col_);
-  
-  void spral_ssids_enquire_posdef(const void *akeep,
-				  const void *fkeep,
-				  const struct spral_ssids_options *options,
-				  struct spral_ssids_inform *inform,
-				  double *d);
-  if (inform.flag<0){
-    spral_ssids_free(&akeep, &fkeep);
-    return 1;
-  }
-
-  // Solve 
-  start_time = getWallTime();
-  spral_ssids_solve1(0, lhs.data(), akeep, fkeep, &options, &inform);
-  data.solve_time = getWallTime() - start_time;
-  if(inform.flag<0) {
-    spral_ssids_free(&akeep, &fkeep);
-    throw std::runtime_error("Error in spral_ssids_solve1");
-  }
-  data.nnz_L = inform.num_factor;
-  data.time_taken = getWallTime() - start_time0;
-
-  data.fillIn_LL();
-  data.residual_error = residualErrorAThetaAT(highs_a, theta, rhs, lhs);
-
-  // Free the memory allocated for SPRAL
-  int cuda_error = spral_ssids_free(&akeep, &fkeep);
-  if (cuda_error != 0){
-    return 1;
-  }
-
   return 0;
 }
+
+  
+  
+  

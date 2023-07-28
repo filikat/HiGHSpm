@@ -61,7 +61,7 @@ double infNormDiff(const std::vector<double> &x, const std::vector<double> &y) {
   assert(x.size() == y.size());
   double inf_norm_diff = 0;
   for (int i = 0; i < int(x.size()); i++) {
-    double diff = std::abs(x[i] - y[i]);
+    double diff = std::fabs(x[i] - y[i]);
     inf_norm_diff = std::max(diff, inf_norm_diff);
   }
   return inf_norm_diff;
