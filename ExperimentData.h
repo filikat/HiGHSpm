@@ -35,6 +35,7 @@ public:
   //time
   double time_taken;
   double form_time;
+  double setup_time;
   double analysis_time;
   double factorization_time;
   double solve_time;
@@ -57,6 +58,8 @@ public:
     residual_error.second = kDataNotSet;
     fill_in_factor = kDataNotSet;
     time_taken = kDataNotSet;
+    form_time = kDataNotSet;
+    setup_time = kDataNotSet;
     analysis_time = kDataNotSet;
     factorization_time = kDataNotSet;
     solve_time = kDataNotSet;

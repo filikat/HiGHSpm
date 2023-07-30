@@ -24,9 +24,10 @@ std::ostream& operator<<(std::ostream& os, const ExperimentData& data) {
   const double system_density = data.system_size ? 1e2 * double(data.system_nnz) / (float_dim * float_dim) : -1;
   const double l_density = data.system_size && data.nnz_L >= 0 ?
     1e2 * double(data.nnz_L) / (float_dim * double(data.system_size+1) * 0.5) : -1;
-  const double sum_time = data.form_time + data.analysis_time + data.factorization_time + data.solve_time;
+  const double sum_time = data.form_time + data.setup_time + data.analysis_time + data.factorization_time + data.solve_time;
   const double pct_sum_time = data.time_taken > 0 ? 1e2 * sum_time / data.time_taken : -1;
   const double pct_form_time = data.time_taken > 0 ? 1e2 * data.form_time / data.time_taken : -1;
+  const double pct_setup_time = data.time_taken > 0 ? 1e2 * data.setup_time / data.time_taken : -1;
   const double pct_analysis_time = data.time_taken > 0 ? 1e2 * data.analysis_time / data.time_taken : -1;
   const double pct_factorization_time = data.time_taken > 0 ? 1e2 * data.factorization_time / data.time_taken : -1;
   const double pct_solve_time = data.time_taken > 0 ? 1e2 * data.solve_time / data.time_taken : -1;
@@ -94,6 +95,9 @@ std::ostream& operator<<(std::ostream& os, const ExperimentData& data) {
     << std::left << std::setw(text_width) << "form time: " 
     << std::right << std::setw(num_width) << data.form_time << " ("
     << std::right << std::setw(int_pct_width) << roundDouble2Int(pct_form_time) << "%)\n" 
+    << std::left << std::setw(text_width) << "setup time: " 
+    << std::right << std::setw(num_width) << data.setup_time << " ("
+    << std::right << std::setw(int_pct_width) << roundDouble2Int(pct_setup_time) << "%)\n" 
     << std::left << std::setw(text_width) << "analyse time: " 
     << std::right << std::setw(num_width) << data.analysis_time << " ("
     << std::right << std::setw(int_pct_width) << roundDouble2Int(pct_analysis_time) << "%)\n" 
@@ -106,7 +110,7 @@ std::ostream& operator<<(std::ostream& os, const ExperimentData& data) {
     << std::left << std::setw(text_width) << "sum time: " 
     << std::right << std::setw(num_width) << sum_time << " ("
     << std::right << std::setw(int_pct_width) << roundDouble2Int(pct_sum_time) << "%)\n" 
-    << std::left << std::setw(text_width) << "time taken: " 
+    << std::left << std::setw(text_width) << "time taken:< " 
     << std::right << std::setw(num_width) << data.time_taken << "\n";
   return os;
 }

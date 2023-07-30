@@ -201,77 +201,12 @@ int newtonSolve(const HighsSparseMatrix &highs_a,
   data.model_max_dense_col = max_density;
   data.system_max_dense_col = max_sparse_col_density;
 
-  // Prepare data structures for SPRAL
-  std::vector<long> ptr;
-  std::vector<int> row;
-  std::vector<double> val;
-
-  // Extract lower triangular part of AAT
-  for (int col = 0; col < AAT.num_col_; col++){
-    ptr.push_back(val.size());
-    for (int idx = AAT.start_[col]; idx < AAT.start_[col+1]; idx++){
-      int row_idx = AAT.index_[idx];
-      if (row_idx >= col){
-	val.push_back(AAT.value_[idx]);
-	row.push_back(row_idx + 1);
-      }
-    }
-  }
-
-  for (auto& p : ptr) ++p;
-  ptr.push_back(val.size() + 1);
-
-  long* ptr_ptr = ptr.data();
-  int* row_ptr = row.data();
-  double* val_ptr = val.data();
-
-  // Derived types
-  SsidsData ssids_data;
-
-  //  void *akeep, *fkeep;
-  //  struct spral_ssids_options options;
-  //  struct spral_ssids_inform inform;
-
-  // Initialize derived types
-  ssids_data.akeep = nullptr;
-  ssids_data.fkeep = nullptr;
-  spral_ssids_default_options(&ssids_data.options);
-  ssids_data.options.array_base = 1; // Need to set to 1 if using Fortran 1-based indexing 
-  
   data.form_time = getWallTime() - start_time;
 
-  // Perform analyse and factorise with data checking 
-  bool check = true;
-  start_time = getWallTime();
-  spral_ssids_analyse(check, AAT.num_col_, nullptr, ptr_ptr, row_ptr, nullptr, &ssids_data.akeep, &ssids_data.options, &ssids_data.inform);
-  data.analysis_time = getWallTime() - start_time;
-  if(ssids_data.inform.flag<0) {
-    spral_ssids_free(&ssids_data.akeep, &ssids_data.fkeep);
-    return 1;
-  }
-  
-  bool positive_definite =true;
-  start_time = getWallTime();
-  spral_ssids_factor(positive_definite, nullptr, nullptr, val_ptr, nullptr, ssids_data.akeep, &ssids_data.fkeep, &ssids_data.options, &ssids_data.inform);
-  data.factorization_time = getWallTime() - start_time;
-  if(ssids_data.inform.flag<0) {
-    spral_ssids_free(&ssids_data.akeep, &ssids_data.fkeep);
-    return 1;
-  }
-  //Return the diagonal entries of the Cholesky factor
-  std::vector<double> d(AAT.num_col_);
-  
-  /*
-  void spral_ssids_enquire_posdef(const void *akeep,
-				  const void *fkeep,
-				  const struct spral_ssids_options *options,
-				  struct spral_ssids_inform *inform,
-				  double *d);
-  */
-  if (ssids_data.inform.flag<0){
-    spral_ssids_free(&ssids_data.akeep, &ssids_data.fkeep);
-    return 1;
-  }
+  SsidsData ssids_data;
+
+  int factor_status = call_ssids_factor(AAT, ssids_data, data);
+  if (factor_status) return factor_status;
 
   // Solve
   start_time = getWallTime();
@@ -534,7 +469,86 @@ int gepp(const std::vector<std::vector<double>>& matrix,
 
 //int ssids_decompose();
 
-int call_ssids_factor(const HighsSparseMatrix& matrix, SsidsData& ssids_data);
+int call_ssids_factor(const HighsSparseMatrix& matrix,
+		      SsidsData& ssids_data,
+		      ExperimentData& data) {
+  double start_time = getWallTime();
+  // Prepare data structures for SPRAL
+  std::vector<long> ptr;
+  std::vector<int> row;
+  std::vector<double> val;
+
+  // Extract lower triangular part of AAT
+  for (int col = 0; col < matrix.num_col_; col++){
+    ptr.push_back(val.size());
+    for (int idx = matrix.start_[col]; idx < matrix.start_[col+1]; idx++){
+      int row_idx = matrix.index_[idx];
+      if (row_idx >= col){
+	val.push_back(matrix.value_[idx]);
+	row.push_back(row_idx + 1);
+      }
+    }
+  }
+
+  for (auto& p : ptr) ++p;
+  ptr.push_back(val.size() + 1);
+
+  long* ptr_ptr = ptr.data();
+  int* row_ptr = row.data();
+  double* val_ptr = val.data();
+
+  // Initialize derived types
+  ssids_data.akeep = nullptr;
+  ssids_data.fkeep = nullptr;
+  spral_ssids_default_options(&ssids_data.options);
+  ssids_data.options.array_base = 1; // Need to set to 1 if using Fortran 1-based indexing 
+  data.setup_time = getWallTime() - start_time;
+  
+  // Perform analyse and factorise with data checking 
+  bool check = true;
+  start_time = getWallTime();
+  spral_ssids_analyse(check, matrix.num_col_,
+		      nullptr, ptr_ptr, row_ptr, nullptr,
+		      &ssids_data.akeep,
+		      &ssids_data.options,
+		      &ssids_data.inform);
+  data.analysis_time = getWallTime() - start_time;
+  if(ssids_data.inform.flag<0) {
+    spral_ssids_free(&ssids_data.akeep, &ssids_data.fkeep);
+    return 1;
+  }
+  
+  bool positive_definite =true;
+  start_time = getWallTime();
+  spral_ssids_factor(positive_definite,
+		     nullptr, nullptr, val_ptr, nullptr,
+		     ssids_data.akeep,
+		     &ssids_data.fkeep,
+		     &ssids_data.options,
+		     &ssids_data.inform);
+  data.factorization_time = getWallTime() - start_time;
+  if(ssids_data.inform.flag<0) {
+    spral_ssids_free(&ssids_data.akeep, &ssids_data.fkeep);
+    return 1;
+  }
+
+  /*
+  //Return the diagonal entries of the Cholesky factor
+  std::vector<double> d(matrix.num_col_);
+  void spral_ssids_enquire_posdef(const void *akeep,
+				  const void *fkeep,
+				  const struct spral_ssids_options *options,
+				  struct spral_ssids_inform *inform,
+				  double *d);
+  */
+  if (ssids_data.inform.flag<0){
+    spral_ssids_free(&ssids_data.akeep, &ssids_data.fkeep);
+    return 1;
+  }
+
+  return 0;
+}
+
 void call_ssids_solve(const int system_size,
 		      const int num_rhs,
 		      double* rhs,
