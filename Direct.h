@@ -1,8 +1,16 @@
 #ifndef DIRECT_H
 #define DIRECT_H
 
+#include "spral.h"
 #include "ExperimentData.h"
 #include "util/HighsSparseMatrix.h"
+
+struct SsidsData {
+  void *akeep{nullptr};
+  void *fkeep{nullptr};
+  struct spral_ssids_options options;
+  struct spral_ssids_inform inform;
+};
 
 int augmentedSolve(const HighsSparseMatrix &highs_a,
 		    const std::vector<double> &theta,
@@ -31,4 +39,8 @@ HighsSparseMatrix computeAThetaAT(const HighsSparseMatrix& matrix,
 int gepp(const std::vector<std::vector<double>>& matrix,
 	 const std::vector<double>& rhs,
 	 std::vector<double>& solution);
+
+void ssids_solve(const int num_rhs,
+		 const double* rhs,
+		 const SsidsData& ssids_data);
 #endif

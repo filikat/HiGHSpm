@@ -1,5 +1,4 @@
 #include "Direct.h"
-#include "spral.h"
 #include <cmath>
 
 int augmentedSolve(const HighsSparseMatrix &highs_a,
@@ -227,6 +226,8 @@ int newtonSolve(const HighsSparseMatrix &highs_a,
   double* val_ptr = val.data();
 
   // Derived types
+  SsidsData ssids_data;
+
   void *akeep, *fkeep;
   struct spral_ssids_options options;
   struct spral_ssids_inform inform;
@@ -528,6 +529,8 @@ int gepp(const std::vector<std::vector<double>>& matrix,
   return 0;
 }
 
+//int ssids_decompose();
+
+void ssids_solve(const int num_rhs, const double* rhs, const SsidsData& ssids_data) {
   
-  
-  
+}
