@@ -228,45 +228,48 @@ int newtonSolve(const HighsSparseMatrix &highs_a,
   // Derived types
   SsidsData ssids_data;
 
-  void *akeep, *fkeep;
-  struct spral_ssids_options options;
-  struct spral_ssids_inform inform;
+  //  void *akeep, *fkeep;
+  //  struct spral_ssids_options options;
+  //  struct spral_ssids_inform inform;
 
   // Initialize derived types
-  akeep = nullptr; fkeep = nullptr;
-  spral_ssids_default_options(&options);
-  options.array_base = 1; // Need to set to 1 if using Fortran 1-based indexing 
+  ssids_data.akeep = nullptr;
+  ssids_data.fkeep = nullptr;
+  spral_ssids_default_options(&ssids_data.options);
+  ssids_data.options.array_base = 1; // Need to set to 1 if using Fortran 1-based indexing 
   
   data.form_time = getWallTime() - start_time;
 
   // Perform analyse and factorise with data checking 
   bool check = true;
   start_time = getWallTime();
-  spral_ssids_analyse(check, AAT.num_col_, nullptr, ptr_ptr, row_ptr, nullptr, &akeep, &options, &inform);
+  spral_ssids_analyse(check, AAT.num_col_, nullptr, ptr_ptr, row_ptr, nullptr, &ssids_data.akeep, &ssids_data.options, &ssids_data.inform);
   data.analysis_time = getWallTime() - start_time;
-  if(inform.flag<0) {
-    spral_ssids_free(&akeep, &fkeep);
+  if(ssids_data.inform.flag<0) {
+    spral_ssids_free(&ssids_data.akeep, &ssids_data.fkeep);
     return 1;
   }
   
   bool positive_definite =true;
   start_time = getWallTime();
-  spral_ssids_factor(positive_definite, nullptr, nullptr, val_ptr, nullptr, akeep, &fkeep, &options, &inform);
+  spral_ssids_factor(positive_definite, nullptr, nullptr, val_ptr, nullptr, ssids_data.akeep, &ssids_data.fkeep, &ssids_data.options, &ssids_data.inform);
   data.factorization_time = getWallTime() - start_time;
-  if(inform.flag<0) {
-    spral_ssids_free(&akeep, &fkeep);
+  if(ssids_data.inform.flag<0) {
+    spral_ssids_free(&ssids_data.akeep, &ssids_data.fkeep);
     return 1;
   }
   //Return the diagonal entries of the Cholesky factor
   std::vector<double> d(AAT.num_col_);
   
+  /*
   void spral_ssids_enquire_posdef(const void *akeep,
 				  const void *fkeep,
 				  const struct spral_ssids_options *options,
 				  struct spral_ssids_inform *inform,
 				  double *d);
-  if (inform.flag<0){
-    spral_ssids_free(&akeep, &fkeep);
+  */
+  if (ssids_data.inform.flag<0){
+    spral_ssids_free(&ssids_data.akeep, &ssids_data.fkeep);
     return 1;
   }
 
@@ -291,7 +294,7 @@ int newtonSolve(const HighsSparseMatrix &highs_a,
 
   // Solve G_s multiple_lhs = multiple_rhs in place
 
-  spral_ssids_solve(0, use_num_dense_col+1, multiple_rhs.data(), system_size, akeep, fkeep, &options, &inform);
+  call_ssids_solve(system_size, use_num_dense_col+1, multiple_rhs.data(), ssids_data);
   for (int iRow = 0; iRow < system_size; iRow++)
     lhs[iRow] = hat_b[iRow];
   
@@ -331,18 +334,18 @@ int newtonSolve(const HighsSparseMatrix &highs_a,
     }
   }
   data.solve_time = getWallTime() - start_time;
-  if(inform.flag<0) {
-    spral_ssids_free(&akeep, &fkeep);
+  if(ssids_data.inform.flag<0) {
+    spral_ssids_free(&ssids_data.akeep, &ssids_data.fkeep);
     return 1;
   }
-  data.nnz_L = inform.num_factor;
+  data.nnz_L = ssids_data.inform.num_factor;
   data.time_taken = getWallTime() - start_time0;
 
   data.fillIn_LL();
   data.residual_error = residualErrorNewton(highs_a, theta, rhs, lhs);
 
   // Free the memory allocated for SPRAL
-  int cuda_error = spral_ssids_free(&akeep, &fkeep);
+  int cuda_error = spral_ssids_free(&ssids_data.akeep, &ssids_data.fkeep);
   if (cuda_error != 0){
     return 1;
   }
@@ -531,6 +534,15 @@ int gepp(const std::vector<std::vector<double>>& matrix,
 
 //int ssids_decompose();
 
-void ssids_solve(const int num_rhs, const double* rhs, const SsidsData& ssids_data) {
-  
+int call_ssids_factor(const HighsSparseMatrix& matrix, SsidsData& ssids_data);
+void call_ssids_solve(const int system_size,
+		      const int num_rhs,
+		      double* rhs,
+		      SsidsData& ssids_data) {
+  spral_ssids_solve(0, num_rhs, rhs,
+		    system_size,
+		    ssids_data.akeep,
+		    ssids_data.fkeep,
+		    &ssids_data.options,
+		    &ssids_data.inform);
 }

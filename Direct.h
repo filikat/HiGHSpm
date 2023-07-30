@@ -40,7 +40,9 @@ int gepp(const std::vector<std::vector<double>>& matrix,
 	 const std::vector<double>& rhs,
 	 std::vector<double>& solution);
 
-void ssids_solve(const int num_rhs,
-		 const double* rhs,
-		 const SsidsData& ssids_data);
+int call_ssids_factor(const HighsSparseMatrix& matrix, SsidsData& ssids_data);
+void call_ssids_solve(const int system_size,
+		 const int num_rhs,
+		 double* rhs,
+		 SsidsData& ssids_data);
 #endif
