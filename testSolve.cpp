@@ -141,10 +141,10 @@ int main() {
     for (int ix = 0; ix < y_dim; ix++) rhs_newton[ix] += a_theta_rhs_x[ix];
     
     call_newton_solve(matrix, theta, rhs_newton, y_star, 0, 1.1);
+    /*
     call_newton_solve(matrix, theta, rhs_newton, y_star, 4, 0.4);
     call_newton_solve(matrix, theta, rhs_newton, y_star, 10, 0.4);
     call_newton_solve(matrix, theta, rhs_newton, y_star, 20, 0.4);
-    /*
     */
   }
   return 0;
