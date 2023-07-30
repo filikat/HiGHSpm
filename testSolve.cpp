@@ -67,8 +67,8 @@ int main() {
   }
   matrix.ensureColwise();
   HighsRandom random;
-  const bool unit_solution = false;
-  double theta_random_mu = 1e2;
+  const bool unit_solution = true;//false;
+  double theta_random_mu = 1e-3;//1e2;
   std::vector<double> theta;
   for (int ix = 0; ix < x_dim; ix++) theta.push_back(1.0 + theta_random_mu*random.fraction());
 
@@ -103,8 +103,8 @@ int main() {
   std::vector<double> rhs_y;
   matrix.product(rhs_y, x_star);
 
-  const bool augmented_solve = false;//true;
-  const bool newton_solve = true;
+  const bool augmented_solve = true;
+  const bool newton_solve = false;//true;
   assert(augmented_solve || newton_solve);
   if (augmented_solve) {
     // Solve the augmented system
