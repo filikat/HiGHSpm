@@ -10,7 +10,6 @@ int augmentedSolve(const HighsSparseMatrix &highs_a,
 		   ExperimentData& data) {
   assert(highs_a.isColwise());
   double start_time0 = getWallTime();
-  double start_time = start_time0;
   data.reset();
   data.decomposer = "ssids";
   data.system_type = kSystemTypeAugmented;
@@ -22,7 +21,15 @@ int augmentedSolve(const HighsSparseMatrix &highs_a,
   if (factor_status) return factor_status;
 
   // Solve 
-  start_time = getWallTime();
+  double start_time = getWallTime();
+  int row_index_offset = highs_a.num_col_;
+
+  std::vector<double> rhs;
+  for (int iCol = 0; iCol < highs_a.num_col_; iCol++)
+    rhs.push_back(rhs_x[iCol]);
+  for (int iRow = 0; iRow < highs_a.num_row_; iRow++)
+    rhs.push_back(rhs_y[iRow]);
+  
   call_ssids_solve(data.system_size, 1, rhs.data(), ssids_data);
   data.solve_time = getWallTime() - start_time;
 
@@ -38,7 +45,7 @@ int augmentedSolve(const HighsSparseMatrix &highs_a,
   data.residual_error = residualErrorAugmented(highs_a, theta, rhs_x, rhs_y, lhs_x, lhs_y);
 
   // Free the memory allocated for SPRAL
-  int cuda_error = spral_ssids_free(&akeep, &fkeep);
+  int cuda_error = spral_ssids_free(&ssids_data.akeep, &ssids_data.fkeep);
   if (cuda_error != 0) return 1;
   return 0;
 }
@@ -386,6 +393,8 @@ int call_ssids_augmented_factor(const HighsSparseMatrix& matrix,
 				const std::vector<double>& theta,
 				SsidsData& ssids_data,
 				ExperimentData& data) {
+  data.form_time = 0;
+  double start_time = getWallTime();
 
   // Prepare data structures for SPRAL
   std::vector<long> ptr;
@@ -399,15 +408,15 @@ int call_ssids_augmented_factor(const HighsSparseMatrix& matrix,
   // First the columns for [-\Theta]
   //                       [    A  ]
   const int array_base = 0;
-  int row_index_offset = highs_a.num_col_;
-  for (int iCol = 0; iCol < highs_a.num_col_; iCol++) {
+  int row_index_offset = matrix.num_col_;
+  for (int iCol = 0; iCol < matrix.num_col_; iCol++) {
     const double theta_i = !theta.empty() ? theta[iCol] : 1;
     ptr.push_back(val.size());
     val.push_back(-theta_i);
     row.push_back(iCol + array_base);
-    for (int iEl = highs_a.start_[iCol]; iEl < highs_a.start_[iCol+1]; iEl++) {
-      int iRow = highs_a.index_[iEl];
-      val.push_back(highs_a.value_[iEl]);
+    for (int iEl = matrix.start_[iCol]; iEl < matrix.start_[iCol+1]; iEl++) {
+      int iRow = matrix.index_[iEl];
+      val.push_back(matrix.value_[iEl]);
       row.push_back(row_index_offset + iRow + array_base);
     }
   }
@@ -415,7 +424,7 @@ int call_ssids_augmented_factor(const HighsSparseMatrix& matrix,
   //                            [ 0 ]
   
   const double diagonal = ssids_data.options.small;//1e-20;
-  for (int iRow = 0; iRow < highs_a.num_row_; iRow++) {
+  for (int iRow = 0; iRow < matrix.num_row_; iRow++) {
     ptr.push_back(val.size());
     if (diagonal) {
       val.push_back(diagonal);
@@ -439,14 +448,7 @@ int call_ssids_augmented_factor(const HighsSparseMatrix& matrix,
   ssids_data.options.array_base = array_base; 
   //  ssids_data.options.print_level = 2; 
   
-  std::vector<double> rhs;
-  for (int iCol = 0; iCol < highs_a.num_col_; iCol++)
-    rhs.push_back(rhs_x[iCol]);
-  for (int iRow = 0; iRow < highs_a.num_row_; iRow++)
-    rhs.push_back(rhs_y[iRow]);
-  
-
-  data.form_time = getWallTime() - start_time;
+  data.setup_time = getWallTime() - start_time;
 
   // Perform analyse and factorise with data checking 
   bool check = true;
@@ -468,7 +470,7 @@ int call_ssids_augmented_factor(const HighsSparseMatrix& matrix,
   }
   data.nnz_L = ssids_data.inform.num_factor;
   data.fillIn_LL();
-
+  return 0;
 }
 
 int call_ssids_newton_factor(const HighsSparseMatrix& AThetaAT,

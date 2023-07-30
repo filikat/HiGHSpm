@@ -110,7 +110,7 @@ std::ostream& operator<<(std::ostream& os, const ExperimentData& data) {
     << std::left << std::setw(text_width) << "sum time: " 
     << std::right << std::setw(num_width) << sum_time << " ("
     << std::right << std::setw(int_pct_width) << roundDouble2Int(pct_sum_time) << "%)\n" 
-    << std::left << std::setw(text_width) << "time taken:< " 
+    << std::left << std::setw(text_width) << "time taken: " 
     << std::right << std::setw(num_width) << data.time_taken << "\n";
   return os;
 }
