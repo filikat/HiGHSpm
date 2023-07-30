@@ -13,26 +13,28 @@ struct SsidsData {
   int clear();
 };
 
-struct IpmInvertibleRepresentation {
+struct IpmInvert {
   SsidsData ssids_data;
   int clear();
 };
 
 int augmentedSolve(const HighsSparseMatrix &highs_a,
-		    const std::vector<double> &theta,
-		    const std::vector<double> &rhs_x,
-		    const std::vector<double> &rhs_y,
-		    std::vector<double> &lhs_x,
-		    std::vector<double> &lhs_y,
-		    ExperimentData& data);
+		   const std::vector<double> &theta,
+		   const std::vector<double> &rhs_x,
+		   const std::vector<double> &rhs_y,
+		   std::vector<double> &lhs_x,
+		   std::vector<double> &lhs_y,
+		   IpmInvert& invert,
+		   ExperimentData& experiment_data);
 
 int newtonSolve(const HighsSparseMatrix &highs_a,
 		const std::vector<double> &theta,
 		const std::vector<double> &rhs,
 		std::vector<double> &lhs,
+		IpmInvert& invert,
 		const int option_max_dense_col,
 		const double option_dense_col_tolerance,
-		ExperimentData& data);
+		ExperimentData& experiment_data);
 
 bool increasingIndex(const HighsSparseMatrix& matrix);
 void productAThetaAT(const HighsSparseMatrix& matrix,
@@ -49,10 +51,10 @@ int gepp(const std::vector<std::vector<double>>& matrix,
 int callSsidsAugmentedFactor(const HighsSparseMatrix& matrix,
 			     const std::vector<double>& theta,
 			     SsidsData& ssids_data,
-			     ExperimentData& data);
+			     ExperimentData& experiment_data);
 int callSsidsNewtonFactor(const HighsSparseMatrix& AThetaAT,
 			  SsidsData& ssids_data,
-			  ExperimentData& data);
+			  ExperimentData& experiment_data);
 void callSsidsSolve(const int system_size,
 		    const int num_rhs,
 		    double* rhs,
