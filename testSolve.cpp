@@ -104,7 +104,7 @@ int main() {
   matrix.product(rhs_y, x_star);
 
   const bool augmented_solve = true;
-  const bool newton_solve = false;//true;
+  const bool newton_solve = true;
   assert(augmented_solve || newton_solve);
   if (augmented_solve) {
     // Solve the augmented system
@@ -114,6 +114,10 @@ int main() {
     ExperimentData data;
     int augmented_status = augmentedSolve(matrix, theta, rhs_x, rhs_y,
 					  lhs_x, lhs_y, data);
+    if (augmented_status) {
+      
+      return 1;
+    }
     data.model_num_col = x_dim;
     data.model_num_row = y_dim;
     if (augmented_status) {
@@ -140,7 +144,11 @@ int main() {
     std::vector<double> rhs_newton = rhs_y;
     for (int ix = 0; ix < y_dim; ix++) rhs_newton[ix] += a_theta_rhs_x[ix];
     
-    call_newton_solve(matrix, theta, rhs_newton, y_star, 0, 1.1);
+    int newton_status = call_newton_solve(matrix, theta, rhs_newton, y_star, 0, 1.1);
+    if (newton_status) {
+      
+      return 1;
+    }
     /*
     call_newton_solve(matrix, theta, rhs_newton, y_star, 4, 0.4);
     call_newton_solve(matrix, theta, rhs_newton, y_star, 10, 0.4);

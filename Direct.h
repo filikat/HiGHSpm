@@ -10,6 +10,12 @@ struct SsidsData {
   void *fkeep{nullptr};
   struct spral_ssids_options options;
   struct spral_ssids_inform inform;
+  int clear();
+};
+
+struct IpmInvertibleRepresentation {
+  SsidsData ssids_data;
+  int clear();
 };
 
 int augmentedSolve(const HighsSparseMatrix &highs_a,

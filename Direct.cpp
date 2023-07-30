@@ -1,5 +1,13 @@
 #include "Direct.h"
 #include <cmath>
+int IpmInvertibleRepresentation::clear() {
+  return this->ssids_data.clear();
+}
+
+int SsidsData::clear() {
+  // Free the memory allocated for SPRAL
+  return spral_ssids_free(&this->akeep, &this->fkeep);
+}
 
 int augmentedSolve(const HighsSparseMatrix &highs_a,
 		   const std::vector<double> &theta,
@@ -16,7 +24,8 @@ int augmentedSolve(const HighsSparseMatrix &highs_a,
   data.system_size = highs_a.num_col_ + highs_a.num_row_;
   data.system_nnz = highs_a.num_col_ + 2*highs_a.numNz();
 
-  SsidsData ssids_data;
+  IpmInvertibleRepresentation invertible_representation;
+  SsidsData& ssids_data = invertible_representation.ssids_data;
   int factor_status = call_ssids_augmented_factor(highs_a, theta, ssids_data, data);
   if (factor_status) return factor_status;
 
@@ -44,10 +53,7 @@ int augmentedSolve(const HighsSparseMatrix &highs_a,
 
   data.residual_error = residualErrorAugmented(highs_a, theta, rhs_x, rhs_y, lhs_x, lhs_y);
 
-  // Free the memory allocated for SPRAL
-  int cuda_error = spral_ssids_free(&ssids_data.akeep, &ssids_data.fkeep);
-  if (cuda_error != 0) return 1;
-  return 0;
+  return invertible_representation.clear();
 }
 
 int newtonSolve(const HighsSparseMatrix &highs_a,
@@ -126,7 +132,8 @@ int newtonSolve(const HighsSparseMatrix &highs_a,
 
   data.form_time = getWallTime() - start_time;
 
-  SsidsData ssids_data;
+  IpmInvertibleRepresentation invertible_representation;
+  SsidsData& ssids_data = invertible_representation.ssids_data;
   int factor_status = call_ssids_newton_factor(AAT, ssids_data, data);
   if (factor_status) return factor_status;
 
@@ -191,21 +198,12 @@ int newtonSolve(const HighsSparseMatrix &highs_a,
     }
   }
   data.solve_time = getWallTime() - start_time;
-  if(ssids_data.inform.flag<0) {
-    spral_ssids_free(&ssids_data.akeep, &ssids_data.fkeep);
-    return 1;
-  }
+  if (ssids_data.inform.flag <0 ) return 1;
   data.time_taken = getWallTime() - start_time0;
 
   data.residual_error = residualErrorNewton(highs_a, theta, rhs, lhs);
 
-  // Free the memory allocated for SPRAL
-  int cuda_error = spral_ssids_free(&ssids_data.akeep, &ssids_data.fkeep);
-  if (cuda_error != 0){
-    return 1;
-  }
-
-  return 0;
+  return invertible_representation.clear();
 }
 
 bool increasing_index(const HighsSparseMatrix& matrix) {
@@ -453,21 +451,24 @@ int call_ssids_augmented_factor(const HighsSparseMatrix& matrix,
   // Perform analyse and factorise with data checking 
   bool check = true;
   start_time = getWallTime();
-  spral_ssids_analyse(check, data.system_size, nullptr, ptr_ptr, row_ptr, nullptr, &ssids_data.akeep, &ssids_data.options, &ssids_data.inform);
+  spral_ssids_analyse(check, data.system_size,
+		      nullptr, ptr_ptr, row_ptr, nullptr,
+		      &ssids_data.akeep,
+		      &ssids_data.options,
+		      &ssids_data.inform);
   data.analysis_time = getWallTime() - start_time;
-  if (ssids_data.inform.flag < 0) {
-    spral_ssids_free(&ssids_data.akeep, &ssids_data.fkeep);
-    return 1;
-  }
+  if (ssids_data.inform.flag < 0) return 1;
   
   bool positive_definite = false;
   start_time = getWallTime();
-  spral_ssids_factor(positive_definite, nullptr, nullptr, val_ptr, nullptr, ssids_data.akeep, &ssids_data.fkeep, &ssids_data.options, &ssids_data.inform);
+  spral_ssids_factor(positive_definite,
+		     nullptr, nullptr, val_ptr, nullptr,
+		     ssids_data.akeep,
+		     &ssids_data.fkeep,
+		     &ssids_data.options,
+		     &ssids_data.inform);
   data.factorization_time = getWallTime() - start_time;
-  if(ssids_data.inform.flag<0) {
-    spral_ssids_free(&ssids_data.akeep, &ssids_data.fkeep);
-    return 1;
-  }
+  if(ssids_data.inform.flag < 0) return 1;
   data.nnz_L = ssids_data.inform.num_factor;
   data.fillIn_LL();
   return 0;
@@ -517,10 +518,7 @@ int call_ssids_newton_factor(const HighsSparseMatrix& AThetaAT,
 		      &ssids_data.options,
 		      &ssids_data.inform);
   data.analysis_time = getWallTime() - start_time;
-  if(ssids_data.inform.flag<0) {
-    spral_ssids_free(&ssids_data.akeep, &ssids_data.fkeep);
-    return 1;
-  }
+  if(ssids_data.inform.flag < 0) return 1;
   
   bool positive_definite =true;
   start_time = getWallTime();
@@ -531,10 +529,7 @@ int call_ssids_newton_factor(const HighsSparseMatrix& AThetaAT,
 		     &ssids_data.options,
 		     &ssids_data.inform);
   data.factorization_time = getWallTime() - start_time;
-  if(ssids_data.inform.flag<0) {
-    spral_ssids_free(&ssids_data.akeep, &ssids_data.fkeep);
-    return 1;
-  }
+  if(ssids_data.inform.flag < 0) return 1;
 
   /*
   //Return the diagonal entries of the Cholesky factor
