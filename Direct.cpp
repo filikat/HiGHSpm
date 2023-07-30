@@ -168,7 +168,8 @@ int newtonSolve(const HighsSparseMatrix &highs_a,
   }
   customMore;
   std::sort(density_index.begin(), density_index.end(), customMore);
-  const int use_num_dense_col = std::min(model_num_dense_col, option_max_dense_col);
+  const int use_num_dense_col = std::min(model_num_dense_col, std::min(option_max_dense_col, system_size));
+  
   // Take the first use_num_dense_col entries as dense
   for (int ix = 0; ix < use_num_dense_col; ix++) 
     dense_col.push_back(density_index[ix].second);
@@ -270,13 +271,12 @@ int newtonSolve(const HighsSparseMatrix &highs_a,
 
   // Solve
   start_time = getWallTime();
-  // Compute solution in lhs
-  lhs = rhs;
-  // Solve G_s lhs = rhs
-  spral_ssids_solve1(0, lhs.data(), akeep, fkeep, &options, &inform);
+  // Set up RHS for use_num_dense_col+1 columns
+  std::vector<double> multiple_rhs((use_num_dense_col+1)*system_size, 0);
+  double* hatA = &multiple_rhs[0];
+  double* hat_b = &multiple_rhs[use_num_dense_col*system_size];
   if (use_num_dense_col) {
     // First form \hat{A}_d for the dense columns
-    std::vector<double> hatA(use_num_dense_col*system_size, 0);
     int offset = 0;
     for (int ix = 0; ix < use_num_dense_col; ix++) {
       int iCol = dense_col[ix];
@@ -284,14 +284,24 @@ int newtonSolve(const HighsSparseMatrix &highs_a,
 	hatA[offset+highs_a.index_[iEl]] = highs_a.value_[iEl];
       offset += system_size;
     }
-    spral_ssids_solve(0, use_num_dense_col, hatA.data(), system_size, akeep, fkeep, &options, &inform);
+  }
+  for (int iRow = 0; iRow < system_size; iRow++)
+    hat_b[iRow] = rhs[iRow];
+
+  // Solve G_s multiple_lhs = multiple_rhs in place
+
+  spral_ssids_solve(0, use_num_dense_col+1, multiple_rhs.data(), system_size, akeep, fkeep, &options, &inform);
+  for (int iRow = 0; iRow < system_size; iRow++)
+    lhs[iRow] = hat_b[iRow];
+  
+  if (use_num_dense_col) {
     // Now form D = \Theta_d^{-1} + \hat{A}_d^TA_d and \hat_b = \hat{A}_d^Tb
     
     std::vector<std::vector<double>> d_matrix;
     std::vector<double> d_rhs;
     std::vector<double> d_sol;
     d_matrix.resize(use_num_dense_col);
-    offset = 0;
+    int offset = 0;
     for (int d_col = 0; d_col < use_num_dense_col; d_col++) {
       d_matrix[d_col].resize(use_num_dense_col);
       for (int d_row = 0; d_row < use_num_dense_col; d_row++) {
