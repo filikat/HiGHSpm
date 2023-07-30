@@ -145,11 +145,11 @@ void writeDataToCSV(const std::vector<ExperimentData>& data, const std::string& 
 }
 
 std::pair<double, double> residualErrorAugmented(const HighsSparseMatrix& A, 
-					 const std::vector<double> &theta,
-					 const std::vector<double> &rhs_x,
-					 const std::vector<double> &rhs_y,
-					 std::vector<double> &lhs_x,
-					 std::vector<double> &lhs_y) {
+						 const std::vector<double> &theta,
+						 const std::vector<double> &rhs_x,
+						 const std::vector<double> &rhs_y,
+						 std::vector<double> &lhs_x,
+						 std::vector<double> &lhs_y) {
   std::vector<double> ATy;
   A.productTranspose(ATy, lhs_y);
   std::vector<double> Ax;
@@ -159,7 +159,7 @@ std::pair<double, double> residualErrorAugmented(const HighsSparseMatrix& A,
   double rhs_norm = 1; // so max(1, ||rhs||_\inf) is computed
   for (int ix = 0; ix < rhs_x.size(); ix++) {
     const double theta_i = !theta.empty() ? theta[ix] : 1;
-    double residual = -theta_i * lhs_x[ix] + ATy[ix] - rhs_x[ix];
+    double residual = -1/theta_i * lhs_x[ix] + ATy[ix] - rhs_x[ix];
     residual_error.first = std::max(std::fabs(residual), residual_error.first);
     rhs_norm = std::max(std::fabs(rhs_x[ix]), rhs_norm);
   }

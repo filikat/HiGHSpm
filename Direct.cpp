@@ -405,14 +405,14 @@ int call_ssids_augmented_factor(const HighsSparseMatrix& matrix,
 
   // Extract lower triangular part of augmented system
   //
-  // First the columns for [-\Theta]
-  //                       [    A  ]
+  // First the columns for [-\Theta^{-1}]
+  //                       [      A     ]
   const int array_base = 0;
   int row_index_offset = matrix.num_col_;
   for (int iCol = 0; iCol < matrix.num_col_; iCol++) {
     const double theta_i = !theta.empty() ? theta[iCol] : 1;
     ptr.push_back(val.size());
-    val.push_back(-theta_i);
+    val.push_back(-1/theta_i);
     row.push_back(iCol + array_base);
     for (int iEl = matrix.start_[iCol]; iEl < matrix.start_[iCol+1]; iEl++) {
       int iRow = matrix.index_[iEl];
