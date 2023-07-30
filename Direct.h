@@ -34,7 +34,7 @@ int newtonSolve(const HighsSparseMatrix &highs_a,
 		const double option_dense_col_tolerance,
 		ExperimentData& data);
 
-bool increasing_index(const HighsSparseMatrix& matrix);
+bool increasingIndex(const HighsSparseMatrix& matrix);
 void productAThetaAT(const HighsSparseMatrix& matrix,
 		     const std::vector<double>& theta,
 		     const std::vector<double>& x,
@@ -46,15 +46,15 @@ int gepp(const std::vector<std::vector<double>>& matrix,
 	 const std::vector<double>& rhs,
 	 std::vector<double>& solution);
 
-int call_ssids_augmented_factor(const HighsSparseMatrix& matrix,
-				const std::vector<double>& theta,
-				SsidsData& ssids_data,
-				ExperimentData& data);
-int call_ssids_newton_factor(const HighsSparseMatrix& AThetaAT,
+int callSsidsAugmentedFactor(const HighsSparseMatrix& matrix,
+			     const std::vector<double>& theta,
 			     SsidsData& ssids_data,
 			     ExperimentData& data);
-void call_ssids_solve(const int system_size,
-		 const int num_rhs,
-		 double* rhs,
-		 SsidsData& ssids_data);
+int callSsidsNewtonFactor(const HighsSparseMatrix& AThetaAT,
+			  SsidsData& ssids_data,
+			  ExperimentData& data);
+void callSsidsSolve(const int system_size,
+		    const int num_rhs,
+		    double* rhs,
+		    SsidsData& ssids_data);
 #endif
