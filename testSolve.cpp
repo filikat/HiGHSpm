@@ -107,7 +107,7 @@ int main() {
   matrix.product(rhs_y, x_star);
 
   const bool augmented_solve = true;
-  const bool newton_solve = true;
+  const bool newton_solve = false;
   assert(augmented_solve || newton_solve);
   if (augmented_solve) {
     // Solve the augmented system
@@ -116,12 +116,15 @@ int main() {
 
     ExperimentData experiment_data;
     IpmInvert invert;
-    int augmented_status = augmentedSolve(matrix, theta, rhs_x, rhs_y,
-					  lhs_x, lhs_y, invert, experiment_data);
+
+    int augmented_status = augmentedInvert(matrix, theta, invert, experiment_data);
     if (augmented_status) {
       invert.clear();
       return 1;
     }
+    augmentedSolve(matrix, theta, rhs_x, rhs_y,
+		   lhs_x, lhs_y, invert, experiment_data);
+    experiment_data.time_taken += experiment_data.solve_time;
     experiment_data.model_num_col = x_dim;
     experiment_data.model_num_row = y_dim;
     if (augmented_status) {

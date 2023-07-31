@@ -14,11 +14,17 @@ struct SsidsData {
 };
 
 struct IpmInvert {
+  bool valid = false;
   SsidsData ssids_data;
   int clear();
 };
 
-int augmentedSolve(const HighsSparseMatrix &highs_a,
+int augmentedInvert(const HighsSparseMatrix &highs_a,
+		   const std::vector<double> &theta,
+		   IpmInvert& invert,
+		   ExperimentData& experiment_data);
+
+void augmentedSolve(const HighsSparseMatrix &highs_a,
 		   const std::vector<double> &theta,
 		   const std::vector<double> &rhs_x,
 		   const std::vector<double> &rhs_y,

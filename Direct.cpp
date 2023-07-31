@@ -1,6 +1,7 @@
 #include "Direct.h"
 #include <cmath>
 int IpmInvert::clear() {
+  this->valid = false;
   return this->ssids_data.clear();
 }
 
@@ -9,14 +10,12 @@ int SsidsData::clear() {
   return spral_ssids_free(&this->akeep, &this->fkeep);
 }
 
-int augmentedSolve(const HighsSparseMatrix &highs_a,
-		   const std::vector<double> &theta,
-		   const std::vector<double> &rhs_x,
-		   const std::vector<double> &rhs_y,
-		   std::vector<double> &lhs_x,
-		   std::vector<double> &lhs_y,
-		   IpmInvert& invert,
-		   ExperimentData& experiment_data) {
+int augmentedInvert(const HighsSparseMatrix &highs_a,
+		    const std::vector<double> &theta,
+		    IpmInvert& invert,
+		    ExperimentData& experiment_data) {
+  assert(!invert.valid);
+  
   assert(highs_a.isColwise());
   double start_time0 = getWallTime();
   experiment_data.reset();
@@ -27,9 +26,24 @@ int augmentedSolve(const HighsSparseMatrix &highs_a,
 
   SsidsData& ssids_data = invert.ssids_data;
   int factor_status = callSsidsAugmentedFactor(highs_a, theta, ssids_data, experiment_data);
-  if (factor_status) return factor_status;
+  experiment_data.time_taken = getWallTime() - start_time0;
 
-  // Solve 
+  if (factor_status) return factor_status;
+  invert.valid = true;
+  return 0;
+}
+
+void augmentedSolve(const HighsSparseMatrix &highs_a,
+		    const std::vector<double> &theta,
+		    const std::vector<double> &rhs_x,
+		    const std::vector<double> &rhs_y,
+		    std::vector<double> &lhs_x,
+		    std::vector<double> &lhs_y,
+		    IpmInvert& invert,
+		    ExperimentData& experiment_data) {
+  assert(invert.valid);
+  SsidsData& ssids_data = invert.ssids_data;
+  
   double start_time = getWallTime();
   int row_index_offset = highs_a.num_col_;
 
@@ -42,8 +56,6 @@ int augmentedSolve(const HighsSparseMatrix &highs_a,
   callSsidsSolve(experiment_data.system_size, 1, rhs.data(), ssids_data);
   experiment_data.solve_time = getWallTime() - start_time;
 
-  experiment_data.time_taken = getWallTime() - start_time0;
-
   lhs_x.resize( highs_a.num_col_);
   lhs_y.resize( highs_a.num_row_);
   for (int iCol = 0; iCol < highs_a.num_col_; iCol++)
@@ -53,7 +65,6 @@ int augmentedSolve(const HighsSparseMatrix &highs_a,
 
   experiment_data.residual_error = residualErrorAugmented(highs_a, theta, rhs_x, rhs_y, lhs_x, lhs_y);
 
-  return invert.clear();
 }
 
 int newtonSolve(const HighsSparseMatrix &highs_a,
