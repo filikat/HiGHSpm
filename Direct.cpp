@@ -176,12 +176,12 @@ int newtonInvert(const HighsSparseMatrix &highs_a,
   return 0;
 }
 
-int newtonSystemSolve(const HighsSparseMatrix &highs_a,
-		  const std::vector<double> &theta,
-		  const std::vector<double> &rhs,
-		  std::vector<double> &lhs,
-		  IpmInvert& invert,
-		  ExperimentData& experiment_data) {
+int newtonSolve(const HighsSparseMatrix &highs_a,
+		const std::vector<double> &theta,
+		const std::vector<double> &rhs,
+		std::vector<double> &lhs,
+		IpmInvert& invert,
+		ExperimentData& experiment_data) {
   assert(invert.valid);
   SsidsData& ssids_data = invert.ssids_data;
   
@@ -233,156 +233,6 @@ int newtonSystemSolve(const HighsSparseMatrix &highs_a,
 
   experiment_data.residual_error = residualErrorNewton(highs_a, theta, rhs, lhs);
   return 0;
-}
-
-int newtonSolve(const HighsSparseMatrix &highs_a,
-		const std::vector<double> &theta,
-		const std::vector<double> &rhs,
-		std::vector<double> &lhs,
-		IpmInvert& invert,
-		const int option_max_dense_col,
-		const double option_dense_col_tolerance,
-		ExperimentData& experiment_data) {
-
-  assert(highs_a.isColwise());
-  const int system_size = highs_a.num_row_;
-  std::vector<double> use_theta = theta;
-  std::vector<double> theta_d;
-  double use_dense_col_tolerance = option_dense_col_tolerance;
-  //  use_dense_col_tolerance = 1.2;
-  //  use_dense_col_tolerance = 0.1;
-
-  double start_time0 = getWallTime();
-  double start_time = start_time0;
-  int col_max_nz = 0;
-  std::vector<std::pair<double, int>> density_index;
-  std::vector<double> analyse_density;
-  std::vector<int> dense_col;
-  double max_sparse_col_density = 0;
-  for (int iCol = 0; iCol < highs_a.num_col_; iCol++) {
-    int col_nz = highs_a.start_[iCol+1] - highs_a.start_[iCol];
-    double density_value = double(col_nz) / double(system_size);
-    col_max_nz = std::max(col_nz, col_max_nz);
-    analyse_density.push_back(density_value);
-    if (density_value >= use_dense_col_tolerance) {
-      density_index.push_back(std::make_pair(density_value, iCol));
-    } else {
-      max_sparse_col_density = std::max(density_value, max_sparse_col_density);
-    }
-  }
-  const int model_num_dense_col = density_index.size();
-  struct {
-    bool operator()(std::pair<double, int> a, std::pair<double, int> b) const { return a.first > b.first; }
-  }
-  customMore;
-  std::sort(density_index.begin(), density_index.end(), customMore);
-  const int use_num_dense_col = std::min(model_num_dense_col, std::min(option_max_dense_col, system_size));
-  
-  // Take the first use_num_dense_col entries as dense
-  for (int ix = 0; ix < use_num_dense_col; ix++) 
-    dense_col.push_back(density_index[ix].second);
-  if (use_num_dense_col < model_num_dense_col)
-    max_sparse_col_density = density_index[use_num_dense_col].first;
-  
-  double max_density = double(col_max_nz)/ double(system_size);
-  printf("Problem has %d rows and %d columns (max nonzeros = %d; density = %g) with %d dense at a tolerance of %g\n",
-	 int(system_size), int(highs_a.num_col_),
-	 int(col_max_nz), max_density, int(model_num_dense_col), use_dense_col_tolerance);
-  analyseVectorValues(nullptr, "Column density", highs_a.num_col_, analyse_density);
-
-  // Zero the entries of use_theta corresponding to dense columns
-  for (int ix = 0; ix < use_num_dense_col; ix++) {
-    int iCol = dense_col[ix];
-    theta_d.push_back(theta[iCol]);
-    use_theta[iCol] = 0;
-  }
-
-  HighsSparseMatrix AAT = computeAThetaAT(highs_a, use_theta);
-  experiment_data.reset();
-  experiment_data.decomposer = "ssids";
-  experiment_data.system_type = kSystemTypeNewton;
-  experiment_data.system_size = system_size;
-  experiment_data.system_nnz = AAT.numNz();
-  experiment_data.model_num_dense_col = model_num_dense_col;
-  experiment_data.use_num_dense_col = use_num_dense_col;
-  experiment_data.dense_col_tolerance = use_dense_col_tolerance;
-  if (model_num_dense_col) assert(density_index[0].first == max_density);
-  experiment_data.model_max_dense_col = max_density;
-  experiment_data.system_max_dense_col = max_sparse_col_density;
-
-  experiment_data.form_time = getWallTime() - start_time;
-
-  SsidsData& ssids_data = invert.ssids_data;
-  int factor_status = callSsidsNewtonFactor(AAT, ssids_data, experiment_data);
-  if (factor_status) return factor_status;
-
-  // Solve
-  start_time = getWallTime();
-  // Set up RHS for use_num_dense_col+1 columns
-  std::vector<double> multiple_rhs((use_num_dense_col+1)*system_size, 0);
-  double* hatA = &multiple_rhs[0];
-  double* hat_b = &multiple_rhs[use_num_dense_col*system_size];
-  if (use_num_dense_col) {
-    // First form \hat{A}_d for the dense columns
-    int offset = 0;
-    for (int ix = 0; ix < use_num_dense_col; ix++) {
-      int iCol = dense_col[ix];
-      for (int iEl = highs_a.start_[iCol]; iEl < highs_a.start_[iCol+1]; iEl++) 
-	hatA[offset+highs_a.index_[iEl]] = highs_a.value_[iEl];
-      offset += system_size;
-    }
-  }
-  for (int iRow = 0; iRow < system_size; iRow++)
-    hat_b[iRow] = rhs[iRow];
-
-  // Solve G_s multiple_lhs = multiple_rhs in place
-
-  callSsidsSolve(system_size, use_num_dense_col+1, multiple_rhs.data(), ssids_data);
-  for (int iRow = 0; iRow < system_size; iRow++)
-    lhs[iRow] = hat_b[iRow];
-  
-  if (use_num_dense_col) {
-    // Now form D = \Theta_d^{-1} + \hat{A}_d^TA_d and \hat_b = \hat{A}_d^Tb
-    
-    std::vector<std::vector<double>> d_matrix;
-    std::vector<double> d_rhs;
-    std::vector<double> d_sol;
-    d_matrix.resize(use_num_dense_col);
-    int offset = 0;
-    for (int d_col = 0; d_col < use_num_dense_col; d_col++) {
-      d_matrix[d_col].resize(use_num_dense_col);
-      for (int d_row = 0; d_row < use_num_dense_col; d_row++) {
-	int iCol = dense_col[d_row];
-	double value = 0;
-	for (int iEl = highs_a.start_[iCol]; iEl < highs_a.start_[iCol+1]; iEl++)
-	  value += hatA[offset+highs_a.index_[iEl]] * highs_a.value_[iEl];
-	d_matrix[d_col][d_row] = value;
-      }
-      d_matrix[d_col][d_col] += 1/theta_d[d_col];
-      double value = 0;
-      for (int iRow = 0; iRow < system_size; iRow++) 
-	value += hatA[offset+iRow] * rhs[iRow];
-      d_rhs.push_back(value);
-      offset += system_size;
-    }
-    int gepp_status = gepp(d_matrix, d_rhs, d_sol);
-    if (gepp_status) return 1;
-    
-    // Subtract \hat{A}_d^Td_sol from lhs
-    offset = 0;
-    for (int d_col = 0; d_col < use_num_dense_col; d_col++) {
-      for (int iRow = 0; iRow < system_size; iRow++) 
-	lhs[iRow] -= hatA[offset+iRow] * d_sol[d_col];
-      offset += system_size;
-    }
-  }
-  experiment_data.solve_time = getWallTime() - start_time;
-  if (ssids_data.inform.flag <0 ) return 1;
-  experiment_data.time_taken = getWallTime() - start_time0;
-
-  experiment_data.residual_error = residualErrorNewton(highs_a, theta, rhs, lhs);
-
-  return invert.clear();
 }
 
 bool increasingIndex(const HighsSparseMatrix& matrix) {

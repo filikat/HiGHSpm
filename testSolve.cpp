@@ -9,35 +9,6 @@ bool infNormDiffOk(const std::vector<double> x0, const std::vector<double> x1) {
   return norm_diff < 1e-12;
 }
 
-int callNewtonSolve0(const HighsSparseMatrix &highs_a,
-		      const std::vector<double> &theta,
-		      const std::vector<double> &rhs,
-		      const std::vector<double> &exact_sol,
-		      const int option_max_dense_col,
-		      const double option_dense_col_tolerance) {
-  ExperimentData experiment_data;
-  const int x_dim = highs_a.num_col_;
-  const int y_dim = highs_a.num_row_;
-  std::vector<double> lhs(y_dim);
-  IpmInvert invert;
-  int newton_status = newtonSolve(highs_a, theta, rhs, lhs, invert,
-				  option_max_dense_col, option_dense_col_tolerance, experiment_data);
-  experiment_data.model_num_col = x_dim;
-  experiment_data.model_num_row = y_dim;
-  if (newton_status) {
-    std::cout << experiment_data << "\n";
-    invert.clear();
-    return newton_status;
-  }
-  double solution_error = 0;
-  for (int ix = 0; ix < y_dim; ix++)
-    solution_error = std::max(std::fabs(exact_sol[ix] - lhs[ix]), solution_error);
-  experiment_data.solution_error = solution_error;
-  
-  std::cout << experiment_data << "\n";
-  return 0;
-}
-
 int callNewtonSolve(const HighsSparseMatrix &highs_a,
 		      const std::vector<double> &theta,
 		      const std::vector<double> &rhs,
@@ -51,7 +22,7 @@ int callNewtonSolve(const HighsSparseMatrix &highs_a,
   IpmInvert invert;
   int newton_status = newtonInvert(highs_a, theta, invert,
 				  option_max_dense_col, option_dense_col_tolerance, experiment_data);
-  newton_status = newtonSystemSolve(highs_a, theta, rhs, lhs, invert, experiment_data);
+  newton_status = newtonSolve(highs_a, theta, rhs, lhs, invert, experiment_data);
   experiment_data.time_taken += experiment_data.solve_time;
  
   experiment_data.model_num_col = x_dim;
@@ -138,7 +109,7 @@ int main() {
   std::vector<double> rhs_y;
   matrix.product(rhs_y, x_star);
 
-  const bool augmented_solve = false;
+  const bool augmented_solve = true;
   const bool newton_solve = true;
   assert(augmented_solve || newton_solve);
   if (augmented_solve) {
@@ -170,6 +141,7 @@ int main() {
       solution_error = std::max(std::fabs(y_star[ix] - lhs_y[ix]), solution_error);
     experiment_data.solution_error = solution_error;
     std::cout << experiment_data << "\n";
+    invert.clear();
   }
 
   if (newton_solve) {
@@ -183,12 +155,14 @@ int main() {
     std::vector<double> rhs_newton = rhs_y;
     for (int ix = 0; ix < y_dim; ix++) rhs_newton[ix] += a_theta_rhs_x[ix];
     
-    //    int newton_status = callNewtonSolve0(matrix, theta, rhs_newton, y_star, 0, 1.1);
     int newton_status = callNewtonSolve(matrix, theta, rhs_newton, y_star, 0, 1.1);
-    //    callNewtonSolve0(matrix, theta, rhs_newton, y_star, 4, 0.4);
+    if (newton_status) return 1;
     newton_status = callNewtonSolve(matrix, theta, rhs_newton, y_star, 4, 0.4);
-    callNewtonSolve(matrix, theta, rhs_newton, y_star, 10, 0.4);
-    callNewtonSolve(matrix, theta, rhs_newton, y_star, 20, 0.4);
+    if (newton_status) return 1;
+    newton_status = callNewtonSolve(matrix, theta, rhs_newton, y_star, 10, 0.4);
+    if (newton_status) return 1;
+    newton_status = callNewtonSolve(matrix, theta, rhs_newton, y_star, 20, 0.4);
+    if (newton_status) return 1;
     /*
     */
   }

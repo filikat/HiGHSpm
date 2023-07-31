@@ -45,20 +45,11 @@ int newtonInvert(const HighsSparseMatrix &highs_a,
 		 const double option_dense_col_tolerance,
 		 ExperimentData& experiment_data);
 
-int newtonSystemSolve(const HighsSparseMatrix &highs_a,
-		const std::vector<double> &theta,
-		const std::vector<double> &rhs,
-		std::vector<double> &lhs,
-		IpmInvert& invert,
-		ExperimentData& experiment_data);
-
 int newtonSolve(const HighsSparseMatrix &highs_a,
 		const std::vector<double> &theta,
 		const std::vector<double> &rhs,
 		std::vector<double> &lhs,
 		IpmInvert& invert,
-		const int option_max_dense_col,
-		const double option_dense_col_tolerance,
 		ExperimentData& experiment_data);
 
 bool increasingIndex(const HighsSparseMatrix& matrix);
