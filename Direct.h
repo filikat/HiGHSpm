@@ -15,6 +15,11 @@ struct SsidsData {
 
 struct IpmInvert {
   bool valid = false;
+  int system_size = 0;
+  int use_num_dense_col = 0;
+  std::vector<int> dense_col;
+  std::vector<double> theta_d;
+  std::vector<double> hatA;
   SsidsData ssids_data;
   int clear();
 };
@@ -32,6 +37,20 @@ void augmentedSolve(const HighsSparseMatrix &highs_a,
 		   std::vector<double> &lhs_y,
 		   IpmInvert& invert,
 		   ExperimentData& experiment_data);
+
+int newtonInvert(const HighsSparseMatrix &highs_a,
+		 const std::vector<double> &theta,
+		 IpmInvert& invert,
+		 const int option_max_dense_col,
+		 const double option_dense_col_tolerance,
+		 ExperimentData& experiment_data);
+
+int newtonSystemSolve(const HighsSparseMatrix &highs_a,
+		const std::vector<double> &theta,
+		const std::vector<double> &rhs,
+		std::vector<double> &lhs,
+		IpmInvert& invert,
+		ExperimentData& experiment_data);
 
 int newtonSolve(const HighsSparseMatrix &highs_a,
 		const std::vector<double> &theta,
