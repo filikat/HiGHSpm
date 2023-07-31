@@ -16,6 +16,7 @@ class IPM_caller {
   int m{};
   int n{};
   bool model_ready{false};
+  IpmInvert invert;
 
   // IPM parameters
   const double sigma_i = 0.5;
