@@ -176,20 +176,6 @@ Output IPM_caller::Solve() {
 
     ++iter;
 
-    // Heuristic to choose sigma
-    // (this is redundant once we implement predictor-corrector)
-    double sigma{};
-    if (iter == 1) {
-      sigma = sigma_i;
-    } else {
-      sigma = pow(std::max(1.0 - alpha_primal, 1.0 - alpha_dual), 5.0);
-      sigma = std::max(sigma, sigma_min);
-      sigma = std::min(sigma, sigma_max);
-    }
-
-    // Compute last two residuals with correct value of sigma
-    ComputeResiduals_56(sigma * mu, Res);
-
     // Compute diagonal scaling
     std::vector<double> scaling(n, 0.0);
     ComputeScaling(scaling);
@@ -197,11 +183,77 @@ Output IPM_caller::Solve() {
     // Initialize Newton direction
     NewtonDir Delta(m, n);
 
-    // Solve Newton system
-    SolveNewtonSystem(model.highs_a, scaling, Res, Delta);
+    if (option_predcor == 0) {
 
-    // Compute full Newton direction
-    RecoverDirection(Res, Delta);
+      bool isCorrector = false;
+
+      // Heuristic to choose sigma
+      double sigma{};
+      if (iter == 1) {
+        sigma = sigma_i;
+      } else {
+        sigma = pow(std::max(1.0 - alpha_primal, 1.0 - alpha_dual), 5.0);
+        sigma = std::max(sigma, sigma_min);
+        sigma = std::min(sigma, sigma_max);
+      }
+
+      // Compute last two residuals with correct value of sigma
+      ComputeResiduals_56(sigma * mu, Delta, isCorrector, Res);
+
+      // Solve Newton system
+      SolveNewtonSystem(model.highs_a, scaling, Res, isCorrector, Delta);
+
+      // Compute full Newton direction
+      RecoverDirection(Res, isCorrector, Delta);
+
+    } else {
+
+      // *********************************************************************
+      // PREDICTOR
+      // *********************************************************************
+      bool isCorrector = false;
+
+      // Compute last two residuals for predictor
+      ComputeResiduals_56(0, Delta, isCorrector, Res);
+
+      // Solve Newton system for predictor
+      SolveNewtonSystem(model.highs_a, scaling, Res, isCorrector, Delta);
+
+      // Compute full Newton direction for predictor
+      RecoverDirection(Res, isCorrector, Delta);
+      // *********************************************************************
+
+      // *********************************************************************
+      // CORRECTOR
+      // *********************************************************************
+      isCorrector = true;
+
+      // Compute sigma based on the predictor
+      double sigma = ComputeSigmaCorrector(Delta, mu);
+
+      // Compute last two residuals for corrector
+      ComputeResiduals_56(sigma * mu, Delta, isCorrector, Res);
+
+      // Initialize corrector direction
+      NewtonDir DeltaCor(m, n);
+
+      // Solve Newton system for corrector
+      SolveNewtonSystem(model.highs_a, scaling, Res, isCorrector, DeltaCor);
+
+      // Compute full Newton direction for corrector
+      RecoverDirection(Res, isCorrector, DeltaCor);
+
+      // Add corrector to predictor
+      // (all these add can be avoided with a different implementation, but for
+      // now it works)
+      VectorAdd(Delta.x, DeltaCor.x, 1.0);
+      VectorAdd(Delta.y, DeltaCor.y, 1.0);
+      VectorAdd(Delta.xl, DeltaCor.xl, 1.0);
+      VectorAdd(Delta.xu, DeltaCor.xu, 1.0);
+      VectorAdd(Delta.zl, DeltaCor.zl, 1.0);
+      VectorAdd(Delta.zu, DeltaCor.zu, 1.0);
+      // *********************************************************************
+    }
 
     // Find step-sizes
     ComputeStepSizes(Delta, alpha_primal, alpha_dual);
@@ -302,23 +354,104 @@ void IPM_caller::ComputeResiduals_1234(Residuals &Res) {
   assert(!Res.isNaN());
 }
 
-void IPM_caller::ComputeResiduals_56(const double sigmaMu, Residuals &Res) {
-  for (int i = 0; i < n; ++i) {
+void IPM_caller::ComputeResiduals_56(const double sigmaMu,
+                                     const NewtonDir &DeltaAff,
+                                     bool isCorrector, Residuals &Res) {
 
-    // res5
-    if (model.has_lb(i)) {
-      Res.res5[i] = sigmaMu - It.xl[i] * It.zl[i];
-    } else {
-      Res.res5[i] = 0.0;
+  if (!isCorrector) {
+
+    for (int i = 0; i < n; ++i) {
+
+      // res5
+      if (model.has_lb(i)) {
+        Res.res5[i] = sigmaMu - It.xl[i] * It.zl[i];
+      } else {
+        Res.res5[i] = 0.0;
+      }
+
+      // res6
+      if (model.has_ub(i)) {
+        Res.res6[i] = sigmaMu - It.xu[i] * It.zu[i];
+      } else {
+        Res.res6[i] = 0.0;
+      }
     }
 
-    // res6
-    if (model.has_ub(i)) {
-      Res.res6[i] = sigmaMu - It.xu[i] * It.zu[i];
-    } else {
-      Res.res6[i] = 0.0;
+  } else {
+
+    for (int i = 0; i < n; ++i) {
+
+      // res5
+      if (model.has_lb(i)) {
+        Res.res5[i] = sigmaMu - DeltaAff.xl[i] * DeltaAff.zl[i];
+      } else {
+        Res.res5[i] = 0.0;
+      }
+
+      // res6
+      if (model.has_ub(i)) {
+        Res.res6[i] = sigmaMu - DeltaAff.xu[i] * DeltaAff.zu[i];
+      } else {
+        Res.res6[i] = 0.0;
+      }
     }
   }
+}
+
+std::vector<double> IPM_caller::ComputeResiduals_7(const Residuals &Res,
+                                                   bool isCorrector) {
+
+  std::vector<double> res7;
+
+  if (!isCorrector) {
+
+    res7 = Res.res4;
+    for (int i = 0; i < n; ++i) {
+      if (model.has_lb(i)) {
+        res7[i] -= ((Res.res5[i] + It.zl[i] * Res.res2[i]) / It.xl[i]);
+      }
+      if (model.has_ub(i)) {
+        res7[i] += ((Res.res6[i] - It.zu[i] * Res.res3[i]) / It.xu[i]);
+      }
+    }
+
+  } else {
+
+    res7.resize(n, 0.0);
+    for (int i = 0; i < n; ++i) {
+      if (model.has_lb(i)) {
+        res7[i] -= (Res.res5[i] / It.xl[i]);
+      }
+      if (model.has_ub(i)) {
+        res7[i] += (Res.res6[i] / It.xu[i]);
+      }
+    }
+  }
+
+  return res7;
+}
+
+std::vector<double> IPM_caller::ComputeResiduals_8(
+    const HighsSparseMatrix &highs_a, const std::vector<double> &scaling,
+    const Residuals &Res, const std::vector<double> &res7, bool isCorrector) {
+
+  std::vector<double> res8;
+
+  if (isCorrector) {
+    res8.resize(m, 0.0);
+  } else {
+    res8 = Res.res1;
+  }
+
+  std::vector<double> temp(res7);
+
+  // temp = Theta * res7
+  VectorDivide(temp, scaling);
+
+  // res8 += A * temp
+  highs_a.product(1.0, temp, res8);
+
+  return res8;
 }
 
 // =======================================================================
@@ -341,21 +474,11 @@ void IPM_caller::ComputeScaling(std::vector<double> &scaling) {
 // =======================================================================
 void IPM_caller::SolveNewtonSystem(const HighsSparseMatrix &highs_a,
                                    const std::vector<double> &scaling,
-                                   const Residuals &Res, NewtonDir &Delta) {
+                                   const Residuals &Res, bool isCorrector,
+                                   NewtonDir &Delta) {
 
-  // Compute res7
-  // *********************************************************************
-  std::vector<double> res7(Res.res4);
-
-  for (int i = 0; i < n; ++i) {
-    if (model.has_lb(i)) {
-      res7[i] -= ((Res.res5[i] + It.zl[i] * Res.res2[i]) / It.xl[i]);
-    }
-    if (model.has_ub(i)) {
-      res7[i] += ((Res.res6[i] - It.zu[i] * Res.res3[i]) / It.xu[i]);
-    }
-  }
-  // *********************************************************************
+  // Compute residual 7
+  std::vector<double> res7{ComputeResiduals_7(Res, isCorrector)};
 
   // Identify whether CG should be used
   const bool use_cg = option_nla == kOptionNlaCg ||
@@ -388,18 +511,10 @@ void IPM_caller::SolveNewtonSystem(const HighsSparseMatrix &highs_a,
     //
     // A.scaling.A^T Delta.y = res8
     //
+
     // Compute res8
-    // *********************************************************************
-    std::vector<double> res8(Res.res1);
-    std::vector<double> temp(res7);
-
-    // temp = Theta * res7
-    VectorDivide(temp, scaling);
-
-    // res8 += A * temp
-    highs_a.product(1.0, temp, res8);
-    temp.clear();
-    // *********************************************************************
+    std::vector<double> res8{
+        ComputeResiduals_8(highs_a, scaling, Res, res7, isCorrector)};
 
     // Solve normal equations
     // Currently this is done using Conjugate Gradient. The solution for
@@ -407,14 +522,14 @@ void IPM_caller::SolveNewtonSystem(const HighsSparseMatrix &highs_a,
     //
     if (use_cg) {
       NormalEquations N(highs_a, scaling);
-      CG_solve(N, res8, kCgTolerance, kCgInterationLimit, Delta.y, nullptr);
+      CG_solve(N, res8, kCgTolerance, kCgIterationLimit, Delta.y, nullptr);
     }
     if (use_direct_newton) {
       // Solve the Newton system directly into newton_delta_y
       std::vector<double> newton_delta_y;
       newton_delta_y.assign(m, 0);
-      newtonSolve(highs_a, scaling, res8, newton_delta_y,
-		  option_max_dense_col, option_dense_col_tolerance);
+      newtonSolve(highs_a, scaling, res8, newton_delta_y, option_max_dense_col,
+                  option_dense_col_tolerance);
       if (check_with_cg) {
         double inf_norm_solution_diff = infNormDiff(newton_delta_y, Delta.y);
         if (inf_norm_solution_diff > kSolutionDiffTolerance) {
@@ -446,15 +561,25 @@ void IPM_caller::SolveNewtonSystem(const HighsSparseMatrix &highs_a,
 // =======================================================================
 // FULL NEWTON DIRECTION
 // =======================================================================
-void IPM_caller::RecoverDirection(const Residuals &Res, NewtonDir &Delta) {
+void IPM_caller::RecoverDirection(const Residuals &Res, bool isCorrector,
+                                  NewtonDir &Delta) {
 
-  // Deltaxl
-  Delta.xl = Delta.x;
-  VectorAdd(Delta.xl, Res.res2, -1.0);
+  if (!isCorrector) {
+    // Deltaxl
+    Delta.xl = Delta.x;
+    VectorAdd(Delta.xl, Res.res2, -1.0);
 
-  // Deltaxu
-  Delta.xu = Res.res3;
-  VectorAdd(Delta.xu, Delta.x, -1.0);
+    // Deltaxu
+    Delta.xu = Res.res3;
+    VectorAdd(Delta.xu, Delta.x, -1.0);
+  } else {
+    // Deltaxl
+    Delta.xl = Delta.x;
+
+    // Deltaxu
+    Delta.xu = Delta.x;
+    VectorScale(Delta.xu, -1.0);
+  }
 
   // Deltazl
   Delta.zl = Res.res5;
@@ -645,3 +770,32 @@ void IPM_caller::ComputeStartingPoint() {
   // *********************************************************************
 }
 
+double IPM_caller::ComputeSigmaCorrector(const NewtonDir &DeltaAff, double mu) {
+
+  // stepsizes of predictor direction
+  double alpha_p{};
+  double alpha_d{};
+  ComputeStepSizes(DeltaAff, alpha_p, alpha_d);
+
+  // mu using predictor direction
+  double mu_aff = 0.0;
+  int number_finite_bounds{};
+  for (int i = 0; i < n; ++i) {
+    if (model.has_lb(i)) {
+      mu_aff += (It.xl[i] + alpha_p * DeltaAff.xl[i]) *
+                (It.zl[i] + alpha_d * DeltaAff.zl[i]);
+      ++number_finite_bounds;
+    }
+    if (model.has_ub(i)) {
+      mu_aff += (It.xu[i] + alpha_p * DeltaAff.xu[i]) *
+                (It.zu[i] + alpha_d * DeltaAff.zu[i]);
+      ++number_finite_bounds;
+    }
+  }
+  mu_aff /= number_finite_bounds;
+
+  // heuristic to choose sigma
+  double ratio = mu_aff / mu;
+
+  return ratio * ratio * ratio;
+}
