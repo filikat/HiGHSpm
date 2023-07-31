@@ -7,3 +7,4 @@ main.cpp
 *.mps
 ipm
 a.out
+ipm.dSYM

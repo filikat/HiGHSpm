@@ -7,6 +7,7 @@ enum ArgC {
   kMinArgC = 2,
   kModelFileArg = 1,
   kOptionNlaArg,
+  kOptionPredCorArg,
   kOptionMaxDenseColArg,
   kOptionDenseColToleranceArg,
   kMaxArgC
@@ -15,7 +16,7 @@ enum ArgC {
 int main(int argc, char **argv) {
 
   if (argc < kMinArgC || argc > kMaxArgC) {
-    std::cerr << "======= How to use: ./ipm LP_name.mps nla_option max_dense_col_option dense_col_tolerance_option =======\n";
+    std::cerr << "======= How to use: ./ipm LP_name.mps nla_option predcor_option max_dense_col_option dense_col_tolerance_option =======\n";
     return 1;
   }
 
@@ -146,6 +147,15 @@ int main(int argc, char **argv) {
     std::cerr << "Illegal value of " << ipm.option_nla
               << " for option_nla: must be in [" << kOptionNlaMin << ", "
               << kOptionNlaMax << "]\n";
+    return 1;
+  }
+
+  ipm.option_predcor = 
+    argc > kOptionPredCorArg ? atoi(argv[kOptionPredCorArg]) : kOptionPredCorDefault;
+  if (ipm.option_predcor < kOptionPredCorMin || ipm.option_predcor > kOptionPredCorMax) {
+    std::cerr << "Illegal value of " << ipm.option_predcor
+              << " for option_predcor: must be in [" << kOptionPredCorMin << ", "
+              << kOptionPredCorMax << "]\n";
     return 1;
   }
 
