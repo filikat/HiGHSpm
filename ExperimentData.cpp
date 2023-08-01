@@ -84,6 +84,9 @@ std::ostream& operator<<(std::ostream& os, const ExperimentData& data) {
     << std::right << std::setw(num_width) << data.fill_in_factor << "\n";
   os << std::scientific;
   os
+    << std::left << std::setw(text_width) << "condition: "
+    << std::right << std::setw(num_width) << data.condition << "\n";
+  os
     << std::left << std::setw(text_width) << "solution error: " 
     << std::right << std::setw(num_width) << data.solution_error << "\n" 
     << std::left << std::setw(text_width) << "rel (abs) residual error: " 
@@ -139,7 +142,7 @@ void writeDataToCSV(const std::vector<ExperimentData>& data, const std::string& 
     } else {
       outputFile << "System NNZ,(%),";
     }
-    outputFile << "NNZ L,(%),Fill factor,Solution Error,Abs residual error,Rel residual error,";
+    outputFile << "NNZ L,(%),Fill factor,Condition,Solution Error,Abs residual error,Rel residual error,";
     outputFile << "Time Taken, Form time, Setup time, Analyse time, Factorization time, Solve time\n";
     
     // Write data
@@ -162,6 +165,7 @@ void writeDataToCSV(const std::vector<ExperimentData>& data, const std::string& 
 	  : -1;
         outputFile << l_density << ",";
         outputFile << experimentData.fill_in_factor << ",";
+        outputFile << experimentData.condition << ",";
         outputFile << experimentData.solution_error << ",";
         outputFile << experimentData.residual_error.first << ",";
         outputFile << experimentData.residual_error.second << ",";

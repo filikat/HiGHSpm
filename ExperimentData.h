@@ -31,6 +31,7 @@ public:
   double solution_error;
   std::pair<double, double> residual_error;
   double fill_in_factor;
+  double condition;
 
   //time
   double time_taken;
@@ -53,10 +54,11 @@ public:
     system_max_dense_col = kDataNotSet;
     system_nnz = kDataNotSet;
     nnz_L = kDataNotSet;
+    fill_in_factor = kDataNotSet;
+    condition = kDataNotSet;
     solution_error = kDataNotSet;
     residual_error.first = kDataNotSet;
     residual_error.second = kDataNotSet;
-    fill_in_factor = kDataNotSet;
     time_taken = kDataNotSet;
     form_time = kDataNotSet;
     setup_time = kDataNotSet;

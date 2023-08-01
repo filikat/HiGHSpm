@@ -6,7 +6,7 @@ int IpmInvert::clear() {
   this->use_num_dense_col = 0;
   this->dense_col.clear();
   this->theta_d.clear();
-  this->hatA.clear();
+  this->hatA_d.clear();
   return this->ssids_data.clear();
 }
 
@@ -95,7 +95,7 @@ int newtonInvert(const HighsSparseMatrix &highs_a,
 
   std::vector<int>& dense_col = invert.dense_col;
   std::vector<double>& theta_d = invert.theta_d;
-  std::vector<double>& hatA = invert.hatA;
+  std::vector<double>& hatA_d = invert.hatA_d;
 
   double max_sparse_col_density = 0;
   for (int iCol = 0; iCol < highs_a.num_col_; iCol++) {
@@ -162,16 +162,16 @@ int newtonInvert(const HighsSparseMatrix &highs_a,
   if (use_num_dense_col) {
     double start_time = getWallTime();
     // Set up RHS for use_num_dense_col columns
-    hatA.assign(use_num_dense_col*system_size, 0);
+    hatA_d.assign(use_num_dense_col*system_size, 0);
     // First form \hat{A}_d for the dense columns
     int offset = 0;
     for (int ix = 0; ix < use_num_dense_col; ix++) {
       int iCol = dense_col[ix];
       for (int iEl = highs_a.start_[iCol]; iEl < highs_a.start_[iCol+1]; iEl++) 
-	hatA[offset+highs_a.index_[iEl]] = highs_a.value_[iEl];
+	hatA_d[offset+highs_a.index_[iEl]] = highs_a.value_[iEl];
       offset += system_size;
     }
-    callSsidsSolve(system_size, use_num_dense_col, hatA.data(), ssids_data);
+    callSsidsSolve(system_size, use_num_dense_col, hatA_d.data(), ssids_data);
     experiment_data.factorization_time += getWallTime() - start_time;
   }
   invert.system_size = system_size;
@@ -196,7 +196,7 @@ int newtonSolve(const HighsSparseMatrix &highs_a,
   const int use_num_dense_col = invert.use_num_dense_col;
   const std::vector<int>& dense_col = invert.dense_col;
   const std::vector<double>& theta_d = invert.theta_d;
-  const std::vector<double>& hatA = invert.hatA;
+  const std::vector<double>& hatA_d = invert.hatA_d;
   lhs = rhs;
   callSsidsSolve(system_size, 1, lhs.data(), ssids_data);
   if (use_num_dense_col) {
@@ -213,13 +213,13 @@ int newtonSolve(const HighsSparseMatrix &highs_a,
 	int iCol = dense_col[d_row];
 	double value = 0;
 	for (int iEl = highs_a.start_[iCol]; iEl < highs_a.start_[iCol+1]; iEl++)
-	  value += hatA[offset+highs_a.index_[iEl]] * highs_a.value_[iEl];
+	  value += hatA_d[offset+highs_a.index_[iEl]] * highs_a.value_[iEl];
 	d_matrix[d_col][d_row] = value;
       }
       d_matrix[d_col][d_col] += 1/theta_d[d_col];
       double value = 0;
       for (int iRow = 0; iRow < system_size; iRow++) 
-	value += hatA[offset+iRow] * rhs[iRow];
+	value += hatA_d[offset+iRow] * rhs[iRow];
       d_rhs.push_back(value);
       offset += system_size;
     }
@@ -230,7 +230,7 @@ int newtonSolve(const HighsSparseMatrix &highs_a,
     offset = 0;
     for (int d_col = 0; d_col < use_num_dense_col; d_col++) {
       for (int iRow = 0; iRow < system_size; iRow++) 
-	lhs[iRow] -= hatA[offset+iRow] * d_sol[d_col];
+	lhs[iRow] -= hatA_d[offset+iRow] * d_sol[d_col];
       offset += system_size;
     }
   }
@@ -240,6 +240,56 @@ int newtonSolve(const HighsSparseMatrix &highs_a,
   return 0;
 }
 
+double newtonCondition(const HighsSparseMatrix& matrix,
+		       const std::vector<double>& theta,
+		       IpmInvert& invert) {
+  assert(invert.valid);
+  SsidsData& ssids_data = invert.ssids_data;
+  const bool chatty = false;
+
+  // Get the largest eigenvalue by power method
+  const double dim = matrix.num_row_;
+  std::vector<double> from_iterate(dim);
+  std::vector<double> to_iterate(dim);
+  HighsRandom random;
+  double lambda_n = 0;
+  for (int iRow = 0; iRow < dim; iRow++)
+    from_iterate[iRow] = random.fraction();
+  for (int iter = 0; iter < 10; iter++) {
+    double from_iterate_norm = Norm2(from_iterate);
+    assert(from_iterate_norm>0);
+    VectorScale(from_iterate, 1/from_iterate_norm);
+    productAThetaAT(matrix, theta, from_iterate, to_iterate);
+    double to_iterate_norm = Norm2(to_iterate);
+    const bool converged = std::fabs(lambda_n - to_iterate_norm) / std::max(1.0, lambda_n) < 1e-2 && iter>2;
+    lambda_n = to_iterate_norm;
+    if (chatty) printf("Iter %2d: lambda_n = %11.4g\n", iter, lambda_n);
+    if (converged) break;
+    from_iterate = to_iterate;
+  }
+
+  ExperimentData experiment_data;
+  double lambda_1 = 0;
+  for (int iRow = 0; iRow < dim; iRow++)
+    from_iterate[iRow] = random.fraction();
+  for (int iter = 0; iter < 10; iter++) {
+    double from_iterate_norm = Norm2(from_iterate);
+    assert(from_iterate_norm>0);
+    VectorScale(from_iterate, 1/from_iterate_norm);
+    newtonSolve(matrix, theta, from_iterate, to_iterate, invert, experiment_data);
+    double to_iterate_norm = Norm2(to_iterate);
+    const bool converged = std::fabs(lambda_1 - to_iterate_norm) / std::max(1.0, lambda_1) < 1e-2 && iter>2;
+    lambda_1 = to_iterate_norm;
+    if (chatty) printf("Iter %2d: lambda_1 = %11.4g\n", iter, lambda_1);
+    if (converged) break;
+    from_iterate = to_iterate;
+  }
+  double condition = lambda_n / lambda_1;
+  if (chatty) printf("Condition = %g\n", condition);
+  
+  return condition;
+}
+		       
 bool increasingIndex(const HighsSparseMatrix& matrix) {
   if (matrix.isRowwise()) {
     for (int iRow = 0; iRow < matrix.num_row_; iRow++)

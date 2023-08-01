@@ -557,6 +557,7 @@ void IPM_caller::SolveNewtonSystem(const HighsSparseMatrix &highs_a,
       }
       int newton_solve_status = newtonSolve(highs_a, theta, res8, newton_delta_y, invert, experiment_data);
       if (first_call_with_theta) {
+	experiment_data.condition = newtonCondition(highs_a, theta, invert);
 	experiment_data_record.push_back(experiment_data);
       }
       

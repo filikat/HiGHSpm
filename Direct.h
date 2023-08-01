@@ -3,6 +3,7 @@
 
 #include "spral.h"
 #include "ExperimentData.h"
+#include "VectorOperations.h"
 #include "util/HighsSparseMatrix.h"
 
 struct SsidsData {
@@ -19,7 +20,7 @@ struct IpmInvert {
   int use_num_dense_col = 0;
   std::vector<int> dense_col;
   std::vector<double> theta_d;
-  std::vector<double> hatA;
+  std::vector<double> hatA_d;
   SsidsData ssids_data;
   int clear();
 };
@@ -52,6 +53,10 @@ int newtonSolve(const HighsSparseMatrix &highs_a,
 		std::vector<double> &lhs,
 		IpmInvert& invert,
 		ExperimentData& experiment_data);
+
+double newtonCondition(const HighsSparseMatrix& matrix,
+		       const std::vector<double>& theta,
+		       IpmInvert& invert);
 
 bool increasingIndex(const HighsSparseMatrix& matrix);
 void productAThetaAT(const HighsSparseMatrix& matrix,
