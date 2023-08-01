@@ -73,11 +73,12 @@ void augmentedSolve(const HighsSparseMatrix &highs_a,
 }
 
 int newtonInvert(const HighsSparseMatrix &highs_a,
-		const std::vector<double> &theta,
-		IpmInvert& invert,
-		const int option_max_dense_col,
-		const double option_dense_col_tolerance,
-		ExperimentData& experiment_data) {
+		 const std::vector<double> &theta,
+		 IpmInvert& invert,
+		 const int option_max_dense_col,
+		 const double option_dense_col_tolerance,
+		 ExperimentData& experiment_data,
+		 const bool quiet) {
   assert(!invert.valid);
   assert(highs_a.isColwise());
   const int system_size = highs_a.num_row_;
@@ -123,10 +124,14 @@ int newtonInvert(const HighsSparseMatrix &highs_a,
     max_sparse_col_density = density_index[use_num_dense_col].first;
   
   double max_density = double(col_max_nz)/ double(system_size);
-  printf("Problem has %d rows and %d columns (max nonzeros = %d; density = %g) with %d dense at a tolerance of %g\n",
-	 int(system_size), int(highs_a.num_col_),
-	 int(col_max_nz), max_density, int(model_num_dense_col), use_dense_col_tolerance);
-  analyseVectorValues(nullptr, "Column density", highs_a.num_col_, analyse_density);
+  if (!quiet) {
+    printf("Problem has %d rows and %d columns (max nonzeros = %d; density = %g) with %d dense at a tolerance of %g\n",
+	   int(system_size), int(highs_a.num_col_),
+	   int(col_max_nz), max_density, int(model_num_dense_col), use_dense_col_tolerance);
+    analyseVectorValues(nullptr, "Column density", highs_a.num_col_, analyse_density);
+  } else {
+    //  printf("Newton solve uses %d dense columns\n", use_num_dense_col);
+  }
 
   // Zero the entries of use_theta corresponding to dense columns
   for (int ix = 0; ix < use_num_dense_col; ix++) {

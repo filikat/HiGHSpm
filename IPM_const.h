@@ -1,10 +1,10 @@
 enum OptionNla {
   kOptionNlaMin = 0,
   kOptionNlaCg = kOptionNlaMin,
-  kOptionNlaAugmented,
-  kOptionNlaNewton,
-  kOptionNlaAugmentedCg,
-  kOptionNlaNewtonCg,
+  kOptionNlaAugmented, // 1
+  kOptionNlaNewton, // 2
+  kOptionNlaAugmentedCg, // 3
+  kOptionNlaNewtonCg, // 4
   kOptionNlaMax = kOptionNlaNewtonCg,
   kOptionNlaDefault = kOptionNlaCg
 };
@@ -12,7 +12,7 @@ enum OptionNla {
 enum OptionMaxDenseCol {
   kOptionMaxDenseColMin = 0,
   kOptionMaxDenseColMax = 100,
-  kOptionMaxDenseColDefault = 0//1
+  kOptionMaxDenseColDefault = 1
 };
 
 enum OptionPredCor {
@@ -24,7 +24,7 @@ enum OptionPredCor {
 };
 
 const double kOptionDenseColToleranceMin = 0;
-const double kOptionDenseColToleranceDefault = 1.1;//0.5;
+const double kOptionDenseColToleranceDefault = 0.5;
 const double kOptionDenseColToleranceMax = 1.1;
 
 const double kSolutionDiffTolerance = 1e-6;

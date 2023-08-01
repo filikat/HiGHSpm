@@ -43,7 +43,8 @@ int newtonInvert(const HighsSparseMatrix &highs_a,
 		 IpmInvert& invert,
 		 const int option_max_dense_col,
 		 const double option_dense_col_tolerance,
-		 ExperimentData& experiment_data);
+		 ExperimentData& experiment_data,
+		 const bool quiet = true);
 
 int newtonSolve(const HighsSparseMatrix &highs_a,
 		const std::vector<double> &theta,

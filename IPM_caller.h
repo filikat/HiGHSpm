@@ -38,6 +38,9 @@ public:
   double option_dense_col_tolerance = kOptionDenseColToleranceDefault;
   int option_predcor = kOptionPredCorDefault;
 
+  // Direct solver experiment data record
+  std::vector<ExperimentData> experiment_data_record;
+
   // ===================================================================================
   // LOAD THE PROBLEM
   // ===================================================================================

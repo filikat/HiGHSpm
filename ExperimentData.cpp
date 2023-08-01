@@ -78,6 +78,10 @@ std::ostream& operator<<(std::ostream& os, const ExperimentData& data) {
     << std::left << std::setw(text_width) << "L nnz: " 
     << std::right << std::setw(num_width) << data.nnz_L << " ("
     << std::right << std::fixed << l_density << "%)\n";
+  os << std::fixed;
+  os
+    << std::left << std::setw(text_width) << "fill-in: "
+    << std::right << std::setw(num_width) << data.fill_in_factor << "\n";
   os << std::scientific;
   os
     << std::left << std::setw(text_width) << "solution error: " 
@@ -85,11 +89,6 @@ std::ostream& operator<<(std::ostream& os, const ExperimentData& data) {
     << std::left << std::setw(text_width) << "rel (abs) residual error: " 
     << std::right << std::setw(num_width) << data.residual_error.second << " (" 
     << std::right << data.residual_error.first << ")\n";
-  os << std::fixed;
-  os
-    << std::left << std::setw(text_width) << "fill-in: "
-    << std::right << std::setw(num_width) << data.fill_in_factor << "\n";
-  
   os << std::fixed;
   os
     << std::left << std::setw(text_width) << "form time: " 
@@ -117,25 +116,56 @@ std::ostream& operator<<(std::ostream& os, const ExperimentData& data) {
 
 void writeDataToCSV(const std::vector<ExperimentData>& data, const std::string& filename)
 {
+    if (data.empty()) return;
+
     std::ofstream outputFile;
     outputFile.open(filename);
+
+    const int system_type = data[0].system_type;
+    outputFile << "Model,Num col, Num row,";
+    if (system_type == kSystemTypeNewton) 
+      outputFile << "max dense col,num dense col,dense col tolerance,";
+    outputFile << "System size\n";
+
+    outputFile << data[0].model_name << ",";
+    outputFile << data[0].model_num_col << ",";
+    outputFile << data[0].model_num_row << ",";
     
+    if (system_type == kSystemTypeNewton) {
+      outputFile << data[0].model_max_dense_col << ","; 
+      outputFile << data[0].model_num_dense_col << ","; 
+      outputFile << data[0].dense_col_tolerance << ",";
+    }
+    outputFile << data[0].system_size << "\n";
+
     // Write header
-    outputFile << "Decomposer,Model Name,Model Size,NNZ AAT,NNZ L,Solution Error,Residual Error,Fill in Factor,Time Taken, Analyse time, factorization time, solve time\n";
+    outputFile << "Decomposer,";
+    if (system_type == kSystemTypeNewton) {
+      outputFile << "Num dense col,System max dense col,AAT NNZ,";
+    } else {
+      outputFile << "System NNZ,";
+    }
+    outputFile << "NNZ L,Fill factor,Solution Error,Abs residual error,Rel residual error,";
+    outputFile << "Time Taken, Form time, Setup time, Analyse time, Factorization time, Solve time\n";
     
     // Write data
     for(const auto& experimentData : data)
     {
         outputFile << experimentData.decomposer << ",";
-        outputFile << experimentData.model_name << ",";
-        outputFile << experimentData.system_size << ",";
-        outputFile << experimentData.system_nnz << ",";
+	if (experimentData.system_type != system_type) break;
+	if (system_type == kSystemTypeNewton) {
+	  outputFile << experimentData.use_num_dense_col << ",";
+	  outputFile << experimentData.system_max_dense_col << ",";
+	}
+	outputFile << experimentData.system_nnz << ",";
         outputFile << experimentData.nnz_L << ",";
+        outputFile << experimentData.fill_in_factor << ",";
         outputFile << experimentData.solution_error << ",";
         outputFile << experimentData.residual_error.first << ",";
         outputFile << experimentData.residual_error.second << ",";
-        outputFile << experimentData.fill_in_factor << ",";
         outputFile << experimentData.time_taken << ",";
+        outputFile << experimentData.form_time << ",";
+        outputFile << experimentData.setup_time << ",";
         outputFile << experimentData.analysis_time << ",";
         outputFile << experimentData.factorization_time << ",";
         outputFile << experimentData.solve_time << "\n";
