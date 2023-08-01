@@ -122,30 +122,24 @@ void writeDataToCSV(const std::vector<ExperimentData>& data, const std::string& 
     outputFile.open(filename);
 
     const int system_type = data[0].system_type;
-    outputFile << "Model,Num col, Num row,";
-    if (system_type == kSystemTypeNewton) 
-      outputFile << "max dense col,num dense col,dense col tolerance,";
-    outputFile << "System size\n";
-
-    outputFile << data[0].model_name << ",";
-    outputFile << data[0].model_num_col << ",";
-    outputFile << data[0].model_num_row << ",";
-    
+    outputFile << "Model," << data[0].model_name << "\n";
+    outputFile << "Num col," << data[0].model_num_col << "\n";
+    outputFile << "Num row," << data[0].model_num_row << "\n";
     if (system_type == kSystemTypeNewton) {
-      outputFile << data[0].model_max_dense_col << ","; 
-      outputFile << data[0].model_num_dense_col << ","; 
-      outputFile << data[0].dense_col_tolerance << ",";
+      outputFile << "max dense col," << data[0].model_max_dense_col << "\n"; 
+      outputFile << "num dense col," << data[0].model_num_dense_col << "\n"; 
+      outputFile << "dense col tolerance," << data[0].dense_col_tolerance << "\n";
     }
-    outputFile << data[0].system_size << "\n";
+    outputFile << "System size," << data[0].system_size << "\n";
 
     // Write header
     outputFile << "Decomposer,";
     if (system_type == kSystemTypeNewton) {
-      outputFile << "Num dense col,System max dense col,AAT NNZ,";
+      outputFile << "Num dense col,System max dense col,AAT NNZ,(%),";
     } else {
-      outputFile << "System NNZ,";
+      outputFile << "System NNZ,(%),";
     }
-    outputFile << "NNZ L,Fill factor,Solution Error,Abs residual error,Rel residual error,";
+    outputFile << "NNZ L,(%),Fill factor,Solution Error,Abs residual error,Rel residual error,";
     outputFile << "Time Taken, Form time, Setup time, Analyse time, Factorization time, Solve time\n";
     
     // Write data
@@ -153,12 +147,20 @@ void writeDataToCSV(const std::vector<ExperimentData>& data, const std::string& 
     {
         outputFile << experimentData.decomposer << ",";
 	if (experimentData.system_type != system_type) break;
+	double float_dim = double(experimentData.system_size);
 	if (system_type == kSystemTypeNewton) {
 	  outputFile << experimentData.use_num_dense_col << ",";
 	  outputFile << experimentData.system_max_dense_col << ",";
 	}
 	outputFile << experimentData.system_nnz << ",";
+	const double system_density = float_dim ? 1e2 * double(experimentData.system_nnz) / (float_dim * float_dim) : -1;
+        outputFile << system_density << ",";
+	
         outputFile << experimentData.nnz_L << ",";
+	const double l_density = float_dim && experimentData.nnz_L >= 0 ?
+	  1e2 * double(experimentData.nnz_L) / (double(float_dim) * double(experimentData.system_size+1) * 0.5)
+	  : -1;
+        outputFile << l_density << ",";
         outputFile << experimentData.fill_in_factor << ",";
         outputFile << experimentData.solution_error << ",";
         outputFile << experimentData.residual_error.first << ",";
