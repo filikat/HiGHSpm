@@ -1,8 +1,8 @@
 #ifndef NORMALEQUATIONS_H
 #define NORMALEQUATIONS_H
 
-#include "util/HighsSparseMatrix.h"
 #include "VectorOperations.h"
+#include "util/HighsSparseMatrix.h"
 #include <vector>
 
 class NormalEquations {

@@ -1,10 +1,10 @@
 #ifndef EXPERIMENTDATA_H_
 #define EXPERIMENTDATA_H_
-#include <vector>
-#include <string>
-#include <iostream>
-#include <fstream>
 #include <cmath>
+#include <fstream>
+#include <iostream>
+#include <string>
+#include <vector>
 
 #include "Highs.h"
 
@@ -24,7 +24,7 @@ public:
   int use_num_dense_col;
   int system_type;
   int system_size;
-  //bool is_A_positive_definite;
+  // bool is_A_positive_definite;
   double system_max_dense_col;
   int system_nnz;
   int nnz_L;
@@ -33,7 +33,7 @@ public:
   double fill_in_factor;
   double condition;
 
-  //time
+  // time
   double time_taken;
   double form_time;
   double setup_time;
@@ -41,7 +41,7 @@ public:
   double factorization_time;
   double solve_time;
 
-  void reset(){
+  void reset() {
     decomposer = "na";
     model_num_col = kDataNotSet;
     model_num_row = kDataNotSet;
@@ -65,25 +65,22 @@ public:
     analysis_time = kDataNotSet;
     factorization_time = kDataNotSet;
     solve_time = kDataNotSet;
-    
   }
   void fillIn_LL();
   void fillIn_LDL();
-
 };
 
 double getWallTime();
 
-std::ostream& operator<<(std::ostream& os, const ExperimentData& data);
-void writeDataToCSV(const std::vector<ExperimentData>& data, const std::string& filename);
-std::pair<double, double> residualErrorAugmented(const HighsSparseMatrix& A, 
-					 const std::vector<double> &theta,
-					 const std::vector<double> &rhs_x,
-					 const std::vector<double> &rhs_y,
-					 std::vector<double> &lhs_x,
-					 std::vector<double> &lhs_y);
-std::pair<double, double> residualErrorNewton(const HighsSparseMatrix& A,
-				      const std::vector<double>& theta,
-				      const std::vector<double>& rhs,
-				      const std::vector<double>& lhs);
+std::ostream &operator<<(std::ostream &os, const ExperimentData &data);
+void writeDataToCSV(const std::vector<ExperimentData> &data,
+                    const std::string &filename);
+std::pair<double, double> residualErrorAugmented(
+    const HighsSparseMatrix &A, const std::vector<double> &theta,
+    const std::vector<double> &rhs_x, const std::vector<double> &rhs_y,
+    std::vector<double> &lhs_x, std::vector<double> &lhs_y);
+std::pair<double, double> residualErrorNewton(const HighsSparseMatrix &A,
+                                              const std::vector<double> &theta,
+                                              const std::vector<double> &rhs,
+                                              const std::vector<double> &lhs);
 #endif

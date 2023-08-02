@@ -2,7 +2,7 @@
 
 NormalEquations::NormalEquations(const HighsSparseMatrix &input_highs_a,
                                  const std::vector<double> &input_scaling)
-: highs_a{input_highs_a}, scaling{input_scaling} {}
+    : highs_a{input_highs_a}, scaling{input_scaling} {}
 
 void NormalEquations::Apply(const std::vector<double> &rhs,
                             std::vector<double> &lhs) const {

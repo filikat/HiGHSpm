@@ -1,10 +1,10 @@
 enum OptionNla {
   kOptionNlaMin = 0,
   kOptionNlaCg = kOptionNlaMin,
-  kOptionNlaAugmented, // 1
-  kOptionNlaNewton, // 2
+  kOptionNlaAugmented,   // 1
+  kOptionNlaNewton,      // 2
   kOptionNlaAugmentedCg, // 3
-  kOptionNlaNewtonCg, // 4
+  kOptionNlaNewtonCg,    // 4
   kOptionNlaMax = kOptionNlaNewtonCg,
   kOptionNlaDefault = kOptionNlaCg
 };
@@ -31,5 +31,3 @@ const double kSolutionDiffTolerance = 1e-6;
 
 const double kCgTolerance = 1e-12;
 const int kCgIterationLimit = 10000;
-
-
