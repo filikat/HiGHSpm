@@ -7,6 +7,7 @@ enum ArgC {
   kMinArgC = 2,
   kModelFileArg = 1,
   kOptionNlaArg,
+  kOptionPredCorArg,
   kOptionMaxDenseColArg,
   kOptionDenseColToleranceArg,
   kMaxArgC
@@ -15,7 +16,7 @@ enum ArgC {
 int main(int argc, char **argv) {
 
   if (argc < kMinArgC || argc > kMaxArgC) {
-    std::cerr << "======= How to use: ./ipm LP_name.mps nla_option max_dense_col_option dense_col_tolerance_option =======\n";
+    std::cerr << "======= How to use: ./ipm LP_name nla_option predcor_option max_dense_col_option dense_col_tolerance_option =======\n";
     return 1;
   }
 
@@ -26,7 +27,9 @@ int main(int argc, char **argv) {
   // Read LP using Highs MPS read
   Highs highs;
   highs.setOptionValue("output_flag", false);
-  HighsStatus status = highs.readModel(argv[kModelFileArg]);
+  std::string model = argv[kModelFileArg];
+  std::string model_file =  model + ".mps";
+  HighsStatus status = highs.readModel(model_file);
   assert(status == HighsStatus::kOk);
   HighsLp lp = highs.getLp();
 
@@ -149,6 +152,15 @@ int main(int argc, char **argv) {
     return 1;
   }
 
+  ipm.option_predcor = 
+    argc > kOptionPredCorArg ? atoi(argv[kOptionPredCorArg]) : kOptionPredCorDefault;
+  if (ipm.option_predcor < kOptionPredCorMin || ipm.option_predcor > kOptionPredCorMax) {
+    std::cerr << "Illegal value of " << ipm.option_predcor
+              << " for option_predcor: must be in [" << kOptionPredCorMin << ", "
+              << kOptionPredCorMax << "]\n";
+    return 1;
+  }
+
   ipm.option_max_dense_col =
       argc > kOptionMaxDenseColArg ? atoi(argv[kOptionMaxDenseColArg]) : kOptionMaxDenseColDefault;
   if (ipm.option_max_dense_col < kOptionMaxDenseColMin || ipm.option_max_dense_col > kOptionMaxDenseColMax) {
@@ -175,5 +187,12 @@ int main(int argc, char **argv) {
   // solve LP
   ipm.Solve();
 
+  if (!ipm.experiment_data_record.empty()) {
+    ipm.experiment_data_record[0].model_name = model;
+    ipm.experiment_data_record[0].model_num_col = lp.num_col_;
+    ipm.experiment_data_record[0].model_num_row = lp.num_row_;
+    std::string csv_file_name = model + "_direct.csv";
+    writeDataToCSV(ipm.experiment_data_record, csv_file_name);
+  }
   return 0;
 }

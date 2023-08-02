@@ -3,6 +3,13 @@
 #include <cmath>
 #include <iostream>
 
+void scaling2theta(const std::vector<double>&scaling, std::vector<double>&theta) {
+  const int dim = scaling.size();
+  theta.resize(dim);
+  for (int i = 0; i < dim; i++)
+    theta[i] = 1 / scaling[i];
+}
+
 // =======================================================================
 // LOAD THE PROBLEM
 // =======================================================================
@@ -176,20 +183,6 @@ Output IPM_caller::Solve() {
 
     ++iter;
 
-    // Heuristic to choose sigma
-    // (this is redundant once we implement predictor-corrector)
-    double sigma{};
-    if (iter == 1) {
-      sigma = sigma_i;
-    } else {
-      sigma = pow(std::max(1.0 - alpha_primal, 1.0 - alpha_dual), 5.0);
-      sigma = std::max(sigma, sigma_min);
-      sigma = std::min(sigma, sigma_max);
-    }
-
-    // Compute last two residuals with correct value of sigma
-    ComputeResiduals_56(sigma * mu, Res);
-
     // Compute diagonal scaling
     std::vector<double> scaling(n, 0.0);
     ComputeScaling(scaling);
@@ -197,11 +190,78 @@ Output IPM_caller::Solve() {
     // Initialize Newton direction
     NewtonDir Delta(m, n);
 
-    // Solve Newton system
-    SolveNewtonSystem(model.highs_a, scaling, Res, Delta);
+    if (option_predcor == 0) {
 
-    // Compute full Newton direction
-    RecoverDirection(Res, Delta);
+      bool isCorrector = false;
+
+      // Heuristic to choose sigma
+      double sigma{};
+      if (iter == 1) {
+        sigma = sigma_i;
+      } else {
+        sigma = pow(std::max(1.0 - alpha_primal, 1.0 - alpha_dual), 5.0);
+        sigma = std::max(sigma, sigma_min);
+        sigma = std::min(sigma, sigma_max);
+      }
+
+      // Compute last two residuals with correct value of sigma
+      ComputeResiduals_56(sigma * mu, Delta, isCorrector, Res);
+
+      // Solve Newton system
+      invert.clear();
+      SolveNewtonSystem(model.highs_a, scaling, Res, isCorrector, Delta);
+
+      // Compute full Newton direction
+      RecoverDirection(Res, isCorrector, Delta);
+
+    } else {
+
+      // *********************************************************************
+      // PREDICTOR
+      // *********************************************************************
+      bool isCorrector = false;
+
+      // Compute last two residuals for predictor
+      ComputeResiduals_56(0, Delta, isCorrector, Res);
+
+      // Solve Newton system for predictor
+      SolveNewtonSystem(model.highs_a, scaling, Res, isCorrector, Delta);
+
+      // Compute full Newton direction for predictor
+      RecoverDirection(Res, isCorrector, Delta);
+      // *********************************************************************
+
+      // *********************************************************************
+      // CORRECTOR
+      // *********************************************************************
+      isCorrector = true;
+
+      // Compute sigma based on the predictor
+      double sigma = ComputeSigmaCorrector(Delta, mu);
+
+      // Compute last two residuals for corrector
+      ComputeResiduals_56(sigma * mu, Delta, isCorrector, Res);
+
+      // Initialize corrector direction
+      NewtonDir DeltaCor(m, n);
+
+      // Solve Newton system for corrector
+      SolveNewtonSystem(model.highs_a, scaling, Res, isCorrector, DeltaCor);
+
+      // Compute full Newton direction for corrector
+      RecoverDirection(Res, isCorrector, DeltaCor);
+
+      // Add corrector to predictor
+      // (all these add can be avoided with a different implementation, but for
+      // now it works)
+      VectorAdd(Delta.x, DeltaCor.x, 1.0);
+      VectorAdd(Delta.y, DeltaCor.y, 1.0);
+      VectorAdd(Delta.xl, DeltaCor.xl, 1.0);
+      VectorAdd(Delta.xu, DeltaCor.xu, 1.0);
+      VectorAdd(Delta.zl, DeltaCor.zl, 1.0);
+      VectorAdd(Delta.zu, DeltaCor.zu, 1.0);
+      // *********************************************************************
+    }
 
     // Find step-sizes
     ComputeStepSizes(Delta, alpha_primal, alpha_dual);
@@ -266,7 +326,7 @@ void IPM_caller::ComputeResiduals_1234(Residuals &Res) {
 
   // res1
   Res.res1 = model.rhs;
-  model.highs_a.product(-1.0, It.x, Res.res1);
+  model.highs_a.alphaProductPlusY(-1.0, It.x, Res.res1);
 
   // res2
   for (int i = 0; i < n; ++i) {
@@ -288,7 +348,7 @@ void IPM_caller::ComputeResiduals_1234(Residuals &Res) {
 
   // res4
   Res.res4 = model.obj;
-  model.highs_a.product(-1.0, It.y, Res.res4, true);
+  model.highs_a.alphaProductPlusY(-1.0, It.y, Res.res4, true);
   for (int i = 0; i < n; ++i) {
     if (model.has_lb(i)) {
       Res.res4[i] -= It.zl[i];
@@ -302,23 +362,104 @@ void IPM_caller::ComputeResiduals_1234(Residuals &Res) {
   assert(!Res.isNaN());
 }
 
-void IPM_caller::ComputeResiduals_56(const double sigmaMu, Residuals &Res) {
-  for (int i = 0; i < n; ++i) {
+void IPM_caller::ComputeResiduals_56(const double sigmaMu,
+                                     const NewtonDir &DeltaAff,
+                                     bool isCorrector, Residuals &Res) {
 
-    // res5
-    if (model.has_lb(i)) {
-      Res.res5[i] = sigmaMu - It.xl[i] * It.zl[i];
-    } else {
-      Res.res5[i] = 0.0;
+  if (!isCorrector) {
+
+    for (int i = 0; i < n; ++i) {
+
+      // res5
+      if (model.has_lb(i)) {
+        Res.res5[i] = sigmaMu - It.xl[i] * It.zl[i];
+      } else {
+        Res.res5[i] = 0.0;
+      }
+
+      // res6
+      if (model.has_ub(i)) {
+        Res.res6[i] = sigmaMu - It.xu[i] * It.zu[i];
+      } else {
+        Res.res6[i] = 0.0;
+      }
     }
 
-    // res6
-    if (model.has_ub(i)) {
-      Res.res6[i] = sigmaMu - It.xu[i] * It.zu[i];
-    } else {
-      Res.res6[i] = 0.0;
+  } else {
+
+    for (int i = 0; i < n; ++i) {
+
+      // res5
+      if (model.has_lb(i)) {
+        Res.res5[i] = sigmaMu - DeltaAff.xl[i] * DeltaAff.zl[i];
+      } else {
+        Res.res5[i] = 0.0;
+      }
+
+      // res6
+      if (model.has_ub(i)) {
+        Res.res6[i] = sigmaMu - DeltaAff.xu[i] * DeltaAff.zu[i];
+      } else {
+        Res.res6[i] = 0.0;
+      }
     }
   }
+}
+
+std::vector<double> IPM_caller::ComputeResiduals_7(const Residuals &Res,
+                                                   bool isCorrector) {
+
+  std::vector<double> res7;
+
+  if (!isCorrector) {
+
+    res7 = Res.res4;
+    for (int i = 0; i < n; ++i) {
+      if (model.has_lb(i)) {
+        res7[i] -= ((Res.res5[i] + It.zl[i] * Res.res2[i]) / It.xl[i]);
+      }
+      if (model.has_ub(i)) {
+        res7[i] += ((Res.res6[i] - It.zu[i] * Res.res3[i]) / It.xu[i]);
+      }
+    }
+
+  } else {
+
+    res7.resize(n, 0.0);
+    for (int i = 0; i < n; ++i) {
+      if (model.has_lb(i)) {
+        res7[i] -= (Res.res5[i] / It.xl[i]);
+      }
+      if (model.has_ub(i)) {
+        res7[i] += (Res.res6[i] / It.xu[i]);
+      }
+    }
+  }
+
+  return res7;
+}
+
+std::vector<double> IPM_caller::ComputeResiduals_8(
+    const HighsSparseMatrix &highs_a, const std::vector<double> &scaling,
+    const Residuals &Res, const std::vector<double> &res7, bool isCorrector) {
+
+  std::vector<double> res8;
+
+  if (isCorrector) {
+    res8.resize(m, 0.0);
+  } else {
+    res8 = Res.res1;
+  }
+
+  std::vector<double> temp(res7);
+
+  // temp = Theta * res7
+  VectorDivide(temp, scaling);
+
+  // res8 += A * temp
+  highs_a.alphaProductPlusY(1.0, temp, res8);
+
+  return res8;
 }
 
 // =======================================================================
@@ -341,21 +482,11 @@ void IPM_caller::ComputeScaling(std::vector<double> &scaling) {
 // =======================================================================
 void IPM_caller::SolveNewtonSystem(const HighsSparseMatrix &highs_a,
                                    const std::vector<double> &scaling,
-                                   const Residuals &Res, NewtonDir &Delta) {
+                                   const Residuals &Res, bool isCorrector,
+                                   NewtonDir &Delta) {
 
-  // Compute res7
-  // *********************************************************************
-  std::vector<double> res7(Res.res4);
-
-  for (int i = 0; i < n; ++i) {
-    if (model.has_lb(i)) {
-      res7[i] -= ((Res.res5[i] + It.zl[i] * Res.res2[i]) / It.xl[i]);
-    }
-    if (model.has_ub(i)) {
-      res7[i] += ((Res.res6[i] - It.zu[i] * Res.res3[i]) / It.xu[i]);
-    }
-  }
-  // *********************************************************************
+  // Compute residual 7
+  std::vector<double> res7{ComputeResiduals_7(Res, isCorrector)};
 
   // Identify whether CG should be used
   const bool use_cg = option_nla == kOptionNlaCg ||
@@ -368,11 +499,11 @@ void IPM_caller::SolveNewtonSystem(const HighsSparseMatrix &highs_a,
   const bool use_direct_newton =
       option_nla == kOptionNlaNewton || option_nla == kOptionNlaNewtonCg;
   // Shouldn't be trying to solve both the augmented and Newton system!
-  assert(use_direct_augmented || !use_direct_newton);
+  assert(!use_direct_augmented || !use_direct_newton);
 
   // Until the direct solvers are implemented correctly, the IPM
   // solver is driven by CG, so check for this
-  assert(use_cg);
+  //  assert(use_cg);
 
   // Identify whether the CG result should be used to check the result
   // obtained using the direct solver
@@ -388,38 +519,57 @@ void IPM_caller::SolveNewtonSystem(const HighsSparseMatrix &highs_a,
     //
     // A.scaling.A^T Delta.y = res8
     //
+
     // Compute res8
-    // *********************************************************************
-    std::vector<double> res8(Res.res1);
-    std::vector<double> temp(res7);
-
-    // temp = Theta * res7
-    VectorDivide(temp, scaling);
-
-    // res8 += A * temp
-    highs_a.product(1.0, temp, res8);
-    temp.clear();
-    // *********************************************************************
+    std::vector<double> res8{
+        ComputeResiduals_8(highs_a, scaling, Res, res7, isCorrector)};
 
     // Solve normal equations
+    //
     // Currently this is done using Conjugate Gradient. The solution for
     // Delta.y can be substituted with a positive definite factorization.
     //
     if (use_cg) {
       NormalEquations N(highs_a, scaling);
-      CG_solve(N, res8, kCgTolerance, kCgInterationLimit, Delta.y, nullptr);
+      CG_solve(N, res8, kCgTolerance, kCgIterationLimit, Delta.y, nullptr);
+      const bool compute_residual_error = false;
+      if (compute_residual_error) {
+	std::vector<double>theta;
+	scaling2theta(scaling, theta);
+	std::pair<double, double> residual_error = residualErrorNewton(highs_a, theta, res8, Delta.y);
+	if (residual_error.first > 1e-12)
+	  printf("CG solve abs (rel) residual error = %g (%g)\n", residual_error.first, residual_error.second);
+      }
     }
     if (use_direct_newton) {
+      std::vector<double>theta;
+      scaling2theta(scaling, theta);
       // Solve the Newton system directly into newton_delta_y
       std::vector<double> newton_delta_y;
       newton_delta_y.assign(m, 0);
-      newtonSolve(highs_a, scaling, res8, newton_delta_y,
-		  option_max_dense_col, option_dense_col_tolerance);
+      ExperimentData experiment_data;
+      const bool first_call_with_theta = !invert.valid;
+      if (first_call_with_theta) {
+	int newton_invert_status = newtonInvert(highs_a, theta, invert,
+						option_max_dense_col,
+						option_dense_col_tolerance,
+						experiment_data);
+	assert(!newton_invert_status);
+      }
+      int newton_solve_status = newtonSolve(highs_a, theta, res8, newton_delta_y, invert, experiment_data);
+      if (first_call_with_theta) {
+	experiment_data.condition = newtonCondition(highs_a, theta, invert);
+	experiment_data_record.push_back(experiment_data);
+      }
+      
+      assert(!newton_solve_status);
       if (check_with_cg) {
         double inf_norm_solution_diff = infNormDiff(newton_delta_y, Delta.y);
         if (inf_norm_solution_diff > kSolutionDiffTolerance) {
           std::cout << "Newton Direct-CG solution error = "
                     << inf_norm_solution_diff << "\n";
+	  std::cout << experiment_data << "\n";
+	  assert(111==333);
         }
       }
       if (!use_cg) {
@@ -432,29 +582,81 @@ void IPM_caller::SolveNewtonSystem(const HighsSparseMatrix &highs_a,
     // *********************************************************************
     // Deltax = A^T * Deltay - res7;
     Delta.x = res7;
-    highs_a.product(-1.0, Delta.y, Delta.x, true);
+    highs_a.alphaProductPlusY(-1.0, Delta.y, Delta.x, true);
     VectorScale(Delta.x, -1.0);
 
     // Deltax = Theta * Deltax
     VectorDivide(Delta.x, scaling);
     // *********************************************************************
-  } else {
-    assert(1 == 0);
+  }
+  if (use_direct_augmented) {
+    // Solve augmented system directly
+    std::vector<double>theta;
+    scaling2theta(scaling, theta);
+    std::vector<double> augmented_delta_x;
+    augmented_delta_x.assign(n, 0);
+    std::vector<double> augmented_delta_y;
+    augmented_delta_y.assign(m, 0);
+    ExperimentData experiment_data;
+    const bool first_call_with_theta = !invert.valid;
+    if (first_call_with_theta) {
+      int augmented_invert_status =
+	augmentedInvert(highs_a, theta, invert, experiment_data);
+      assert(!augmented_invert_status);
+    }
+    augmentedSolve(highs_a, theta, res7, Res.res1,
+		   augmented_delta_x, augmented_delta_y, invert, experiment_data);
+    experiment_data.time_taken += experiment_data.solve_time;
+    if (first_call_with_theta) {
+      experiment_data.condition = augmentedCondition(highs_a, theta, invert);
+      experiment_data_record.push_back(experiment_data);
+    }
+    if (check_with_cg) {
+      double inf_norm_solution_diff = infNormDiff(augmented_delta_x, Delta.x);
+      if (inf_norm_solution_diff > kSolutionDiffTolerance) {
+	std::cout << "Augmented Direct-CG solution error for Delta.x = "
+		  << inf_norm_solution_diff << "\n";
+	std::cout << experiment_data << "\n";
+	assert(111==333);
+      }
+      inf_norm_solution_diff = infNormDiff(augmented_delta_y, Delta.y);
+      if (inf_norm_solution_diff > kSolutionDiffTolerance) {
+	std::cout << "Augmented Direct-CG solution error for Delta.y = "
+		  << inf_norm_solution_diff << "\n";
+	std::cout << experiment_data << "\n";
+	assert(111==333);
+      }
+    }
+    if (!use_cg) {
+      // Once CG is not being used, use the augmented solution for dx and dy
+      Delta.x = augmented_delta_x;
+      Delta.y = augmented_delta_y;
+    }   
   }
 }
 
 // =======================================================================
 // FULL NEWTON DIRECTION
 // =======================================================================
-void IPM_caller::RecoverDirection(const Residuals &Res, NewtonDir &Delta) {
+void IPM_caller::RecoverDirection(const Residuals &Res, bool isCorrector,
+                                  NewtonDir &Delta) {
 
-  // Deltaxl
-  Delta.xl = Delta.x;
-  VectorAdd(Delta.xl, Res.res2, -1.0);
+  if (!isCorrector) {
+    // Deltaxl
+    Delta.xl = Delta.x;
+    VectorAdd(Delta.xl, Res.res2, -1.0);
 
-  // Deltaxu
-  Delta.xu = Res.res3;
-  VectorAdd(Delta.xu, Delta.x, -1.0);
+    // Deltaxu
+    Delta.xu = Res.res3;
+    VectorAdd(Delta.xu, Delta.x, -1.0);
+  } else {
+    // Deltaxl
+    Delta.xl = Delta.x;
+
+    // Deltaxu
+    Delta.xu = Delta.x;
+    VectorScale(Delta.xu, -1.0);
+  }
 
   // Deltazl
   Delta.zl = Res.res5;
@@ -519,7 +721,7 @@ void IPM_caller::ComputeStartingPoint() {
 
   // use y to store b-A*x
   It.y = model.rhs;
-  model.highs_a.product(-1.0, It.x, It.y);
+  model.highs_a.alphaProductPlusY(-1.0, It.x, It.y);
 
   // solve A*A^T * dx = b-A*x with CG and store the result in temp_m
   std::vector<double> temp_scaling(n, 1.0);
@@ -532,7 +734,7 @@ void IPM_caller::ComputeStartingPoint() {
 
   // compute dx = A^T * (A*A^T)^{-1} * (b-A*x) and store the result in xl
   std::fill(It.xl.begin(), It.xl.end(), 0.0);
-  model.highs_a.product(1.0, temp_m, It.xl, true);
+  model.highs_a.alphaProductPlusY(1.0, temp_m, It.xl, true);
 
   // x += dx;
   VectorAdd(It.x, It.xl, 1.0);
@@ -562,7 +764,7 @@ void IPM_caller::ComputeStartingPoint() {
   // *********************************************************************
   // compute A*c
   std::fill(temp_m.begin(), temp_m.end(), 0.0);
-  model.highs_a.product(1.0, model.obj, temp_m);
+  model.highs_a.alphaProductPlusY(1.0, model.obj, temp_m);
 
   // compute (A*A^T)^{-1} * A*c and store in y
   CG_solve(N, temp_m, 1e-4, 100, It.y, &cg_iter);
@@ -575,7 +777,7 @@ void IPM_caller::ComputeStartingPoint() {
   // *********************************************************************
   // compute c - A^T * y and store in zl
   It.zl = model.obj;
-  model.highs_a.product(-1.0, It.y, It.zl, true);
+  model.highs_a.alphaProductPlusY(-1.0, It.y, It.zl, true);
 
   // split result between zl and zu
   violation = 0.0;
@@ -645,3 +847,32 @@ void IPM_caller::ComputeStartingPoint() {
   // *********************************************************************
 }
 
+double IPM_caller::ComputeSigmaCorrector(const NewtonDir &DeltaAff, double mu) {
+
+  // stepsizes of predictor direction
+  double alpha_p{};
+  double alpha_d{};
+  ComputeStepSizes(DeltaAff, alpha_p, alpha_d);
+
+  // mu using predictor direction
+  double mu_aff = 0.0;
+  int number_finite_bounds{};
+  for (int i = 0; i < n; ++i) {
+    if (model.has_lb(i)) {
+      mu_aff += (It.xl[i] + alpha_p * DeltaAff.xl[i]) *
+                (It.zl[i] + alpha_d * DeltaAff.zl[i]);
+      ++number_finite_bounds;
+    }
+    if (model.has_ub(i)) {
+      mu_aff += (It.xu[i] + alpha_p * DeltaAff.xu[i]) *
+                (It.zu[i] + alpha_d * DeltaAff.zu[i]);
+      ++number_finite_bounds;
+    }
+  }
+  mu_aff /= number_finite_bounds;
+
+  // heuristic to choose sigma
+  double ratio = mu_aff / mu;
+
+  return ratio * ratio * ratio;
+}

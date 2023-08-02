@@ -7,8 +7,8 @@
 #include "IPM_const.h"
 #include "IPM_model.h"
 #include "NormalEquations.h"
-#include "util/HighsSparseMatrix.h"
 #include "VectorOperations.h"
+#include "util/HighsSparseMatrix.h"
 
 class IPM_caller {
 
@@ -16,6 +16,7 @@ class IPM_caller {
   int m{};
   int n{};
   bool model_ready{false};
+  IpmInvert invert;
 
   // IPM parameters
   const double sigma_i = 0.5;
@@ -35,6 +36,10 @@ public:
   int option_max_dense_col = kOptionMaxDenseColDefault;
   double option_ipm_tolerance = 1e-6;
   double option_dense_col_tolerance = kOptionDenseColToleranceDefault;
+  int option_predcor = kOptionPredCorDefault;
+
+  // Direct solver experiment data record
+  std::vector<ExperimentData> experiment_data_record;
 
   // ===================================================================================
   // LOAD THE PROBLEM
@@ -111,15 +116,64 @@ private:
   //  res5 = sigma * mu * e - Xl * Zl * e
   //  res6 = sigma * mu * e - Xu * Zu * e
   //
+  //  Or
+  //
+  //  res5 = sigma * mu * e - D_aff Xl * D_aff Zl * e
+  //  res6 = sigma * mu * e - D_aff Xu * D_aff Zu * e
+  //
   // Components of residuals 5,6 are set to zero if the corresponding
   // upper/lower bound is not finite.
   //
   // ===================================================================================
   void ComputeResiduals_56(
       // INPUT
-      const double sigmaMu, // sigma * mu
+      const double sigmaMu,      // sigma * mu
+      const NewtonDir &DeltaAff, // affine scaling direction (if corrector)
+      bool isCorrector,          // true if corrector, false if predictor
       // OUTPUT
       Residuals &Res // residuals
+  );
+
+  // ===================================================================================
+  // COMPUTE RESIDUAL 7
+  // ===================================================================================
+  // Compute:
+  //
+  //  res7 = res4 - Xl^{-1} * (res5 + Zl * res2) + Xu^{-1} * (res6 - Zu * res3)
+  //
+  //  Or
+  //
+  //  res7 = - Xl^{-1} * res5 + Xu^{-1} * res6
+  //
+  // (the computation of res7 takes into account only the components for which
+  // the correspoding upper/lower bounds are finite)
+  //
+  // ===================================================================================
+  std::vector<double> ComputeResiduals_7(
+      // INPUT
+      const Residuals &Res,    // residuals
+      bool isCorrector = false // true if corrector, false is predictor
+  );
+
+  // ===================================================================================
+  // COMPUTE RESIDUAL 8
+  // ===================================================================================
+  // Compute:
+  //
+  //  res8 = res1 + A * Theta * res7
+  //
+  //  Or
+  //
+  //  res8 = A * Theta * res7
+  //
+  // ===================================================================================
+  std::vector<double> ComputeResiduals_8(
+      // INPUT
+      const HighsSparseMatrix &highs_a,   // constraint matrix
+      const std::vector<double> &scaling, // scaling vector
+      const Residuals &Res,               // residuals
+      const std::vector<double> &res7,    // residual 7
+      bool isCorrector = false // true if corrector, false is predictor
   );
 
   // ===================================================================================
@@ -176,6 +230,7 @@ private:
       const HighsSparseMatrix &highs_a,   // constraint matrix
       const std::vector<double> &scaling, // diagonal scaling, length n
       const Residuals &Res,               // current residuals
+      bool isCorrector, // true if corrector, false if predictor
       // OUTPUT
       NewtonDir &Delta // Newton direction
   );
@@ -194,6 +249,7 @@ private:
   void RecoverDirection(
       // INPUT
       const Residuals &Res, // current residuals
+      bool isCorrector,     // true if corrector, false if predictor
       // OUTPUT
       NewtonDir &Delta // Newton directions
   );
@@ -235,6 +291,25 @@ private:
   //
   // ===================================================================================
   void ComputeStartingPoint();
+
+  // ===================================================================================
+  // COMPUTE SIGMA FOR CORRECTOR
+  // ===================================================================================
+  //  Given the predictor direction, compute predicted mu
+  //    mu_aff = (xl + alpha_p * DeltaAff xl)' * (zl + alpha_d * DeltaAff zl) +
+  //             (xu + alpha_p * DeltaAff xu)' * (zu + alpha_d * DeltaAff zu)
+  //    mu_aff /= num_finite_bounds
+  //
+  //  and return sigma for the corrector direction
+  //    sigma = ( mu_aff / mu )^3
+  //
+  // ===================================================================================
+
+  double ComputeSigmaCorrector(
+      // INPUT
+      const NewtonDir &DeltaAff, // Predictor Newton direction
+      double mu                  // mu of previous iteration
+  );
 };
 
 #endif
