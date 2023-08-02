@@ -39,6 +39,10 @@ void augmentedSolve(const HighsSparseMatrix &highs_a,
 		   IpmInvert& invert,
 		   ExperimentData& experiment_data);
 
+double augmentedCondition(const HighsSparseMatrix& matrix,
+			  const std::vector<double>& theta,
+			  IpmInvert& invert);
+
 int newtonInvert(const HighsSparseMatrix &highs_a,
 		 const std::vector<double> &theta,
 		 IpmInvert& invert,

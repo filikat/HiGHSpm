@@ -57,6 +57,17 @@ double Norm2(const std::vector<double> &x) {
   return std::sqrt(norm);
 }
 
+double Norm2(const std::vector<double> &x0, const std::vector<double> &x1) {
+  double norm{};
+  for (int i = 0; i < x0.size(); ++i) {
+    norm += (x0[i] * x0[i]);
+  }
+  for (int i = 0; i < x1.size(); ++i) {
+    norm += (x1[i] * x1[i]);
+  }
+  return std::sqrt(norm);
+}
+
 double infNormDiff(const std::vector<double> &x, const std::vector<double> &y) {
   assert(x.size() == y.size());
   double inf_norm_diff = 0;

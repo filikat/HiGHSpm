@@ -36,9 +36,8 @@ int callNewtonSolve(const HighsSparseMatrix &highs_a,
   for (int ix = 0; ix < y_dim; ix++)
     solution_error = std::max(std::fabs(exact_sol[ix] - lhs[ix]), solution_error);
   experiment_data.solution_error = solution_error;
-  
+  experiment_data.condition = newtonCondition(highs_a, theta, invert);
   std::cout << experiment_data << "\n";
-  double newton_condition = newtonCondition(highs_a, theta, invert);
   return 0;
 }
 
@@ -110,7 +109,7 @@ int main() {
   std::vector<double> rhs_y;
   matrix.product(rhs_y, x_star);
 
-  const bool augmented_solve = false;//true;
+  const bool augmented_solve = true;
   const bool newton_solve = true;
   assert(augmented_solve || newton_solve);
   if (augmented_solve) {
@@ -141,6 +140,7 @@ int main() {
     for (int ix = 0; ix < y_dim; ix++)
       solution_error = std::max(std::fabs(y_star[ix] - lhs_y[ix]), solution_error);
     experiment_data.solution_error = solution_error;
+    experiment_data.condition = augmentedCondition(matrix, theta, invert);
     std::cout << experiment_data << "\n";
     invert.clear();
   }

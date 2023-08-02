@@ -57,8 +57,8 @@ void augmentedSolve(const HighsSparseMatrix &highs_a,
     rhs.push_back(rhs_x[iCol]);
   for (int iRow = 0; iRow < highs_a.num_row_; iRow++)
     rhs.push_back(rhs_y[iRow]);
-  
-  callSsidsSolve(experiment_data.system_size, 1, rhs.data(), ssids_data);
+  int system_size = highs_a.num_col_ + highs_a.num_row_;
+  callSsidsSolve(system_size, 1, rhs.data(), ssids_data);
   experiment_data.solve_time = getWallTime() - start_time;
 
   lhs_x.resize( highs_a.num_col_);
@@ -72,6 +72,79 @@ void augmentedSolve(const HighsSparseMatrix &highs_a,
 
 }
 
+double augmentedCondition(const HighsSparseMatrix& matrix,
+			  const std::vector<double>& theta,
+			  IpmInvert& invert) {
+  assert(invert.valid);
+  SsidsData& ssids_data = invert.ssids_data;
+  const bool chatty = false;
+
+  // Get the largest eigenvalue by power method
+  const double x_dim = matrix.num_col_;
+  const double y_dim = matrix.num_row_;
+  std::vector<double> from_x_iterate(x_dim);
+  std::vector<double> to_x_iterate(x_dim);
+  std::vector<double> from_y_iterate(y_dim);
+  std::vector<double> to_y_iterate(y_dim);
+  HighsRandom random;
+  double lambda_n = 0;
+  for (int iRow = 0; iRow < x_dim; iRow++)
+    from_x_iterate[iRow] = random.fraction();
+  for (int iRow = 0; iRow < y_dim; iRow++)
+    from_y_iterate[iRow] = random.fraction();
+  for (int iter = 0; iter < 10; iter++) {
+    double from_iterate_norm = Norm2(from_x_iterate, from_y_iterate);
+    assert(from_iterate_norm>0);
+    VectorScale(from_x_iterate, 1/from_iterate_norm);
+    VectorScale(from_y_iterate, 1/from_iterate_norm);
+    
+    std::vector<double> ATy;
+    matrix.productTranspose(ATy, from_y_iterate);
+    std::vector<double> Ax;
+    matrix.product(Ax, from_x_iterate);
+    for (int ix = 0; ix < x_dim; ix++) {
+      const double theta_i = !theta.empty() ? theta[ix] : 1;
+      to_x_iterate[ix] = -1/theta_i * from_x_iterate[ix] + ATy[ix];
+    }
+    to_y_iterate = Ax;
+    
+    double to_iterate_norm = Norm2(to_x_iterate, to_y_iterate);
+    const bool converged = std::fabs(lambda_n - to_iterate_norm) / std::max(1.0, lambda_n) < 1e-2 && iter>2;
+    lambda_n = to_iterate_norm;
+    if (chatty) printf("Iter %2d: lambda_n = %11.4g\n", iter, lambda_n);
+    if (converged) break;
+    from_x_iterate = to_x_iterate;
+    from_y_iterate = to_y_iterate;
+  }
+
+  ExperimentData experiment_data;
+  double lambda_1 = 0;
+  for (int iRow = 0; iRow < x_dim; iRow++)
+    from_x_iterate[iRow] = random.fraction();
+  for (int iRow = 0; iRow < y_dim; iRow++)
+    from_y_iterate[iRow] = random.fraction();
+  for (int iter = 0; iter < 10; iter++) {
+    double from_iterate_norm = Norm2(from_x_iterate, from_y_iterate);
+    assert(from_iterate_norm>0);
+    VectorScale(from_x_iterate, 1/from_iterate_norm);
+    VectorScale(from_y_iterate, 1/from_iterate_norm);
+
+    augmentedSolve(matrix, theta, from_x_iterate, from_y_iterate, to_x_iterate, to_y_iterate, invert, experiment_data);
+
+    double to_iterate_norm = Norm2(to_x_iterate, to_y_iterate);
+    const bool converged = std::fabs(lambda_1 - to_iterate_norm) / std::max(1.0, lambda_1) < 1e-2 && iter>2;
+    lambda_1 = to_iterate_norm;
+    if (chatty) printf("Iter %2d: lambda_1 = %11.4g\n", iter, lambda_1);
+    if (converged) break;
+    from_x_iterate = to_x_iterate;
+    from_y_iterate = to_y_iterate;
+  }
+  double condition = lambda_n / lambda_1;
+  if (chatty) printf("Condition = %g\n", condition);
+  
+  return condition;
+}
+		       
 int newtonInvert(const HighsSparseMatrix &highs_a,
 		 const std::vector<double> &theta,
 		 IpmInvert& invert,
