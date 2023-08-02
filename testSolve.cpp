@@ -10,21 +10,22 @@ bool infNormDiffOk(const std::vector<double> x0, const std::vector<double> x1) {
 }
 
 int callNewtonSolve(const HighsSparseMatrix &highs_a,
-		      const std::vector<double> &theta,
-		      const std::vector<double> &rhs,
-		      const std::vector<double> &exact_sol,
-		      const int option_max_dense_col,
-		      const double option_dense_col_tolerance) {
+                    const std::vector<double> &theta,
+                    const std::vector<double> &rhs,
+                    const std::vector<double> &exact_sol,
+                    const int option_max_dense_col,
+                    const double option_dense_col_tolerance) {
   ExperimentData experiment_data;
   const int x_dim = highs_a.num_col_;
   const int y_dim = highs_a.num_row_;
   std::vector<double> lhs(y_dim);
   IpmInvert invert;
-  int newton_status = newtonInvert(highs_a, theta, invert,
-				  option_max_dense_col, option_dense_col_tolerance, experiment_data);
-  newton_status = newtonSolve(highs_a, theta, rhs, lhs, invert, experiment_data);
+  int newton_status = newtonInvert(highs_a, theta, invert, option_max_dense_col,
+                                   option_dense_col_tolerance, experiment_data);
+  newton_status =
+      newtonSolve(highs_a, theta, rhs, lhs, invert, experiment_data);
   experiment_data.time_taken += experiment_data.solve_time;
- 
+
   experiment_data.model_num_col = x_dim;
   experiment_data.model_num_row = y_dim;
   if (newton_status) {
@@ -34,7 +35,8 @@ int callNewtonSolve(const HighsSparseMatrix &highs_a,
   }
   double solution_error = 0;
   for (int ix = 0; ix < y_dim; ix++)
-    solution_error = std::max(std::fabs(exact_sol[ix] - lhs[ix]), solution_error);
+    solution_error =
+        std::max(std::fabs(exact_sol[ix] - lhs[ix]), solution_error);
   experiment_data.solution_error = solution_error;
   experiment_data.condition = newtonCondition(highs_a, theta, invert);
   std::cout << experiment_data << "\n";
@@ -73,10 +75,11 @@ int main() {
   }
   matrix.ensureColwise();
   HighsRandom random;
-  const bool unit_solution = true;//false;
-  double theta_random_mu = 1e-3;//1e2;
+  const bool unit_solution = true; // false;
+  double theta_random_mu = 1e-3;   // 1e2;
   std::vector<double> theta;
-  for (int ix = 0; ix < x_dim; ix++) theta.push_back(1.0 + theta_random_mu*random.fraction());
+  for (int ix = 0; ix < x_dim; ix++)
+    theta.push_back(1.0 + theta_random_mu * random.fraction());
 
   // Test solution of
   //
@@ -88,7 +91,7 @@ int main() {
   // A\Theta.A^T y_star = rhs_y + A\Theta.rhs_x
   //
   // before substituting x_star = \Theta(A^Ty_star - rhs_x)
-  
+
   std::vector<double> x_star(x_dim);
   for (int ix = 0; ix < x_dim; ix++)
     x_star[ix] = unit_solution ? 1 : random.fraction();
@@ -120,13 +123,14 @@ int main() {
     ExperimentData experiment_data;
     IpmInvert invert;
 
-    int augmented_status = augmentedInvert(matrix, theta, invert, experiment_data);
+    int augmented_status =
+        augmentedInvert(matrix, theta, invert, experiment_data);
     if (augmented_status) {
       invert.clear();
       return 1;
     }
-    augmentedSolve(matrix, theta, rhs_x, rhs_y,
-		   lhs_x, lhs_y, invert, experiment_data);
+    augmentedSolve(matrix, theta, rhs_x, rhs_y, lhs_x, lhs_y, invert,
+                   experiment_data);
     experiment_data.time_taken += experiment_data.solve_time;
     experiment_data.model_num_col = x_dim;
     experiment_data.model_num_row = y_dim;
@@ -136,9 +140,11 @@ int main() {
     }
     double solution_error = 0;
     for (int ix = 0; ix < x_dim; ix++)
-      solution_error = std::max(std::fabs(x_star[ix] - lhs_x[ix]), solution_error);
+      solution_error =
+          std::max(std::fabs(x_star[ix] - lhs_x[ix]), solution_error);
     for (int ix = 0; ix < y_dim; ix++)
-      solution_error = std::max(std::fabs(y_star[ix] - lhs_y[ix]), solution_error);
+      solution_error =
+          std::max(std::fabs(y_star[ix] - lhs_y[ix]), solution_error);
     experiment_data.solution_error = solution_error;
     experiment_data.condition = augmentedCondition(matrix, theta, invert);
     std::cout << experiment_data << "\n";
@@ -150,14 +156,18 @@ int main() {
     //
     // Form rhs_newton == rhs_y + A\Theta.rhs_x
     std::vector<double> theta_rhs_x = rhs_x;
-    for (int ix = 0; ix < x_dim; ix++) theta_rhs_x[ix] *= theta[ix];
+    for (int ix = 0; ix < x_dim; ix++)
+      theta_rhs_x[ix] *= theta[ix];
     std::vector<double> a_theta_rhs_x;
     matrix.product(a_theta_rhs_x, theta_rhs_x);
     std::vector<double> rhs_newton = rhs_y;
-    for (int ix = 0; ix < y_dim; ix++) rhs_newton[ix] += a_theta_rhs_x[ix];
-    
-    int newton_status = callNewtonSolve(matrix, theta, rhs_newton, y_star, 0, 1.1);
-    if (newton_status) return 1;
+    for (int ix = 0; ix < y_dim; ix++)
+      rhs_newton[ix] += a_theta_rhs_x[ix];
+
+    int newton_status =
+        callNewtonSolve(matrix, theta, rhs_newton, y_star, 0, 1.1);
+    if (newton_status)
+      return 1;
     /*
     newton_status = callNewtonSolve(matrix, theta, rhs_newton, y_star, 4, 0.4);
     if (newton_status) return 1;
@@ -169,4 +179,3 @@ int main() {
   }
   return 0;
 }
-

@@ -3,7 +3,8 @@
 #include <cmath>
 #include <iostream>
 
-void scaling2theta(const std::vector<double>&scaling, std::vector<double>&theta) {
+void scaling2theta(const std::vector<double> &scaling,
+                   std::vector<double> &theta) {
   const int dim = scaling.size();
   theta.resize(dim);
   for (int i = 0; i < dim; i++)
@@ -534,15 +535,17 @@ void IPM_caller::SolveNewtonSystem(const HighsSparseMatrix &highs_a,
       CG_solve(N, res8, kCgTolerance, kCgIterationLimit, Delta.y, nullptr);
       const bool compute_residual_error = false;
       if (compute_residual_error) {
-	std::vector<double>theta;
-	scaling2theta(scaling, theta);
-	std::pair<double, double> residual_error = residualErrorNewton(highs_a, theta, res8, Delta.y);
-	if (residual_error.first > 1e-12)
-	  printf("CG solve abs (rel) residual error = %g (%g)\n", residual_error.first, residual_error.second);
+        std::vector<double> theta;
+        scaling2theta(scaling, theta);
+        std::pair<double, double> residual_error =
+            residualErrorNewton(highs_a, theta, res8, Delta.y);
+        if (residual_error.first > 1e-12)
+          printf("CG solve abs (rel) residual error = %g (%g)\n",
+                 residual_error.first, residual_error.second);
       }
     }
     if (use_direct_newton) {
-      std::vector<double>theta;
+      std::vector<double> theta;
       scaling2theta(scaling, theta);
       // Solve the Newton system directly into newton_delta_y
       std::vector<double> newton_delta_y;
@@ -550,26 +553,26 @@ void IPM_caller::SolveNewtonSystem(const HighsSparseMatrix &highs_a,
       ExperimentData experiment_data;
       const bool first_call_with_theta = !invert.valid;
       if (first_call_with_theta) {
-	int newton_invert_status = newtonInvert(highs_a, theta, invert,
-						option_max_dense_col,
-						option_dense_col_tolerance,
-						experiment_data);
-	assert(!newton_invert_status);
+        int newton_invert_status =
+            newtonInvert(highs_a, theta, invert, option_max_dense_col,
+                         option_dense_col_tolerance, experiment_data);
+        assert(!newton_invert_status);
       }
-      int newton_solve_status = newtonSolve(highs_a, theta, res8, newton_delta_y, invert, experiment_data);
+      int newton_solve_status = newtonSolve(
+          highs_a, theta, res8, newton_delta_y, invert, experiment_data);
       if (first_call_with_theta) {
-	experiment_data.condition = newtonCondition(highs_a, theta, invert);
-	experiment_data_record.push_back(experiment_data);
+        experiment_data.condition = newtonCondition(highs_a, theta, invert);
+        experiment_data_record.push_back(experiment_data);
       }
-      
+
       assert(!newton_solve_status);
       if (check_with_cg) {
         double inf_norm_solution_diff = infNormDiff(newton_delta_y, Delta.y);
         if (inf_norm_solution_diff > kSolutionDiffTolerance) {
           std::cout << "Newton Direct-CG solution error = "
                     << inf_norm_solution_diff << "\n";
-	  std::cout << experiment_data << "\n";
-	  assert(111==333);
+          std::cout << experiment_data << "\n";
+          assert(111 == 333);
         }
       }
       if (!use_cg) {
@@ -591,7 +594,7 @@ void IPM_caller::SolveNewtonSystem(const HighsSparseMatrix &highs_a,
   }
   if (use_direct_augmented) {
     // Solve augmented system directly
-    std::vector<double>theta;
+    std::vector<double> theta;
     scaling2theta(scaling, theta);
     std::vector<double> augmented_delta_x;
     augmented_delta_x.assign(n, 0);
@@ -601,11 +604,11 @@ void IPM_caller::SolveNewtonSystem(const HighsSparseMatrix &highs_a,
     const bool first_call_with_theta = !invert.valid;
     if (first_call_with_theta) {
       int augmented_invert_status =
-	augmentedInvert(highs_a, theta, invert, experiment_data);
+          augmentedInvert(highs_a, theta, invert, experiment_data);
       assert(!augmented_invert_status);
     }
-    augmentedSolve(highs_a, theta, res7, Res.res1,
-		   augmented_delta_x, augmented_delta_y, invert, experiment_data);
+    augmentedSolve(highs_a, theta, res7, Res.res1, augmented_delta_x,
+                   augmented_delta_y, invert, experiment_data);
     experiment_data.time_taken += experiment_data.solve_time;
     if (first_call_with_theta) {
       experiment_data.condition = augmentedCondition(highs_a, theta, invert);
@@ -614,24 +617,24 @@ void IPM_caller::SolveNewtonSystem(const HighsSparseMatrix &highs_a,
     if (check_with_cg) {
       double inf_norm_solution_diff = infNormDiff(augmented_delta_x, Delta.x);
       if (inf_norm_solution_diff > kSolutionDiffTolerance) {
-	std::cout << "Augmented Direct-CG solution error for Delta.x = "
-		  << inf_norm_solution_diff << "\n";
-	std::cout << experiment_data << "\n";
-	assert(111==333);
+        std::cout << "Augmented Direct-CG solution error for Delta.x = "
+                  << inf_norm_solution_diff << "\n";
+        std::cout << experiment_data << "\n";
+        assert(111 == 333);
       }
       inf_norm_solution_diff = infNormDiff(augmented_delta_y, Delta.y);
       if (inf_norm_solution_diff > kSolutionDiffTolerance) {
-	std::cout << "Augmented Direct-CG solution error for Delta.y = "
-		  << inf_norm_solution_diff << "\n";
-	std::cout << experiment_data << "\n";
-	assert(111==333);
+        std::cout << "Augmented Direct-CG solution error for Delta.y = "
+                  << inf_norm_solution_diff << "\n";
+        std::cout << experiment_data << "\n";
+        assert(111 == 333);
       }
     }
     if (!use_cg) {
       // Once CG is not being used, use the augmented solution for dx and dy
       Delta.x = augmented_delta_x;
       Delta.y = augmented_delta_y;
-    }   
+    }
   }
 }
 

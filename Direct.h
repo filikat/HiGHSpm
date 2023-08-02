@@ -1,9 +1,9 @@
 #ifndef DIRECT_H
 #define DIRECT_H
 
-#include "spral.h"
 #include "ExperimentData.h"
 #include "VectorOperations.h"
+#include "spral.h"
 #include "util/HighsSparseMatrix.h"
 
 struct SsidsData {
@@ -21,68 +21,56 @@ struct IpmInvert {
   std::vector<int> dense_col;
   std::vector<double> theta_d;
   std::vector<double> hatA_d;
+  std::vector<std::vector<double>> d_matrix;
   SsidsData ssids_data;
   int clear();
 };
 
 int augmentedInvert(const HighsSparseMatrix &highs_a,
-		   const std::vector<double> &theta,
-		   IpmInvert& invert,
-		   ExperimentData& experiment_data);
+                    const std::vector<double> &theta, IpmInvert &invert,
+                    ExperimentData &experiment_data);
 
 void augmentedSolve(const HighsSparseMatrix &highs_a,
-		   const std::vector<double> &theta,
-		   const std::vector<double> &rhs_x,
-		   const std::vector<double> &rhs_y,
-		   std::vector<double> &lhs_x,
-		   std::vector<double> &lhs_y,
-		   IpmInvert& invert,
-		   ExperimentData& experiment_data);
+                    const std::vector<double> &theta,
+                    const std::vector<double> &rhs_x,
+                    const std::vector<double> &rhs_y,
+                    std::vector<double> &lhs_x, std::vector<double> &lhs_y,
+                    IpmInvert &invert, ExperimentData &experiment_data);
 
-double augmentedCondition(const HighsSparseMatrix& matrix,
-			  const std::vector<double>& theta,
-			  IpmInvert& invert);
+double augmentedCondition(const HighsSparseMatrix &matrix,
+                          const std::vector<double> &theta, IpmInvert &invert);
 
 int newtonInvert(const HighsSparseMatrix &highs_a,
-		 const std::vector<double> &theta,
-		 IpmInvert& invert,
-		 const int option_max_dense_col,
-		 const double option_dense_col_tolerance,
-		 ExperimentData& experiment_data,
-		 const bool quiet = true);
+                 const std::vector<double> &theta, IpmInvert &invert,
+                 const int option_max_dense_col,
+                 const double option_dense_col_tolerance,
+                 ExperimentData &experiment_data, const bool quiet = true);
 
 int newtonSolve(const HighsSparseMatrix &highs_a,
-		const std::vector<double> &theta,
-		const std::vector<double> &rhs,
-		std::vector<double> &lhs,
-		IpmInvert& invert,
-		ExperimentData& experiment_data);
+                const std::vector<double> &theta,
+                const std::vector<double> &rhs, std::vector<double> &lhs,
+                IpmInvert &invert, ExperimentData &experiment_data);
 
-double newtonCondition(const HighsSparseMatrix& matrix,
-		       const std::vector<double>& theta,
-		       IpmInvert& invert);
+double newtonCondition(const HighsSparseMatrix &matrix,
+                       const std::vector<double> &theta, IpmInvert &invert);
 
-bool increasingIndex(const HighsSparseMatrix& matrix);
-void productAThetaAT(const HighsSparseMatrix& matrix,
-		     const std::vector<double>& theta,
-		     const std::vector<double>& x,
-		     std::vector<double>& result);
-HighsSparseMatrix computeAThetaAT(const HighsSparseMatrix& matrix,
-				  const std::vector<double>& theta);
+bool increasingIndex(const HighsSparseMatrix &matrix);
+void productAThetaAT(const HighsSparseMatrix &matrix,
+                     const std::vector<double> &theta,
+                     const std::vector<double> &x, std::vector<double> &result);
+HighsSparseMatrix computeAThetaAT(const HighsSparseMatrix &matrix,
+                                  const std::vector<double> &theta);
 
-int gepp(const std::vector<std::vector<double>>& matrix,
-	 const std::vector<double>& rhs,
-	 std::vector<double>& solution);
+int gepp(const std::vector<std::vector<double>> &matrix,
+         const std::vector<double> &rhs, std::vector<double> &solution);
 
-int callSsidsAugmentedFactor(const HighsSparseMatrix& matrix,
-			     const std::vector<double>& theta,
-			     SsidsData& ssids_data,
-			     ExperimentData& experiment_data);
-int callSsidsNewtonFactor(const HighsSparseMatrix& AThetaAT,
-			  SsidsData& ssids_data,
-			  ExperimentData& experiment_data);
-void callSsidsSolve(const int system_size,
-		    const int num_rhs,
-		    double* rhs,
-		    SsidsData& ssids_data);
+int callSsidsAugmentedFactor(const HighsSparseMatrix &matrix,
+                             const std::vector<double> &theta,
+                             SsidsData &ssids_data,
+                             ExperimentData &experiment_data);
+int callSsidsNewtonFactor(const HighsSparseMatrix &AThetaAT,
+                          SsidsData &ssids_data,
+                          ExperimentData &experiment_data);
+void callSsidsSolve(const int system_size, const int num_rhs, double *rhs,
+                    SsidsData &ssids_data);
 #endif
