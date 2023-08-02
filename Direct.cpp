@@ -7,6 +7,7 @@ int IpmInvert::clear() {
   this->dense_col.clear();
   this->theta_d.clear();
   this->hatA_d.clear();
+  this->d_matrix.clear();
   return this->ssids_data.clear();
 }
 
@@ -245,6 +246,22 @@ int newtonInvert(const HighsSparseMatrix &highs_a,
       offset += system_size;
     }
     callSsidsSolve(system_size, use_num_dense_col, hatA_d.data(), ssids_data);
+    // Now form D = \Theta_d^{-1} + \hat{A}_d^TA_d
+    std::vector<std::vector<double>>& d_matrix = invert.d_matrix;
+    d_matrix.resize(use_num_dense_col);
+    offset = 0;
+    for (int d_col = 0; d_col < use_num_dense_col; d_col++) {
+      d_matrix[d_col].resize(use_num_dense_col);
+      for (int d_row = 0; d_row < use_num_dense_col; d_row++) {
+	int iCol = dense_col[d_row];
+	double value = 0;
+	for (int iEl = highs_a.start_[iCol]; iEl < highs_a.start_[iCol+1]; iEl++)
+	  value += hatA_d[offset+highs_a.index_[iEl]] * highs_a.value_[iEl];
+	d_matrix[d_col][d_row] = value;
+      }
+      d_matrix[d_col][d_col] += 1/theta_d[d_col];
+      offset += system_size;
+    }
     experiment_data.factorization_time += getWallTime() - start_time;
   }
   invert.system_size = system_size;
@@ -273,29 +290,19 @@ int newtonSolve(const HighsSparseMatrix &highs_a,
   lhs = rhs;
   callSsidsSolve(system_size, 1, lhs.data(), ssids_data);
   if (use_num_dense_col) {
-    // Now form D = \Theta_d^{-1} + \hat{A}_d^TA_d and \hat_b = \hat{A}_d^Tb
-    
-    std::vector<std::vector<double>> d_matrix;
-    std::vector<double> d_rhs;
+    std::vector<std::vector<double>> d_matrix = invert.d_matrix;
     std::vector<double> d_sol;
-    d_matrix.resize(use_num_dense_col);
+    // Now form \hat_b = \hat{A}_d^Tb (as d_rhs);
+    std::vector<double> d_rhs;
     int offset = 0;
     for (int d_col = 0; d_col < use_num_dense_col; d_col++) {
-      d_matrix[d_col].resize(use_num_dense_col);
-      for (int d_row = 0; d_row < use_num_dense_col; d_row++) {
-	int iCol = dense_col[d_row];
-	double value = 0;
-	for (int iEl = highs_a.start_[iCol]; iEl < highs_a.start_[iCol+1]; iEl++)
-	  value += hatA_d[offset+highs_a.index_[iEl]] * highs_a.value_[iEl];
-	d_matrix[d_col][d_row] = value;
-      }
-      d_matrix[d_col][d_col] += 1/theta_d[d_col];
       double value = 0;
       for (int iRow = 0; iRow < system_size; iRow++) 
 	value += hatA_d[offset+iRow] * rhs[iRow];
       d_rhs.push_back(value);
       offset += system_size;
     }
+    // Now solve d_matrix.d_sol = d_rhs
     int gepp_status = gepp(d_matrix, d_rhs, d_sol);
     if (gepp_status) return 1;
     

@@ -21,6 +21,7 @@ struct IpmInvert {
   std::vector<int> dense_col;
   std::vector<double> theta_d;
   std::vector<double> hatA_d;
+  std::vector<std::vector<double>> d_matrix;
   SsidsData ssids_data;
   int clear();
 };

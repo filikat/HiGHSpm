@@ -4,6 +4,9 @@ main.cpp
 .DS_Store
 .vscode
 *~
+*.csv
+*.ods
+ml.mps
 ipm
 a.out
 ipm.dSYM
