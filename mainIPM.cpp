@@ -1,7 +1,10 @@
 #include "Highs.h"
+#include "io/Filereader.h"
 #include "IPM_caller.h"
 #include <cassert>
 #include <iostream>
+#include <cstring>  // For strchr
+
 
 enum ArgC {
   kMinArgC = 2,
@@ -16,7 +19,7 @@ enum ArgC {
 int main(int argc, char **argv) {
 
   if (argc < kMinArgC || argc > kMaxArgC) {
-    std::cerr << "======= How to use: ./ipm LP_name nla_option predcor_option max_dense_col_option dense_col_tolerance_option =======\n";
+    std::cerr << "======= How to use: ./ipm LP_name.mps(.gz) nla_option predcor_option max_dense_col_option dense_col_tolerance_option =======\n";
     return 1;
   }
 
@@ -26,12 +29,20 @@ int main(int argc, char **argv) {
 
   // Read LP using Highs MPS read
   Highs highs;
-  highs.setOptionValue("output_flag", false);
-  std::string model = argv[kModelFileArg];
-  std::string model_file =  model + ".mps";
+  //  highs.setOptionValue("output_flag", false);
+  std::string model_file = argv[kModelFileArg];
+  std::string model = extractModelName(model_file);
   HighsStatus status = highs.readModel(model_file);
   assert(status == HighsStatus::kOk);
-  HighsLp lp = highs.getLp();
+  const bool presolve = false;
+  HighsLp lp;
+  if (presolve) {
+    status = highs.presolve();
+    assert(status == HighsStatus::kOk);
+    lp = highs.getPresolvedLp();
+  } else {
+    lp = highs.getLp();
+  }
 
   // ===================================================================================
   // CHANGE FORMULATION
