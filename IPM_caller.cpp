@@ -525,6 +525,7 @@ void IPM_caller::SolveNewtonSystem(const HighsSparseMatrix &highs_a,
         ComputeResiduals_8(highs_a, scaling, Res, res7, isCorrector)};
 
     // Solve normal equations
+    //
     // Currently this is done using Conjugate Gradient. The solution for
     // Delta.y can be substituted with a positive definite factorization.
     //
@@ -587,8 +588,50 @@ void IPM_caller::SolveNewtonSystem(const HighsSparseMatrix &highs_a,
     // Deltax = Theta * Deltax
     VectorDivide(Delta.x, scaling);
     // *********************************************************************
-  } else {
-    assert(1 == 0);
+  }
+  if (use_direct_augmented) {
+    // Solve augmented system directly
+    std::vector<double>theta;
+    scaling2theta(scaling, theta);
+    std::vector<double> augmented_delta_x;
+    augmented_delta_x.assign(n, 0);
+    std::vector<double> augmented_delta_y;
+    augmented_delta_y.assign(m, 0);
+    ExperimentData experiment_data;
+    const bool first_call_with_theta = !invert.valid;
+    if (first_call_with_theta) {
+      int augmented_invert_status =
+	augmentedInvert(highs_a, theta, invert, experiment_data);
+      assert(!augmented_invert_status);
+    }
+    augmentedSolve(highs_a, theta, res7, Res.res1,
+		   augmented_delta_x, augmented_delta_y, invert, experiment_data);
+    experiment_data.time_taken += experiment_data.solve_time;
+    if (first_call_with_theta) {
+      //      experiment_data.condition = augmentedCondition(highs_a, theta, invert);
+      experiment_data_record.push_back(experiment_data);
+    }
+    if (check_with_cg) {
+      double inf_norm_solution_diff = infNormDiff(augmented_delta_x, Delta.x);
+      if (inf_norm_solution_diff > kSolutionDiffTolerance) {
+	std::cout << "Augmented Direct-CG solution error for Delta.x = "
+		  << inf_norm_solution_diff << "\n";
+	std::cout << experiment_data << "\n";
+	assert(111==333);
+      }
+      inf_norm_solution_diff = infNormDiff(augmented_delta_y, Delta.y);
+      if (inf_norm_solution_diff > kSolutionDiffTolerance) {
+	std::cout << "Augmented Direct-CG solution error for Delta.y = "
+		  << inf_norm_solution_diff << "\n";
+	std::cout << experiment_data << "\n";
+	assert(111==333);
+      }
+    }
+    if (!use_cg) {
+      // Once CG is not being used, use the augmented solution for dx and dy
+      Delta.x = augmented_delta_x;
+      Delta.y = augmented_delta_y;
+    }   
   }
 }
 
