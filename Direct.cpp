@@ -54,10 +54,10 @@ void chooseDenseColumns(const HighsSparseMatrix &highs_a,
   // Number of dense columns to be used cannot exceed the number of dense columns permitted...
   int use_num_dense_col = option_max_dense_col;
   // ... the number of dense columns in the model...
-  use_num_dense_col = std::min(option_max_dense_col, model_num_dense_col);
+  use_num_dense_col = std::min(model_num_dense_col, use_num_dense_col);
   // ... and must leave at least as many sparse columns as the system
   // size
-  use_num_dense_col = std::min(highs_a.num_col_-system_size, model_num_dense_col);
+  use_num_dense_col = std::min(highs_a.num_col_-system_size, use_num_dense_col);
 
   std::vector<bool> is_dense(highs_a.num_col_, false);
   // Take the first use_num_dense_col entries as dense, counting how many 
