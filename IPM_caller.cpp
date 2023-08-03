@@ -520,6 +520,14 @@ void IPM_caller::SolveNewtonSystem(const HighsSparseMatrix &highs_a,
   std::vector<double> theta;
   scaling2theta(scaling, theta);
   if (first_call_with_theta) experiment_data.reportAnalyseTheta(theta);
+
+  std::vector<int> dense_col;
+  experiment_data.system_size = highs_a.num_row_;
+  chooseDenseColumns(highs_a, theta,
+		     option_max_dense_col, option_dense_col_tolerance,
+		     dense_col, experiment_data, false);
+
+
   if (use_cg || use_direct_newton) {
     // Have to solve the Newton system
     //
