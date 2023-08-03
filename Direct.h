@@ -3,14 +3,14 @@
 
 #include "ExperimentData.h"
 #include "VectorOperations.h"
-//#include "spral.h" no-spral
+#include "spral.h" 
 #include "util/HighsSparseMatrix.h"
 
 struct SsidsData {
-//  void *akeep{nullptr};no-spral
-//  void *fkeep{nullptr};no-spral
-//  struct spral_ssids_options options;no-spral
-//  struct spral_ssids_inform inform;no-spral
+  void *akeep{nullptr};
+  void *fkeep{nullptr};
+  struct spral_ssids_options options;
+  struct spral_ssids_inform inform;
   int clear();
 };
 

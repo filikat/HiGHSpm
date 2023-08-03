@@ -14,7 +14,7 @@ int IpmInvert::clear() {
 int SsidsData::clear() {
   // Free the memory allocated for SPRAL
   return 1;
-  // spral_ssids_free(&this->akeep, &this->fkeep);no-spral
+// spral_ssids_free(&this->akeep, &this->fkeep);
 }
 
 void chooseDenseColumns(const HighsSparseMatrix &highs_a,
@@ -66,47 +66,49 @@ void chooseDenseColumns(const HighsSparseMatrix &highs_a,
     dense_col.push_back(iCol);
     is_dense[iCol] = true;
   }
-  // Find the largest theta value amongst the sparse columns
-  double max_sparse_theta = 0;
-  for (int iCol = 0; iCol < highs_a.num_col_; iCol++) {
-    if (is_dense[iCol]) continue;
-    max_sparse_theta = std::max(theta[iCol], max_sparse_theta);
-  }
-  const double ok_sparse_theta = max_sparse_theta / 1e12;
-  // Count the number of sparse theta values that are at least ok_sparse_theta
-  int num_ok_sparse_theta = 0;
-  for (int iCol = 0; iCol < highs_a.num_col_; iCol++) {
-    if (is_dense[iCol]) continue;
-    if (theta[iCol] > ok_sparse_theta) num_ok_sparse_theta++;
-  }
-  if (num_ok_sparse_theta < system_size) {
-    
-    // Danger of bad numerica since there are fewer OK theta values in
-    // sparse columns than the number of rows
-    std::vector<int>new_dense_col;
-    // Work through the dense columns from low to high density,
-    // removing those with OK theta values until there are sufficient
-    // sparse theta values that are at least ok_sparse_theta
-    for (int ix = use_num_dense_col-1; ix >=0 ; ix--) {
-      int iCol = dense_col[ix];
-      if (theta[iCol] > ok_sparse_theta &&
-	  num_ok_sparse_theta < system_size) {
-	is_dense[iCol] = false;
-	num_ok_sparse_theta++;
-      } else {
-	new_dense_col.push_back(iCol);
-      }
+  const bool check_thetas = false;
+  if (check_thetas) {
+    // Find the largest theta value amongst the sparse columns
+    double max_sparse_theta = 0;
+    for (int iCol = 0; iCol < highs_a.num_col_; iCol++) {
+      if (is_dense[iCol]) continue;
+      max_sparse_theta = std::max(theta[iCol], max_sparse_theta);
     }
-    dense_col = new_dense_col;
-    use_num_dense_col = dense_col.size();
+    const double ok_sparse_theta = max_sparse_theta / 1e12;
+    // Count the number of sparse theta values that are at least ok_sparse_theta
+    int num_ok_sparse_theta = 0;
+    for (int iCol = 0; iCol < highs_a.num_col_; iCol++) {
+      if (is_dense[iCol]) continue;
+      if (theta[iCol] > ok_sparse_theta) num_ok_sparse_theta++;
+    }
+    if (num_ok_sparse_theta < system_size) {
+      // Danger of bad numerics since there are fewer OK theta values in
+      // sparse columns than the number of rows
+      std::vector<int>new_dense_col;
+      // Work through the dense columns from low to high density,
+      // removing those with OK theta values until there are sufficient
+      // sparse theta values that are at least ok_sparse_theta
+      for (int ix = use_num_dense_col-1; ix >=0 ; ix--) {
+	int iCol = dense_col[ix];
+	if (theta[iCol] > ok_sparse_theta &&
+	    num_ok_sparse_theta < system_size) {
+	  is_dense[iCol] = false;
+	  num_ok_sparse_theta++;
+	} else {
+	  new_dense_col.push_back(iCol);
+	}
+      }
+      dense_col = new_dense_col;
+      use_num_dense_col = dense_col.size();
+    }
+    num_ok_sparse_theta = 0;
+    for (int iCol = 0; iCol < highs_a.num_col_; iCol++) {
+      if (is_dense[iCol]) continue;
+      if (theta[iCol] > ok_sparse_theta) num_ok_sparse_theta++;
+    }
+    assert(num_ok_sparse_theta >= system_size);
+    printf("Using %d dense columns\n", use_num_dense_col);
   }
-  num_ok_sparse_theta = 0;
-  for (int iCol = 0; iCol < highs_a.num_col_; iCol++) {
-    if (is_dense[iCol]) continue;
-    if (theta[iCol] > ok_sparse_theta) num_ok_sparse_theta++;
-  }
-  assert(num_ok_sparse_theta >= system_size);
-  printf("Using %d dense columns\n", use_num_dense_col);
   
   if (use_num_dense_col < model_num_dense_col)
     max_sparse_col_density = density_index[use_num_dense_col].first;
@@ -665,7 +667,7 @@ int callSsidsAugmentedFactor(const HighsSparseMatrix &matrix,
   std::vector<long> ptr;
   std::vector<int> row;
   std::vector<double> val;
-  //  spral_ssids_default_options(&ssids_data.options);no-spral
+//  spral_ssids_default_options(&ssids_data.options);
 
   // Extract lower triangular part of augmented system
   //
@@ -686,7 +688,7 @@ int callSsidsAugmentedFactor(const HighsSparseMatrix &matrix,
   // Now the (zero) columns for [A^T]
   //                            [ 0 ]
 
-  const double diagonal = 1e-20;//ssids_data.options.small; // 1e-20;no-spral
+  const double diagonal = ssids_data.options.small; // 1e-20
   for (int iRow = 0; iRow < matrix.num_row_; iRow++) {
     ptr.push_back(val.size());
     if (diagonal) {
@@ -707,10 +709,10 @@ int callSsidsAugmentedFactor(const HighsSparseMatrix &matrix,
   double *val_ptr = val.data();
 
   // Initialize derived types
-  //  ssids_data.akeep = nullptr;no-spral
-  //  ssids_data.fkeep = nullptr;no-spral
+  ssids_data.akeep = nullptr;
+  ssids_data.fkeep = nullptr;
   // Need to set to 1 if using Fortran 1-based indexing
-  //  ssids_data.options.array_base = array_base;no-spral
+  ssids_data.options.array_base = array_base;
   //  ssids_data.options.print_level = 2;
 
   experiment_data.setup_time = getWallTime() - start_time;
@@ -718,22 +720,22 @@ int callSsidsAugmentedFactor(const HighsSparseMatrix &matrix,
   // Perform analyse and factorise with data checking
   bool check = true;
   start_time = getWallTime();
-  //  spral_ssids_analyse(check, experiment_data.system_size, nullptr, ptr_ptr,no-spral
-  //                      row_ptr, nullptr, &ssids_data.akeep, &ssids_data.options,no-spral
-  //                      &ssids_data.inform);no-spral
+  spral_ssids_analyse(check, experiment_data.system_size, nullptr, ptr_ptr,
+		      row_ptr, nullptr, &ssids_data.akeep, &ssids_data.options,
+		      &ssids_data.inform);
   experiment_data.analysis_time = getWallTime() - start_time;
-  //  if (ssids_data.inform.flag < 0)no-spral
-  //    return 1;no-spral
+  if (ssids_data.inform.flag < 0)
+    return 1;
 
   bool positive_definite = false;
   start_time = getWallTime();
-  //  spral_ssids_factor(positive_definite, nullptr, nullptr, val_ptr, nullptr,no-spral
-  //                     ssids_data.akeep, &ssids_data.fkeep, &ssids_data.options,no-spral
-  //                     &ssids_data.inform);no-spral
+  spral_ssids_factor(positive_definite, nullptr, nullptr, val_ptr, nullptr,
+		     ssids_data.akeep, &ssids_data.fkeep, &ssids_data.options,
+		     &ssids_data.inform);
   experiment_data.factorization_time = getWallTime() - start_time;
-  //  if (ssids_data.inform.flag < 0)no-spral
-  //    return 1;no-spral
-  //  experiment_data.nnz_L = ssids_data.inform.num_factor;no-spral
+  if (ssids_data.inform.flag < 0)
+    return 1;
+  experiment_data.nnz_L = ssids_data.inform.num_factor;
   experiment_data.fillIn_LL();
   return 0;
 }
@@ -747,7 +749,7 @@ int callSsidsNewtonFactor(const HighsSparseMatrix &AThetaAT,
   std::vector<long> ptr;
   std::vector<int> row;
   std::vector<double> val;
-  //  spral_ssids_default_options(&ssids_data.options);no-spral
+  spral_ssids_default_options(&ssids_data.options);
 
   // Extract lower triangular part of AAT
   for (int col = 0; col < AThetaAT.num_col_; col++) {
@@ -774,32 +776,32 @@ int callSsidsNewtonFactor(const HighsSparseMatrix &AThetaAT,
   double *val_ptr = val.data();
 
   // Initialize derived types
-  //  ssids_data.akeep = nullptr;no-spral
-  //  ssids_data.fkeep = nullptr;no-spral
+  ssids_data.akeep = nullptr;
+  ssids_data.fkeep = nullptr;
   // Need to set to 1 if using Fortran 1-based indexing
-  //  ssids_data.options.array_base =no-spral
-  //      array_base; // Need to set to 1 if using Fortran 1-based indexingno-spral
+  ssids_data.options.array_base =
+    array_base; // Need to set to 1 if using Fortran 1-based indexing
 
   experiment_data.setup_time = getWallTime() - start_time;
 
   // Perform analyse and factorise with data checking
   bool check = true;
   start_time = getWallTime();
-  //  spral_ssids_analyse(check, AThetaAT.num_col_, nullptr, ptr_ptr, row_ptr,no-spral
-  //                      nullptr, &ssids_data.akeep, &ssids_data.options,no-spral
-  //                      &ssids_data.inform);no-spral
+  spral_ssids_analyse(check, AThetaAT.num_col_, nullptr, ptr_ptr, row_ptr,
+		      nullptr, &ssids_data.akeep, &ssids_data.options,
+		      &ssids_data.inform);
   experiment_data.analysis_time = getWallTime() - start_time;
-  //  if (ssids_data.inform.flag < 0)no-spral
-  //    return 1;no-spral
+  if (ssids_data.inform.flag < 0)
+    return 1;
 
   bool positive_definite = true;
   start_time = getWallTime();
-  //  spral_ssids_factor(positive_definite, nullptr, nullptr, val_ptr, nullptr,no-spral
-  //                     ssids_data.akeep, &ssids_data.fkeep, &ssids_data.options,no-spral
-  //                     &ssids_data.inform);no-spral
+  spral_ssids_factor(positive_definite, nullptr, nullptr, val_ptr, nullptr,
+		     ssids_data.akeep, &ssids_data.fkeep, &ssids_data.options,
+		     &ssids_data.inform);
   experiment_data.factorization_time = getWallTime() - start_time;
-  //  if (ssids_data.inform.flag < 0)no-spral
-  //    return 1;no-spral
+  if (ssids_data.inform.flag < 0)
+    return 1;
 
   /*
   //Return the diagonal entries of the Cholesky factor
@@ -810,13 +812,13 @@ int callSsidsNewtonFactor(const HighsSparseMatrix &AThetaAT,
                                   struct spral_ssids_inform *inform,
                                   double *d);
   */
-  //  experiment_data.nnz_L = ssids_data.inform.num_factor;no-spral
+  experiment_data.nnz_L = ssids_data.inform.num_factor;
   experiment_data.fillIn_LL();
   return 0;
 }
 
 void callSsidsSolve(const int system_size, const int num_rhs, double *rhs,
                     SsidsData &ssids_data) {
-  //  spral_ssids_solve(0, num_rhs, rhs, system_size, ssids_data.akeep,no-spral
-  //                    ssids_data.fkeep, &ssids_data.options, &ssids_data.inform);no-spral
+  spral_ssids_solve(0, num_rhs, rhs, system_size, ssids_data.akeep,
+		    ssids_data.fkeep, &ssids_data.options, &ssids_data.inform);
 }
