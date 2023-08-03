@@ -515,6 +515,11 @@ void IPM_caller::SolveNewtonSystem(const HighsSparseMatrix &highs_a,
   // [-scaling A^T][dx] = [res7]
   // [A        0  ][dy]   [res1]
   //
+  ExperimentData experiment_data;
+  const bool first_call_with_theta = !invert.valid;
+  std::vector<double> theta;
+  scaling2theta(scaling, theta);
+  if (first_call_with_theta) experiment_data.reportAnalyseTheta(theta);
   if (use_cg || use_direct_newton) {
     // Have to solve the Newton system
     //
@@ -535,8 +540,6 @@ void IPM_caller::SolveNewtonSystem(const HighsSparseMatrix &highs_a,
       CG_solve(N, res8, kCgTolerance, kCgIterationLimit, Delta.y, nullptr);
       const bool compute_residual_error = false;
       if (compute_residual_error) {
-        std::vector<double> theta;
-        scaling2theta(scaling, theta);
         std::pair<double, double> residual_error =
             residualErrorNewton(highs_a, theta, res8, Delta.y);
         if (residual_error.first > 1e-12)
@@ -545,13 +548,9 @@ void IPM_caller::SolveNewtonSystem(const HighsSparseMatrix &highs_a,
       }
     }
     if (use_direct_newton) {
-      std::vector<double> theta;
-      scaling2theta(scaling, theta);
       // Solve the Newton system directly into newton_delta_y
       std::vector<double> newton_delta_y;
       newton_delta_y.assign(m, 0);
-      ExperimentData experiment_data;
-      const bool first_call_with_theta = !invert.valid;
       if (first_call_with_theta) {
         int newton_invert_status =
             newtonInvert(highs_a, theta, invert, option_max_dense_col,
@@ -594,14 +593,10 @@ void IPM_caller::SolveNewtonSystem(const HighsSparseMatrix &highs_a,
   }
   if (use_direct_augmented) {
     // Solve augmented system directly
-    std::vector<double> theta;
-    scaling2theta(scaling, theta);
     std::vector<double> augmented_delta_x;
     augmented_delta_x.assign(n, 0);
     std::vector<double> augmented_delta_y;
     augmented_delta_y.assign(m, 0);
-    ExperimentData experiment_data;
-    const bool first_call_with_theta = !invert.valid;
     if (first_call_with_theta) {
       int augmented_invert_status =
           augmentedInvert(highs_a, theta, invert, experiment_data);

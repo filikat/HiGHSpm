@@ -41,6 +41,16 @@ public:
   double factorization_time;
   double solve_time;
 
+  // Theta
+  double theta_min;
+  double theta_geomean;
+  double theta_max;
+  int theta_num_small;
+  int theta_num_medium;
+  int theta_num_large;
+  int theta_order0;
+  std::vector<int> theta_order_k;
+
   void reset() {
     decomposer = "na";
     model_num_col = kDataNotSet;
@@ -65,9 +75,19 @@ public:
     analysis_time = kDataNotSet;
     factorization_time = kDataNotSet;
     solve_time = kDataNotSet;
+    theta_min = kDataNotSet;
+    theta_geomean = kDataNotSet;
+    theta_max = kDataNotSet;
+    theta_num_small = kDataNotSet;
+    theta_num_medium = kDataNotSet;
+    theta_num_large = kDataNotSet;
+    theta_order0 = kDataNotSet;
+    theta_order_k.clear();
   }
   void fillIn_LL();
   void fillIn_LDL();
+  void analyseTheta(const std::vector<double> &theta);
+  void reportAnalyseTheta(const std::vector<double> &theta);
 };
 
 double getWallTime();

@@ -199,12 +199,63 @@ int newtonInvert(const HighsSparseMatrix &highs_a,
     }
   } customMore;
   std::sort(density_index.begin(), density_index.end(), customMore);
-  const int use_num_dense_col = std::min(
-      model_num_dense_col, std::min(option_max_dense_col, system_size));
+  // Number of dense columns to be used cannot exceed the number of dense columns permitted...
+  int use_num_dense_col = option_max_dense_col;
+  // ... the number of dense columns in the model...
+  use_num_dense_col = std::min(option_max_dense_col, model_num_dense_col);
+  // ... and must leave at least as many sparse columns as the system
+  // size
+  use_num_dense_col = std::min(highs_a.num_col_-system_size, model_num_dense_col);
 
-  // Take the first use_num_dense_col entries as dense
-  for (int ix = 0; ix < use_num_dense_col; ix++)
-    dense_col.push_back(density_index[ix].second);
+  std::vector<bool> is_dense(highs_a.num_col_, false);
+  // Take the first use_num_dense_col entries as dense, counting how many 
+  for (int ix = 0; ix < use_num_dense_col; ix++) {
+    int iCol = density_index[ix].second;
+    dense_col.push_back(iCol);
+    is_dense[iCol] = true;
+  }
+  // Find the largest theta value amongst the sparse columns
+  double max_sparse_theta = 0;
+  for (int iCol = 0; iCol < highs_a.num_col_; iCol++) {
+    if (is_dense[iCol]) continue;
+    max_sparse_theta = std::max(theta[iCol], max_sparse_theta);
+  }
+  const double ok_sparse_theta = max_sparse_theta * 1e12;
+  // Count the number of sparse theta values that are at least ok_sparse_theta
+  int num_ok_sparse_theta = 0;
+  for (int iCol = 0; iCol < highs_a.num_col_; iCol++) {
+    if (is_dense[iCol]) continue;
+    if (theta[iCol] > ok_sparse_theta) num_ok_sparse_theta++;
+  }
+  if (num_ok_sparse_theta < system_size) {
+    
+    // Danger of bad numerica since there are fewer OK theta values in
+    // sparse columns than the number of rows
+    std::vector<int>new_dense_col;
+    // Work through the dense columns from low to high density,
+    // removing those with OK theta values until there are sufficient
+    // sparse theta values that are at least ok_sparse_theta
+    for (int ix = use_num_dense_col-1; ix >=0 ; ix--) {
+      int iCol = dense_col[ix];
+      if (theta[iCol] > ok_sparse_theta &&
+	  num_ok_sparse_theta < system_size) {
+	is_dense[iCol] = false;
+	num_ok_sparse_theta++;
+      } else {
+	new_dense_col.push_back(iCol);
+      }
+    }
+    dense_col = new_dense_col;
+    use_num_dense_col = dense_col.size();
+  }
+  num_ok_sparse_theta = 0;
+  for (int iCol = 0; iCol < highs_a.num_col_; iCol++) {
+    if (is_dense[iCol]) continue;
+    if (theta[iCol] > ok_sparse_theta) num_ok_sparse_theta++;
+  }
+  assert(num_ok_sparse_theta >= system_size);
+  printf("Using %d dense columns\n", use_num_dense_col);
+  
   if (use_num_dense_col < model_num_dense_col)
     max_sparse_col_density = density_index[use_num_dense_col].first;
 
