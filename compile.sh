@@ -20,7 +20,8 @@ LIB64_DIR=/usr/lib/x86_64-linux-gnu/
 HIGHS_LIB=$HIGHS_HOME/lib
 
 # Define libraries
-LIBS="-lhighs -lspral -lblas -llapack -lm -lstdc++ -lgfortran -lz -lmetis"
+#LIBS="-lhighs -lspral -lblas -llapack -lm -lstdc++ -lgfortran -lz -lmetis"
+LIBS="-lhighs -lblas -llapack -lm -lstdc++ -lgfortran -lz"
 
 # Define the compiler flags to use in C and C++.
 # 

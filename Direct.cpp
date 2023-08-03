@@ -13,7 +13,8 @@ int IpmInvert::clear() {
 
 int SsidsData::clear() {
   // Free the memory allocated for SPRAL
-  return spral_ssids_free(&this->akeep, &this->fkeep);
+  return 1;
+  // spral_ssids_free(&this->akeep, &this->fkeep);no-spral
 }
 
 int augmentedInvert(const HighsSparseMatrix &highs_a,
@@ -597,7 +598,7 @@ int callSsidsAugmentedFactor(const HighsSparseMatrix &matrix,
   std::vector<long> ptr;
   std::vector<int> row;
   std::vector<double> val;
-  spral_ssids_default_options(&ssids_data.options);
+  //  spral_ssids_default_options(&ssids_data.options);no-spral
 
   // Extract lower triangular part of augmented system
   //
@@ -618,7 +619,7 @@ int callSsidsAugmentedFactor(const HighsSparseMatrix &matrix,
   // Now the (zero) columns for [A^T]
   //                            [ 0 ]
 
-  const double diagonal = ssids_data.options.small; // 1e-20;
+  const double diagonal = 1e-20;//ssids_data.options.small; // 1e-20;no-spral
   for (int iRow = 0; iRow < matrix.num_row_; iRow++) {
     ptr.push_back(val.size());
     if (diagonal) {
@@ -639,10 +640,10 @@ int callSsidsAugmentedFactor(const HighsSparseMatrix &matrix,
   double *val_ptr = val.data();
 
   // Initialize derived types
-  ssids_data.akeep = nullptr;
-  ssids_data.fkeep = nullptr;
+  //  ssids_data.akeep = nullptr;no-spral
+  //  ssids_data.fkeep = nullptr;no-spral
   // Need to set to 1 if using Fortran 1-based indexing
-  ssids_data.options.array_base = array_base;
+  //  ssids_data.options.array_base = array_base;no-spral
   //  ssids_data.options.print_level = 2;
 
   experiment_data.setup_time = getWallTime() - start_time;
@@ -650,22 +651,22 @@ int callSsidsAugmentedFactor(const HighsSparseMatrix &matrix,
   // Perform analyse and factorise with data checking
   bool check = true;
   start_time = getWallTime();
-  spral_ssids_analyse(check, experiment_data.system_size, nullptr, ptr_ptr,
-                      row_ptr, nullptr, &ssids_data.akeep, &ssids_data.options,
-                      &ssids_data.inform);
+  //  spral_ssids_analyse(check, experiment_data.system_size, nullptr, ptr_ptr,no-spral
+  //                      row_ptr, nullptr, &ssids_data.akeep, &ssids_data.options,no-spral
+  //                      &ssids_data.inform);no-spral
   experiment_data.analysis_time = getWallTime() - start_time;
-  if (ssids_data.inform.flag < 0)
-    return 1;
+  //  if (ssids_data.inform.flag < 0)no-spral
+  //    return 1;no-spral
 
   bool positive_definite = false;
   start_time = getWallTime();
-  spral_ssids_factor(positive_definite, nullptr, nullptr, val_ptr, nullptr,
-                     ssids_data.akeep, &ssids_data.fkeep, &ssids_data.options,
-                     &ssids_data.inform);
+  //  spral_ssids_factor(positive_definite, nullptr, nullptr, val_ptr, nullptr,no-spral
+  //                     ssids_data.akeep, &ssids_data.fkeep, &ssids_data.options,no-spral
+  //                     &ssids_data.inform);no-spral
   experiment_data.factorization_time = getWallTime() - start_time;
-  if (ssids_data.inform.flag < 0)
-    return 1;
-  experiment_data.nnz_L = ssids_data.inform.num_factor;
+  //  if (ssids_data.inform.flag < 0)no-spral
+  //    return 1;no-spral
+  //  experiment_data.nnz_L = ssids_data.inform.num_factor;no-spral
   experiment_data.fillIn_LL();
   return 0;
 }
@@ -679,7 +680,7 @@ int callSsidsNewtonFactor(const HighsSparseMatrix &AThetaAT,
   std::vector<long> ptr;
   std::vector<int> row;
   std::vector<double> val;
-  spral_ssids_default_options(&ssids_data.options);
+  //  spral_ssids_default_options(&ssids_data.options);no-spral
 
   // Extract lower triangular part of AAT
   for (int col = 0; col < AThetaAT.num_col_; col++) {
@@ -706,32 +707,32 @@ int callSsidsNewtonFactor(const HighsSparseMatrix &AThetaAT,
   double *val_ptr = val.data();
 
   // Initialize derived types
-  ssids_data.akeep = nullptr;
-  ssids_data.fkeep = nullptr;
+  //  ssids_data.akeep = nullptr;no-spral
+  //  ssids_data.fkeep = nullptr;no-spral
   // Need to set to 1 if using Fortran 1-based indexing
-  ssids_data.options.array_base =
-      array_base; // Need to set to 1 if using Fortran 1-based indexing
+  //  ssids_data.options.array_base =no-spral
+  //      array_base; // Need to set to 1 if using Fortran 1-based indexingno-spral
 
   experiment_data.setup_time = getWallTime() - start_time;
 
   // Perform analyse and factorise with data checking
   bool check = true;
   start_time = getWallTime();
-  spral_ssids_analyse(check, AThetaAT.num_col_, nullptr, ptr_ptr, row_ptr,
-                      nullptr, &ssids_data.akeep, &ssids_data.options,
-                      &ssids_data.inform);
+  //  spral_ssids_analyse(check, AThetaAT.num_col_, nullptr, ptr_ptr, row_ptr,no-spral
+  //                      nullptr, &ssids_data.akeep, &ssids_data.options,no-spral
+  //                      &ssids_data.inform);no-spral
   experiment_data.analysis_time = getWallTime() - start_time;
-  if (ssids_data.inform.flag < 0)
-    return 1;
+  //  if (ssids_data.inform.flag < 0)no-spral
+  //    return 1;no-spral
 
   bool positive_definite = true;
   start_time = getWallTime();
-  spral_ssids_factor(positive_definite, nullptr, nullptr, val_ptr, nullptr,
-                     ssids_data.akeep, &ssids_data.fkeep, &ssids_data.options,
-                     &ssids_data.inform);
+  //  spral_ssids_factor(positive_definite, nullptr, nullptr, val_ptr, nullptr,no-spral
+  //                     ssids_data.akeep, &ssids_data.fkeep, &ssids_data.options,no-spral
+  //                     &ssids_data.inform);no-spral
   experiment_data.factorization_time = getWallTime() - start_time;
-  if (ssids_data.inform.flag < 0)
-    return 1;
+  //  if (ssids_data.inform.flag < 0)no-spral
+  //    return 1;no-spral
 
   /*
   //Return the diagonal entries of the Cholesky factor
@@ -742,13 +743,13 @@ int callSsidsNewtonFactor(const HighsSparseMatrix &AThetaAT,
                                   struct spral_ssids_inform *inform,
                                   double *d);
   */
-  experiment_data.nnz_L = ssids_data.inform.num_factor;
+  //  experiment_data.nnz_L = ssids_data.inform.num_factor;no-spral
   experiment_data.fillIn_LL();
   return 0;
 }
 
 void callSsidsSolve(const int system_size, const int num_rhs, double *rhs,
                     SsidsData &ssids_data) {
-  spral_ssids_solve(0, num_rhs, rhs, system_size, ssids_data.akeep,
-                    ssids_data.fkeep, &ssids_data.options, &ssids_data.inform);
+  //  spral_ssids_solve(0, num_rhs, rhs, system_size, ssids_data.akeep,no-spral
+  //                    ssids_data.fkeep, &ssids_data.options, &ssids_data.inform);no-spral
 }
