@@ -58,6 +58,8 @@ void chooseDenseColumns(const HighsSparseMatrix &highs_a,
   // ... and must leave at least as many sparse columns as the system
   // size
   use_num_dense_col = std::min(highs_a.num_col_-system_size, use_num_dense_col);
+  if (use_num_dense_col < model_num_dense_col)
+    max_sparse_col_density = density_index[use_num_dense_col].first;
 
   std::vector<bool> is_dense(highs_a.num_col_, false);
   // Take the first use_num_dense_col entries as dense, counting how many 
@@ -66,53 +68,60 @@ void chooseDenseColumns(const HighsSparseMatrix &highs_a,
     dense_col.push_back(iCol);
     is_dense[iCol] = true;
   }
-  const bool check_thetas = false;
-  if (check_thetas) {
-    // Find the largest theta value amongst the sparse columns
-    double max_sparse_theta = 0;
-    for (int iCol = 0; iCol < highs_a.num_col_; iCol++) {
-      if (is_dense[iCol]) continue;
-      max_sparse_theta = std::max(theta[iCol], max_sparse_theta);
-    }
-    const double ok_sparse_theta = max_sparse_theta / 1e12;
+  // Find the largest theta value amongst the sparse columns
+  double max_sparse_theta = 0;
+  for (int iCol = 0; iCol < highs_a.num_col_; iCol++) {
+    if (is_dense[iCol]) continue;
+    max_sparse_theta = std::max(theta[iCol], max_sparse_theta);
+  }
+  double ok_sparse_theta = max_sparse_theta / 1e6;
+  for (;;) {
     // Count the number of sparse theta values that are at least ok_sparse_theta
     int num_ok_sparse_theta = 0;
     for (int iCol = 0; iCol < highs_a.num_col_; iCol++) {
       if (is_dense[iCol]) continue;
       if (theta[iCol] > ok_sparse_theta) num_ok_sparse_theta++;
     }
-    if (num_ok_sparse_theta < system_size) {
-      // Danger of bad numerics since there are fewer OK theta values in
-      // sparse columns than the number of rows
-      std::vector<int>new_dense_col;
-      // Work through the dense columns from low to high density,
-      // removing those with OK theta values until there are sufficient
-      // sparse theta values that are at least ok_sparse_theta
-      for (int ix = use_num_dense_col-1; ix >=0 ; ix--) {
-	int iCol = dense_col[ix];
-	if (theta[iCol] > ok_sparse_theta &&
-	    num_ok_sparse_theta < system_size) {
-	  is_dense[iCol] = false;
-	  num_ok_sparse_theta++;
-	} else {
-	  new_dense_col.push_back(iCol);
-	}
+    if (num_ok_sparse_theta >= system_size) break;
+    // Danger of bad numerics since there are fewer OK theta values in
+    // sparse columns than the number of rows
+    std::vector<int>new_dense_col;
+    // Work through the dense columns from low to high density,
+    // removing those with OK theta values until there are sufficient
+    // sparse theta values that are at least ok_sparse_theta
+    for (int ix = use_num_dense_col-1; ix >=0 ; ix--) {
+      int iCol = dense_col[ix];
+      if (theta[iCol] > ok_sparse_theta &&
+	  num_ok_sparse_theta < system_size) {
+	// Add this column to the sparse columns
+	is_dense[iCol] = false;
+	num_ok_sparse_theta++;
+	// Update the record of the densest sparse column
+	int col_nz = highs_a.start_[iCol + 1] - highs_a.start_[iCol];
+	double density_value = double(col_nz) / double(system_size);
+	max_sparse_col_density = std::max(density_value, max_sparse_col_density);
+      } else {
+	new_dense_col.push_back(iCol);
       }
-      dense_col = new_dense_col;
-      use_num_dense_col = dense_col.size();
     }
-    num_ok_sparse_theta = 0;
+    dense_col = new_dense_col;
+    use_num_dense_col = dense_col.size();
+    if (num_ok_sparse_theta >= system_size) break;
+    // Still not enough ok_sparse_theta, so repeat with smaller
+    // requirement for OK theta
+    ok_sparse_theta /= 10;
+  }
+  const bool check_method = true;
+  if (check_method) {
+    // Check that algorithm has worked
+    int num_ok_sparse_theta = 0;
     for (int iCol = 0; iCol < highs_a.num_col_; iCol++) {
       if (is_dense[iCol]) continue;
       if (theta[iCol] > ok_sparse_theta) num_ok_sparse_theta++;
     }
     assert(num_ok_sparse_theta >= system_size);
-    printf("Using %d dense columns\n", use_num_dense_col);
   }
   
-  if (use_num_dense_col < model_num_dense_col)
-    max_sparse_col_density = density_index[use_num_dense_col].first;
-
   double max_density = double(col_max_nz) / double(system_size);
   if (!quiet) {
     printf("Problem has %d rows and %d columns (max nonzeros = %d; density = "
@@ -121,8 +130,6 @@ void chooseDenseColumns(const HighsSparseMatrix &highs_a,
            max_density, int(model_num_dense_col), use_dense_col_tolerance);
     analyseVectorValues(nullptr, "Column density", highs_a.num_col_,
                         analyse_density);
-  } else {
-    //  printf("Newton solve uses %d dense columns\n", use_num_dense_col);
   }
 
   experiment_data.model_num_dense_col = model_num_dense_col;
@@ -147,6 +154,7 @@ int augmentedInvert(const HighsSparseMatrix &highs_a,
   experiment_data.system_type = kSystemTypeAugmented;
   experiment_data.system_size = highs_a.num_col_ + highs_a.num_row_;
   experiment_data.system_nnz = highs_a.num_col_ + 2 * highs_a.numNz();
+  experiment_data.analyseTheta(theta);
 
   SsidsData &ssids_data = invert.ssids_data;
   int factor_status =
@@ -279,8 +287,10 @@ int newtonInvert(const HighsSparseMatrix &highs_a,
                  const std::vector<double> &theta, IpmInvert &invert,
                  const int option_max_dense_col,
                  const double option_dense_col_tolerance,
-                 ExperimentData &experiment_data, const bool quiet) {
-  assert(!invert.valid);
+                 ExperimentData &experiment_data,
+		 const bool quiet) {
+  const bool first_call_with_theta = !invert.valid;
+  assert(first_call_with_theta);
   assert(highs_a.isColwise());
   const int system_size = highs_a.num_row_;
   std::vector<double> use_theta = theta;
@@ -296,6 +306,7 @@ int newtonInvert(const HighsSparseMatrix &highs_a,
   experiment_data.decomposer = "ssids";
   experiment_data.system_type = kSystemTypeNewton;
   experiment_data.system_size = system_size;
+  experiment_data.analyseTheta(theta);
 
   chooseDenseColumns(highs_a, theta,
 		     option_max_dense_col, option_dense_col_tolerance,

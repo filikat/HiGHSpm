@@ -150,7 +150,7 @@ void writeDataToCSV(const std::vector<ExperimentData> &data,
   } else {
     outputFile << "System NNZ,(%),";
   }
-  outputFile << "NNZ L,(%),Fill factor,Condition,Solution Error,Abs residual "
+  outputFile << "NNZ L,(%),Fill factor,Min Theta,Max Theta,Condition,Solution Error,Abs residual "
                 "error,Rel residual error,";
   outputFile << "Time Taken, Form time, Setup time, Analyse time, "
                 "Factorization time, Solve time\n";
@@ -181,6 +181,8 @@ void writeDataToCSV(const std::vector<ExperimentData> &data,
             : -1;
     outputFile << l_density << ",";
     outputFile << experimentData.fill_in_factor << ",";
+    outputFile << experimentData.theta_min << ",";
+    outputFile << experimentData.theta_max << ",";
     outputFile << experimentData.condition << ",";
     outputFile << experimentData.solution_error << ",";
     outputFile << experimentData.residual_error.first << ",";
@@ -251,7 +253,7 @@ void ExperimentData::fillIn_LDL() {
       double(2 * this->nnz_L + this->system_size) / double(this->system_nnz);
 }
 
-void ExperimentData::analyseTheta(const std::vector<double> &theta) {
+void ExperimentData::analyseTheta(const std::vector<double> &theta, const bool quiet) {
   const int dim = theta.size();
   if (dim<=0) return;
   double min_log10_theta = kHighsInf;
@@ -296,16 +298,11 @@ void ExperimentData::analyseTheta(const std::vector<double> &theta) {
     assert(k >= 0 && k < num_k);
     theta_order_k[k]++;
   }
-  
-}
-void ExperimentData::reportAnalyseTheta(const std::vector<double> &theta) {
-  this->analyseTheta(theta);
-  const int dim = theta.size();
+  if (quiet) return;
   printf("\nAnalysis of theta of dimension %d with values in [%g, %g] and geomean of %g\n",
 	 dim, this->theta_min, this->theta_max, this->theta_geomean);
   printf("Number of [small, medium, large] theta values is [%d, %d, %d]\n",
 	 int(this->theta_num_small), int(this->theta_num_medium), int(this->theta_num_large));
-  const int num_k = theta_order_k.size();
   printf("Order |");
   for (int k = 0; k < num_k; k++) 
     printf(" %3d |", this->theta_order0+k);
@@ -315,5 +312,3 @@ void ExperimentData::reportAnalyseTheta(const std::vector<double> &theta) {
     printf(" %3d |", theta_order_k[k]);
   printf("\n");
 }
-  
-

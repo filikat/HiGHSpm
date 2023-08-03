@@ -13,7 +13,7 @@ const int kSystemTypeAugmented = 1;
 const int kSystemTypeNewton = 2;
 
 class ExperimentData {
-public:
+public: 
   std::string decomposer;
   std::string model_name;
   int model_num_col;
@@ -86,8 +86,7 @@ public:
   }
   void fillIn_LL();
   void fillIn_LDL();
-  void analyseTheta(const std::vector<double> &theta);
-  void reportAnalyseTheta(const std::vector<double> &theta);
+  void analyseTheta(const std::vector<double> &theta, const bool quiet = true);
 };
 
 double getWallTime();
