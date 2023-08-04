@@ -150,7 +150,7 @@ void writeDataToCSV(const std::vector<ExperimentData> &data,
   } else {
     outputFile << "System NNZ,(%),";
   }
-  outputFile << "NNZ L,(%),Fill factor,Condition,Solution Error,Abs residual "
+  outputFile << "NNZ L,(%),Fill factor,Min Theta,Max Theta,Condition,Solution Error,Abs residual "
                 "error,Rel residual error,";
   outputFile << "Time Taken, Form time, Setup time, Analyse time, "
                 "Factorization time, Solve time\n";
@@ -181,6 +181,8 @@ void writeDataToCSV(const std::vector<ExperimentData> &data,
             : -1;
     outputFile << l_density << ",";
     outputFile << experimentData.fill_in_factor << ",";
+    outputFile << experimentData.theta_min << ",";
+    outputFile << experimentData.theta_max << ",";
     outputFile << experimentData.condition << ",";
     outputFile << experimentData.solution_error << ",";
     outputFile << experimentData.residual_error.first << ",";
@@ -249,4 +251,64 @@ void ExperimentData::fillIn_LL() {
 void ExperimentData::fillIn_LDL() {
   this->fill_in_factor =
       double(2 * this->nnz_L + this->system_size) / double(this->system_nnz);
+}
+
+void ExperimentData::analyseTheta(const std::vector<double> &theta, const bool quiet) {
+  const int dim = theta.size();
+  if (dim<=0) return;
+  double min_log10_theta = kHighsInf;
+  double max_log10_theta = 0;
+  double theta_min = 0;
+  double theta_geomean = 0;
+  double theta_max = 0;
+  for (int ix = 0; ix < dim; ix++) {
+    theta_geomean += std::log10(theta[ix]);
+    min_log10_theta = std::min(theta[ix], min_log10_theta);
+    max_log10_theta = std::max(theta[ix], max_log10_theta);
+  }
+  assert(min_log10_theta>0);
+  assert(max_log10_theta>0);
+  this->theta_min = min_log10_theta;
+  this->theta_max = max_log10_theta;
+  min_log10_theta = std::log10(min_log10_theta);
+  max_log10_theta = std::log10(max_log10_theta);
+  double v;
+  this->theta_order0 = int(std::floor(min_log10_theta));
+  theta_geomean /= double(dim);
+  theta_geomean = std::pow(10, theta_geomean);
+  this->theta_num_small = 0;
+  this->theta_num_medium = 0;
+  this->theta_num_large = 0;
+  for (int ix = 0; ix < dim; ix++) {
+    if (theta[ix]*10 < theta_geomean) {
+      this->theta_num_small++;
+    } else if (theta[ix] <= theta_geomean*10) {
+      this->theta_num_medium++;
+    } else {
+      this->theta_num_large++;
+    }
+  }
+  this->theta_geomean = theta_geomean;
+  int num_k = int(max_log10_theta) -  this->theta_order0 + 1;
+  
+  theta_order_k.assign(num_k, 0);
+  for (int ix = 0; ix < dim; ix++) {
+    int k = std::floor(std::log10(theta[ix]));
+    k -= this->theta_order0;
+    assert(k >= 0 && k < num_k);
+    theta_order_k[k]++;
+  }
+  if (quiet) return;
+  printf("\nAnalysis of theta of dimension %d with values in [%g, %g] and geomean of %g\n",
+	 dim, this->theta_min, this->theta_max, this->theta_geomean);
+  printf("Number of [small, medium, large] theta values is [%d, %d, %d]\n",
+	 int(this->theta_num_small), int(this->theta_num_medium), int(this->theta_num_large));
+  printf("Order |");
+  for (int k = 0; k < num_k; k++) 
+    printf(" %3d |", this->theta_order0+k);
+  printf("\n");
+  printf("Order |");
+  for (int k = 0; k < num_k; k++) 
+    printf(" %3d |", theta_order_k[k]);
+  printf("\n");
 }

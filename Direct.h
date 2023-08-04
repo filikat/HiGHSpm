@@ -3,7 +3,7 @@
 
 #include "ExperimentData.h"
 #include "VectorOperations.h"
-#include "spral.h"
+#include "spral.h" 
 #include "util/HighsSparseMatrix.h"
 
 struct SsidsData {
@@ -26,6 +26,14 @@ struct IpmInvert {
   int clear();
 };
 
+void chooseDenseColumns(const HighsSparseMatrix &highs_a,
+			const std::vector<double> &theta, 
+			const int option_max_dense_col,
+			const double option_dense_col_tolerance,
+			std::vector<int> &dense_col,
+			ExperimentData &experiment_data,
+			const bool quiet = true);
+
 int augmentedInvert(const HighsSparseMatrix &highs_a,
                     const std::vector<double> &theta, IpmInvert &invert,
                     ExperimentData &experiment_data);
@@ -44,7 +52,8 @@ int newtonInvert(const HighsSparseMatrix &highs_a,
                  const std::vector<double> &theta, IpmInvert &invert,
                  const int option_max_dense_col,
                  const double option_dense_col_tolerance,
-                 ExperimentData &experiment_data, const bool quiet = true);
+                 ExperimentData &experiment_data,
+		 const bool quiet = true);
 
 int newtonSolve(const HighsSparseMatrix &highs_a,
                 const std::vector<double> &theta,

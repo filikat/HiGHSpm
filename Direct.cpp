@@ -13,7 +13,133 @@ int IpmInvert::clear() {
 
 int SsidsData::clear() {
   // Free the memory allocated for SPRAL
-  return spral_ssids_free(&this->akeep, &this->fkeep);
+  return 1;
+// spral_ssids_free(&this->akeep, &this->fkeep);
+}
+
+void chooseDenseColumns(const HighsSparseMatrix &highs_a,
+			const std::vector<double> &theta, 
+			const int option_max_dense_col,
+			const double option_dense_col_tolerance,
+			std::vector<int> &dense_col,
+			ExperimentData &experiment_data,
+			const bool quiet) {
+  double use_dense_col_tolerance = option_dense_col_tolerance;
+  //  use_dense_col_tolerance = 1.2;
+  //  use_dense_col_tolerance = 0.1;
+  const int system_size = experiment_data.system_size;
+  int col_max_nz = 0;
+  std::vector<std::pair<double, int>> density_index;
+  std::vector<double> analyse_density;
+
+  double max_sparse_col_density = 0;
+  for (int iCol = 0; iCol < highs_a.num_col_; iCol++) {
+    int col_nz = highs_a.start_[iCol + 1] - highs_a.start_[iCol];
+    double density_value = double(col_nz) / double(system_size);
+    col_max_nz = std::max(col_nz, col_max_nz);
+    analyse_density.push_back(density_value);
+    if (density_value >= use_dense_col_tolerance) {
+      density_index.push_back(std::make_pair(density_value, iCol));
+    } else {
+      max_sparse_col_density = std::max(density_value, max_sparse_col_density);
+    }
+  }
+  const int model_num_dense_col = density_index.size();
+  struct {
+    bool operator()(std::pair<double, int> a, std::pair<double, int> b) const {
+      return a.first > b.first;
+    }
+  } customMore;
+  std::sort(density_index.begin(), density_index.end(), customMore);
+  // Number of dense columns to be used cannot exceed the number of dense columns permitted...
+  int use_num_dense_col = option_max_dense_col;
+  // ... the number of dense columns in the model...
+  use_num_dense_col = std::min(model_num_dense_col, use_num_dense_col);
+  // ... and must leave at least as many sparse columns as the system
+  // size
+  use_num_dense_col = std::min(highs_a.num_col_-system_size, use_num_dense_col);
+  if (use_num_dense_col < model_num_dense_col)
+    max_sparse_col_density = density_index[use_num_dense_col].first;
+
+  std::vector<bool> is_dense(highs_a.num_col_, false);
+  // Take the first use_num_dense_col entries as dense, counting how many 
+  for (int ix = 0; ix < use_num_dense_col; ix++) {
+    int iCol = density_index[ix].second;
+    dense_col.push_back(iCol);
+    is_dense[iCol] = true;
+  }
+  // Find the largest theta value amongst the sparse columns
+  double max_sparse_theta = 0;
+  for (int iCol = 0; iCol < highs_a.num_col_; iCol++) {
+    if (is_dense[iCol]) continue;
+    max_sparse_theta = std::max(theta[iCol], max_sparse_theta);
+  }
+  double ok_sparse_theta = max_sparse_theta / 1e6;
+  for (;;) {
+    // Count the number of sparse theta values that are at least ok_sparse_theta
+    int num_ok_sparse_theta = 0;
+    for (int iCol = 0; iCol < highs_a.num_col_; iCol++) {
+      if (is_dense[iCol]) continue;
+      if (theta[iCol] > ok_sparse_theta) num_ok_sparse_theta++;
+    }
+    if (num_ok_sparse_theta >= system_size) break;
+    // Danger of bad numerics since there are fewer OK theta values in
+    // sparse columns than the number of rows
+    std::vector<int>new_dense_col;
+    // Work through the dense columns from low to high density,
+    // removing those with OK theta values until there are sufficient
+    // sparse theta values that are at least ok_sparse_theta
+    for (int ix = use_num_dense_col-1; ix >=0 ; ix--) {
+      int iCol = dense_col[ix];
+      if (theta[iCol] > ok_sparse_theta &&
+	  num_ok_sparse_theta < system_size) {
+	// Add this column to the sparse columns
+	is_dense[iCol] = false;
+	num_ok_sparse_theta++;
+	// Update the record of the densest sparse column
+	int col_nz = highs_a.start_[iCol + 1] - highs_a.start_[iCol];
+	double density_value = double(col_nz) / double(system_size);
+	max_sparse_col_density = std::max(density_value, max_sparse_col_density);
+      } else {
+	new_dense_col.push_back(iCol);
+      }
+    }
+    dense_col = new_dense_col;
+    use_num_dense_col = dense_col.size();
+    if (num_ok_sparse_theta >= system_size) break;
+    // Still not enough ok_sparse_theta, so repeat with smaller
+    // requirement for OK theta
+    ok_sparse_theta /= 10;
+  }
+  const bool check_method = true;
+  if (check_method) {
+    // Check that algorithm has worked
+    int num_ok_sparse_theta = 0;
+    for (int iCol = 0; iCol < highs_a.num_col_; iCol++) {
+      if (is_dense[iCol]) continue;
+      if (theta[iCol] > ok_sparse_theta) num_ok_sparse_theta++;
+    }
+    assert(num_ok_sparse_theta >= system_size);
+  }
+  
+  double max_density = double(col_max_nz) / double(system_size);
+  if (!quiet) {
+    printf("Problem has %d rows and %d columns (max nonzeros = %d; density = "
+           "%g) with %d dense at a tolerance of %g\n",
+           int(system_size), int(highs_a.num_col_), int(col_max_nz),
+           max_density, int(model_num_dense_col), use_dense_col_tolerance);
+    analyseVectorValues(nullptr, "Column density", highs_a.num_col_,
+                        analyse_density);
+  }
+
+  experiment_data.model_num_dense_col = model_num_dense_col;
+  experiment_data.use_num_dense_col = use_num_dense_col;
+  experiment_data.dense_col_tolerance = use_dense_col_tolerance;
+  if (model_num_dense_col)
+    assert(density_index[0].first == max_density);
+  experiment_data.model_max_dense_col = max_density;
+  experiment_data.system_max_dense_col = max_sparse_col_density;
+
 }
 
 int augmentedInvert(const HighsSparseMatrix &highs_a,
@@ -28,6 +154,7 @@ int augmentedInvert(const HighsSparseMatrix &highs_a,
   experiment_data.system_type = kSystemTypeAugmented;
   experiment_data.system_size = highs_a.num_col_ + highs_a.num_row_;
   experiment_data.system_nnz = highs_a.num_col_ + 2 * highs_a.numNz();
+  experiment_data.analyseTheta(theta);
 
   SsidsData &ssids_data = invert.ssids_data;
   int factor_status =
@@ -160,85 +287,39 @@ int newtonInvert(const HighsSparseMatrix &highs_a,
                  const std::vector<double> &theta, IpmInvert &invert,
                  const int option_max_dense_col,
                  const double option_dense_col_tolerance,
-                 ExperimentData &experiment_data, const bool quiet) {
-  assert(!invert.valid);
+                 ExperimentData &experiment_data,
+		 const bool quiet) {
+  const bool first_call_with_theta = !invert.valid;
+  assert(first_call_with_theta);
   assert(highs_a.isColwise());
   const int system_size = highs_a.num_row_;
   std::vector<double> use_theta = theta;
-  double use_dense_col_tolerance = option_dense_col_tolerance;
-  //  use_dense_col_tolerance = 1.2;
-  //  use_dense_col_tolerance = 0.1;
 
   double start_time0 = getWallTime();
   double start_time = start_time0;
-  int col_max_nz = 0;
-  std::vector<std::pair<double, int>> density_index;
-  std::vector<double> analyse_density;
 
   std::vector<int> &dense_col = invert.dense_col;
   std::vector<double> &theta_d = invert.theta_d;
   std::vector<double> &hatA_d = invert.hatA_d;
 
-  double max_sparse_col_density = 0;
-  for (int iCol = 0; iCol < highs_a.num_col_; iCol++) {
-    int col_nz = highs_a.start_[iCol + 1] - highs_a.start_[iCol];
-    double density_value = double(col_nz) / double(system_size);
-    col_max_nz = std::max(col_nz, col_max_nz);
-    analyse_density.push_back(density_value);
-    if (density_value >= use_dense_col_tolerance) {
-      density_index.push_back(std::make_pair(density_value, iCol));
-    } else {
-      max_sparse_col_density = std::max(density_value, max_sparse_col_density);
-    }
-  }
-  const int model_num_dense_col = density_index.size();
-  struct {
-    bool operator()(std::pair<double, int> a, std::pair<double, int> b) const {
-      return a.first > b.first;
-    }
-  } customMore;
-  std::sort(density_index.begin(), density_index.end(), customMore);
-  const int use_num_dense_col = std::min(
-      model_num_dense_col, std::min(option_max_dense_col, system_size));
+  experiment_data.reset();
+  experiment_data.decomposer = "ssids";
+  experiment_data.system_type = kSystemTypeNewton;
+  experiment_data.system_size = system_size;
+  experiment_data.analyseTheta(theta);
 
-  // Take the first use_num_dense_col entries as dense
-  for (int ix = 0; ix < use_num_dense_col; ix++)
-    dense_col.push_back(density_index[ix].second);
-  if (use_num_dense_col < model_num_dense_col)
-    max_sparse_col_density = density_index[use_num_dense_col].first;
-
-  double max_density = double(col_max_nz) / double(system_size);
-  if (!quiet) {
-    printf("Problem has %d rows and %d columns (max nonzeros = %d; density = "
-           "%g) with %d dense at a tolerance of %g\n",
-           int(system_size), int(highs_a.num_col_), int(col_max_nz),
-           max_density, int(model_num_dense_col), use_dense_col_tolerance);
-    analyseVectorValues(nullptr, "Column density", highs_a.num_col_,
-                        analyse_density);
-  } else {
-    //  printf("Newton solve uses %d dense columns\n", use_num_dense_col);
-  }
-
+  chooseDenseColumns(highs_a, theta,
+		     option_max_dense_col, option_dense_col_tolerance,
+		     dense_col, experiment_data, quiet);
+  int use_num_dense_col = dense_col.size();
   // Zero the entries of use_theta corresponding to dense columns
   for (int ix = 0; ix < use_num_dense_col; ix++) {
     int iCol = dense_col[ix];
     theta_d.push_back(theta[iCol]);
     use_theta[iCol] = 0;
   }
-
   HighsSparseMatrix AAT = computeAThetaAT(highs_a, use_theta);
-  experiment_data.reset();
-  experiment_data.decomposer = "ssids";
-  experiment_data.system_type = kSystemTypeNewton;
-  experiment_data.system_size = system_size;
   experiment_data.system_nnz = AAT.numNz();
-  experiment_data.model_num_dense_col = model_num_dense_col;
-  experiment_data.use_num_dense_col = use_num_dense_col;
-  experiment_data.dense_col_tolerance = use_dense_col_tolerance;
-  if (model_num_dense_col)
-    assert(density_index[0].first == max_density);
-  experiment_data.model_max_dense_col = max_density;
-  experiment_data.system_max_dense_col = max_sparse_col_density;
 
   experiment_data.form_time = getWallTime() - start_time;
 
@@ -597,7 +678,7 @@ int callSsidsAugmentedFactor(const HighsSparseMatrix &matrix,
   std::vector<long> ptr;
   std::vector<int> row;
   std::vector<double> val;
-  spral_ssids_default_options(&ssids_data.options);
+//  spral_ssids_default_options(&ssids_data.options);
 
   // Extract lower triangular part of augmented system
   //
@@ -618,7 +699,7 @@ int callSsidsAugmentedFactor(const HighsSparseMatrix &matrix,
   // Now the (zero) columns for [A^T]
   //                            [ 0 ]
 
-  const double diagonal = ssids_data.options.small; // 1e-20;
+  const double diagonal = ssids_data.options.small; // 1e-20
   for (int iRow = 0; iRow < matrix.num_row_; iRow++) {
     ptr.push_back(val.size());
     if (diagonal) {
@@ -651,8 +732,8 @@ int callSsidsAugmentedFactor(const HighsSparseMatrix &matrix,
   bool check = true;
   start_time = getWallTime();
   spral_ssids_analyse(check, experiment_data.system_size, nullptr, ptr_ptr,
-                      row_ptr, nullptr, &ssids_data.akeep, &ssids_data.options,
-                      &ssids_data.inform);
+		      row_ptr, nullptr, &ssids_data.akeep, &ssids_data.options,
+		      &ssids_data.inform);
   experiment_data.analysis_time = getWallTime() - start_time;
   if (ssids_data.inform.flag < 0)
     return 1;
@@ -660,8 +741,8 @@ int callSsidsAugmentedFactor(const HighsSparseMatrix &matrix,
   bool positive_definite = false;
   start_time = getWallTime();
   spral_ssids_factor(positive_definite, nullptr, nullptr, val_ptr, nullptr,
-                     ssids_data.akeep, &ssids_data.fkeep, &ssids_data.options,
-                     &ssids_data.inform);
+		     ssids_data.akeep, &ssids_data.fkeep, &ssids_data.options,
+		     &ssids_data.inform);
   experiment_data.factorization_time = getWallTime() - start_time;
   if (ssids_data.inform.flag < 0)
     return 1;
@@ -710,7 +791,7 @@ int callSsidsNewtonFactor(const HighsSparseMatrix &AThetaAT,
   ssids_data.fkeep = nullptr;
   // Need to set to 1 if using Fortran 1-based indexing
   ssids_data.options.array_base =
-      array_base; // Need to set to 1 if using Fortran 1-based indexing
+    array_base; // Need to set to 1 if using Fortran 1-based indexing
 
   experiment_data.setup_time = getWallTime() - start_time;
 
@@ -718,8 +799,8 @@ int callSsidsNewtonFactor(const HighsSparseMatrix &AThetaAT,
   bool check = true;
   start_time = getWallTime();
   spral_ssids_analyse(check, AThetaAT.num_col_, nullptr, ptr_ptr, row_ptr,
-                      nullptr, &ssids_data.akeep, &ssids_data.options,
-                      &ssids_data.inform);
+		      nullptr, &ssids_data.akeep, &ssids_data.options,
+		      &ssids_data.inform);
   experiment_data.analysis_time = getWallTime() - start_time;
   if (ssids_data.inform.flag < 0)
     return 1;
@@ -727,8 +808,8 @@ int callSsidsNewtonFactor(const HighsSparseMatrix &AThetaAT,
   bool positive_definite = true;
   start_time = getWallTime();
   spral_ssids_factor(positive_definite, nullptr, nullptr, val_ptr, nullptr,
-                     ssids_data.akeep, &ssids_data.fkeep, &ssids_data.options,
-                     &ssids_data.inform);
+		     ssids_data.akeep, &ssids_data.fkeep, &ssids_data.options,
+		     &ssids_data.inform);
   experiment_data.factorization_time = getWallTime() - start_time;
   if (ssids_data.inform.flag < 0)
     return 1;
@@ -750,5 +831,5 @@ int callSsidsNewtonFactor(const HighsSparseMatrix &AThetaAT,
 void callSsidsSolve(const int system_size, const int num_rhs, double *rhs,
                     SsidsData &ssids_data) {
   spral_ssids_solve(0, num_rhs, rhs, system_size, ssids_data.akeep,
-                    ssids_data.fkeep, &ssids_data.options, &ssids_data.inform);
+		    ssids_data.fkeep, &ssids_data.options, &ssids_data.inform);
 }
