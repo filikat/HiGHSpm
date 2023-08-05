@@ -28,22 +28,22 @@ std::ostream &operator<<(std::ostream &os, const ExperimentData &data) {
           ? 1e2 * double(data.nnz_L) /
                 (float_dim * double(data.system_size + 1) * 0.5)
           : -1;
-  const double sum_time = data.form_time + data.setup_time +
-                          data.analysis_time + data.factorization_time +
-                          data.solve_time;
+  const double sum_time = data.nla_time.form + data.nla_time.setup +
+                          data.nla_time.analysis + data.nla_time.factorization +
+                          data.nla_time.solve;
   const double pct_sum_time =
-      data.time_taken > 0 ? 1e2 * sum_time / data.time_taken : -1;
+      data.nla_time.total > 0 ? 1e2 * sum_time / data.nla_time.total : -1;
   const double pct_form_time =
-      data.time_taken > 0 ? 1e2 * data.form_time / data.time_taken : -1;
+      data.nla_time.total > 0 ? 1e2 * data.nla_time.form / data.nla_time.total : -1;
   const double pct_setup_time =
-      data.time_taken > 0 ? 1e2 * data.setup_time / data.time_taken : -1;
+      data.nla_time.total > 0 ? 1e2 * data.nla_time.setup / data.nla_time.total : -1;
   const double pct_analysis_time =
-      data.time_taken > 0 ? 1e2 * data.analysis_time / data.time_taken : -1;
+      data.nla_time.total > 0 ? 1e2 * data.nla_time.analysis / data.nla_time.total : -1;
   const double pct_factorization_time =
-      data.time_taken > 0 ? 1e2 * data.factorization_time / data.time_taken
+      data.nla_time.total > 0 ? 1e2 * data.nla_time.factorization / data.nla_time.total
                           : -1;
   const double pct_solve_time =
-      data.time_taken > 0 ? 1e2 * data.solve_time / data.time_taken : -1;
+      data.nla_time.total > 0 ? 1e2 * data.nla_time.solve / data.nla_time.total : -1;
   os << std::left << std::setw(text_width) << "model name:" << std::right
      << std::setw(num_width) << data.model_name << "\n"
      << std::left << std::setw(text_width) << "model num col:" << std::right
@@ -100,28 +100,47 @@ std::ostream &operator<<(std::ostream &os, const ExperimentData &data) {
      << data.residual_error.first << ")\n";
   os << std::fixed;
   os << std::left << std::setw(text_width) << "form time: " << std::right
-     << std::setw(num_width) << data.form_time << " (" << std::right
+     << std::setw(num_width) << data.nla_time.form << " (" << std::right
      << std::setw(int_pct_width) << roundDouble2Int(pct_form_time) << "%)\n"
      << std::left << std::setw(text_width) << "setup time: " << std::right
-     << std::setw(num_width) << data.setup_time << " (" << std::right
+     << std::setw(num_width) << data.nla_time.setup << " (" << std::right
      << std::setw(int_pct_width) << roundDouble2Int(pct_setup_time) << "%)\n"
      << std::left << std::setw(text_width) << "analyse time: " << std::right
-     << std::setw(num_width) << data.analysis_time << " (" << std::right
+     << std::setw(num_width) << data.nla_time.analysis << " (" << std::right
      << std::setw(int_pct_width) << roundDouble2Int(pct_analysis_time) << "%)\n"
      << std::left << std::setw(text_width)
      << "factorization time: " << std::right << std::setw(num_width)
-     << data.factorization_time << " (" << std::right
+     << data.nla_time.factorization << " (" << std::right
      << std::setw(int_pct_width) << roundDouble2Int(pct_factorization_time)
      << "%)\n"
      << std::left << std::setw(text_width) << "solve time: " << std::right
-     << std::setw(num_width) << data.solve_time << " (" << std::right
+     << std::setw(num_width) << data.nla_time.solve << " (" << std::right
      << std::setw(int_pct_width) << roundDouble2Int(pct_solve_time) << "%)\n"
      << std::left << std::setw(text_width) << "sum time: " << std::right
      << std::setw(num_width) << sum_time << " (" << std::right
      << std::setw(int_pct_width) << roundDouble2Int(pct_sum_time) << "%)\n"
      << std::left << std::setw(text_width) << "time taken: " << std::right
-     << std::setw(num_width) << data.time_taken << "\n";
+     << std::setw(num_width) << data.nla_time.total << "\n";
   return os;
+}
+
+NlaTime sumNlaTime(const std::vector<ExperimentData> &experiment_data) {
+  NlaTime sum_nla_time;
+  sum_nla_time.form = 0;
+  sum_nla_time.setup = 0;
+  sum_nla_time.analysis = 0;
+  sum_nla_time.factorization = 0;
+  sum_nla_time.solve = 0;
+  sum_nla_time.total = 0;
+  for (const auto &data : experiment_data) {
+    sum_nla_time.form += data.nla_time.form;
+    sum_nla_time.setup += data.nla_time.setup;
+    sum_nla_time.analysis += data.nla_time.analysis;
+    sum_nla_time.factorization += data.nla_time.factorization;
+    sum_nla_time.solve += data.nla_time.solve;
+    sum_nla_time.total += data.nla_time.total;
+  }
+  return sum_nla_time; 
 }
 
 void writeDataToCSV(const std::vector<ExperimentData> &data,
@@ -187,12 +206,12 @@ void writeDataToCSV(const std::vector<ExperimentData> &data,
     outputFile << experimentData.solution_error << ",";
     outputFile << experimentData.residual_error.first << ",";
     outputFile << experimentData.residual_error.second << ",";
-    outputFile << experimentData.time_taken << ",";
-    outputFile << experimentData.form_time << ",";
-    outputFile << experimentData.setup_time << ",";
-    outputFile << experimentData.analysis_time << ",";
-    outputFile << experimentData.factorization_time << ",";
-    outputFile << experimentData.solve_time << "\n";
+    outputFile << experimentData.nla_time.total << ",";
+    outputFile << experimentData.nla_time.form << ",";
+    outputFile << experimentData.nla_time.setup << ",";
+    outputFile << experimentData.nla_time.analysis << ",";
+    outputFile << experimentData.nla_time.factorization << ",";
+    outputFile << experimentData.nla_time.solve << "\n";
   }
 
   outputFile.close();
@@ -241,6 +260,15 @@ std::pair<double, double> residualErrorNewton(const HighsSparseMatrix &A,
   }
   residual_error.second = residual_error.first / rhs_norm;
   return residual_error;
+}
+
+void NlaTime::reset() {
+  this->form = kDataNotSet;
+  this->setup = kDataNotSet;
+  this->analysis = kDataNotSet;
+  this->factorization = kDataNotSet;
+  this->solve = kDataNotSet;
+  this->total = kDataNotSet;
 }
 
 void ExperimentData::fillIn_LL() {

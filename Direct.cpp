@@ -13,8 +13,7 @@ int IpmInvert::clear() {
 
 int SsidsData::clear() {
   // Free the memory allocated for SPRAL
-  return 1;
-// spral_ssids_free(&this->akeep, &this->fkeep);
+  return spral_ssids_free(&this->akeep, &this->fkeep);
 }
 
 void chooseDenseColumns(const HighsSparseMatrix &highs_a,
@@ -159,7 +158,7 @@ int augmentedInvert(const HighsSparseMatrix &highs_a,
   SsidsData &ssids_data = invert.ssids_data;
   int factor_status =
       callSsidsAugmentedFactor(highs_a, theta, ssids_data, experiment_data);
-  experiment_data.time_taken = getWallTime() - start_time0;
+  experiment_data.nla_time.total = getWallTime() - start_time0;
 
   if (factor_status)
     return factor_status;
@@ -186,7 +185,7 @@ void augmentedSolve(const HighsSparseMatrix &highs_a,
     rhs.push_back(rhs_y[iRow]);
   int system_size = highs_a.num_col_ + highs_a.num_row_;
   callSsidsSolve(system_size, 1, rhs.data(), ssids_data);
-  experiment_data.solve_time = getWallTime() - start_time;
+  experiment_data.nla_time.solve = getWallTime() - start_time;
 
   lhs_x.resize(highs_a.num_col_);
   lhs_y.resize(highs_a.num_row_);
@@ -321,7 +320,7 @@ int newtonInvert(const HighsSparseMatrix &highs_a,
   HighsSparseMatrix AAT = computeAThetaAT(highs_a, use_theta);
   experiment_data.system_nnz = AAT.numNz();
 
-  experiment_data.form_time = getWallTime() - start_time;
+  experiment_data.nla_time.form = getWallTime() - start_time;
 
   SsidsData &ssids_data = invert.ssids_data;
   int factor_status = callSsidsNewtonFactor(AAT, ssids_data, experiment_data);
@@ -359,11 +358,11 @@ int newtonInvert(const HighsSparseMatrix &highs_a,
       d_matrix[d_col][d_col] += 1 / theta_d[d_col];
       offset += system_size;
     }
-    experiment_data.factorization_time += getWallTime() - start_time;
+    experiment_data.nla_time.factorization += getWallTime() - start_time;
   }
   invert.system_size = system_size;
   invert.use_num_dense_col = use_num_dense_col;
-  experiment_data.time_taken = getWallTime() - start_time0;
+  experiment_data.nla_time.total = getWallTime() - start_time0;
   invert.valid = true;
   return 0;
 }
@@ -410,7 +409,7 @@ int newtonSolve(const HighsSparseMatrix &highs_a,
       offset += system_size;
     }
   }
-  experiment_data.solve_time = getWallTime() - start_time;
+  experiment_data.nla_time.solve = getWallTime() - start_time;
 
   experiment_data.residual_error =
       residualErrorNewton(highs_a, theta, rhs, lhs);
@@ -670,7 +669,7 @@ int callSsidsAugmentedFactor(const HighsSparseMatrix &matrix,
                              const std::vector<double> &theta,
                              SsidsData &ssids_data,
                              ExperimentData &experiment_data) {
-  experiment_data.form_time = 0;
+  experiment_data.nla_time.form = 0;
   double start_time = getWallTime();
 
   // Prepare data structures for SPRAL
@@ -678,7 +677,7 @@ int callSsidsAugmentedFactor(const HighsSparseMatrix &matrix,
   std::vector<long> ptr;
   std::vector<int> row;
   std::vector<double> val;
-//  spral_ssids_default_options(&ssids_data.options);
+  spral_ssids_default_options(&ssids_data.options);
 
   // Extract lower triangular part of augmented system
   //
@@ -726,7 +725,7 @@ int callSsidsAugmentedFactor(const HighsSparseMatrix &matrix,
   ssids_data.options.array_base = array_base;
   //  ssids_data.options.print_level = 2;
 
-  experiment_data.setup_time = getWallTime() - start_time;
+  experiment_data.nla_time.setup = getWallTime() - start_time;
 
   // Perform analyse and factorise with data checking
   bool check = true;
@@ -734,7 +733,7 @@ int callSsidsAugmentedFactor(const HighsSparseMatrix &matrix,
   spral_ssids_analyse(check, experiment_data.system_size, nullptr, ptr_ptr,
 		      row_ptr, nullptr, &ssids_data.akeep, &ssids_data.options,
 		      &ssids_data.inform);
-  experiment_data.analysis_time = getWallTime() - start_time;
+  experiment_data.nla_time.analysis = getWallTime() - start_time;
   if (ssids_data.inform.flag < 0)
     return 1;
 
@@ -743,7 +742,7 @@ int callSsidsAugmentedFactor(const HighsSparseMatrix &matrix,
   spral_ssids_factor(positive_definite, nullptr, nullptr, val_ptr, nullptr,
 		     ssids_data.akeep, &ssids_data.fkeep, &ssids_data.options,
 		     &ssids_data.inform);
-  experiment_data.factorization_time = getWallTime() - start_time;
+  experiment_data.nla_time.factorization = getWallTime() - start_time;
   if (ssids_data.inform.flag < 0)
     return 1;
   experiment_data.nnz_L = ssids_data.inform.num_factor;
@@ -793,7 +792,7 @@ int callSsidsNewtonFactor(const HighsSparseMatrix &AThetaAT,
   ssids_data.options.array_base =
     array_base; // Need to set to 1 if using Fortran 1-based indexing
 
-  experiment_data.setup_time = getWallTime() - start_time;
+  experiment_data.nla_time.setup = getWallTime() - start_time;
 
   // Perform analyse and factorise with data checking
   bool check = true;
@@ -801,7 +800,7 @@ int callSsidsNewtonFactor(const HighsSparseMatrix &AThetaAT,
   spral_ssids_analyse(check, AThetaAT.num_col_, nullptr, ptr_ptr, row_ptr,
 		      nullptr, &ssids_data.akeep, &ssids_data.options,
 		      &ssids_data.inform);
-  experiment_data.analysis_time = getWallTime() - start_time;
+  experiment_data.nla_time.analysis = getWallTime() - start_time;
   if (ssids_data.inform.flag < 0)
     return 1;
 
@@ -810,7 +809,7 @@ int callSsidsNewtonFactor(const HighsSparseMatrix &AThetaAT,
   spral_ssids_factor(positive_definite, nullptr, nullptr, val_ptr, nullptr,
 		     ssids_data.akeep, &ssids_data.fkeep, &ssids_data.options,
 		     &ssids_data.inform);
-  experiment_data.factorization_time = getWallTime() - start_time;
+  experiment_data.nla_time.factorization = getWallTime() - start_time;
   if (ssids_data.inform.flag < 0)
     return 1;
 

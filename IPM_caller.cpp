@@ -604,7 +604,7 @@ void IPM_caller::SolveNewtonSystem(const HighsSparseMatrix &highs_a,
     }
     augmentedSolve(highs_a, theta, res7, Res.res1, augmented_delta_x,
                    augmented_delta_y, invert, experiment_data);
-    experiment_data.time_taken += experiment_data.solve_time;
+    experiment_data.nla_time.total += experiment_data.nla_time.solve;
     if (first_call_with_theta) {
       experiment_data.condition = augmentedCondition(highs_a, theta, invert);
       experiment_data_record.push_back(experiment_data);
