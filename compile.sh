@@ -41,11 +41,12 @@ COMPILER_FLAGS="-g -fopenmp"
 #COMPILER_FLAGS="-O3 -fopenmp "
 
 # Possibly define the compiler preprocessor settings
-COMPILER_PREPROCESS="-DHAVE_SPRAL -DHAVE_MA86 -DHAVE_QDLDL -DHAVE_CHOLMOD"
+COMPILER_PREPROCESS="-DHAVE_SPRAL  -DHAVE_QDLDL -DHAVE_CHOLMOD"
+#-DHAVE_MA86
 
 # Define source file - that might change
 #SOURCE_FILE="testSolve.cpp Direct.cpp ExperimentData.cpp VectorOperations.cpp"
-SOURCE_FILE="testSolve.cpp IPM_caller.cpp IPM_model.cpp NormalEquations.cpp ConjugateGradient.cpp Direct.cpp VectorOperations.cpp IPM_aux.cpp ExperimentData.cpp"
+SOURCE_FILE="mainIPM.cpp IPM_caller.cpp IPM_model.cpp NormalEquations.cpp ConjugateGradient.cpp Direct.cpp VectorOperations.cpp IPM_aux.cpp ExperimentData.cpp"
 
 OUTPUT_FILE=a.out
 rm $OUTPUT_FILE
@@ -55,7 +56,6 @@ $YOUR_CPP_COMPILER \
     $COMPILER_FLAGS \
     $COMPILER_PREPROCESS \
     $SOURCE_FILE \
-    $MA86WRAPPER_O \
     -I$SPRAL_INCLUDE_DIR \
     -I$HIGHS_INCLUDE_DIR \
     -I$QDLDL_INCLUDE_DIR \
@@ -68,3 +68,4 @@ $YOUR_CPP_COMPILER \
     -L$LIBQDLDL_DIR -Wl,-rpath=$ProtoIPM_HOME/qdldl/build/out/ \
     -o $OUTPUT_FILE -fno-stack-protector 
 
+#    $MA86WRAPPER_O \
