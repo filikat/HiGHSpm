@@ -1,6 +1,6 @@
 #include "Direct.h"
 #include <cmath>
-int IpmInvert::clear() {
+void IpmInvert::clear(const int solver_type) {
   this->valid = false;
   this->system_size = -1;
   this->use_num_dense_col = 0;
@@ -8,12 +8,31 @@ int IpmInvert::clear() {
   this->theta_d.clear();
   this->hatA_d.clear();
   this->d_matrix.clear();
-  return this->ssids_data.clear();
+  if (solver_type == 1){
+    this->ssids_data.clear();
+  } else if (solver_type == 2){
+    this->ma86_data.clear();
+  } else if (solver_type == 3){
+    this->qdldl_data.clear();
+  } else if (solver_type == 4){
+    this->cholmod_data.clear();
+  }
 }
 
 int SsidsData::clear() {
   // Free the memory allocated for SPRAL
   return spral_ssids_free(&this->akeep, &this->fkeep);
+}
+
+void CholmodData::clear() {   
+  cholmod_free_factor(&this->L, &this->c);
+  cholmod_free_sparse(&this->a, &this->c);
+  cholmod_free_triplet(&this->T, &this->c);
+  //cholmod_free_dense (&r, &c) ;
+  cholmod_free_dense(&this->x, &this->c);
+  cholmod_free_dense(&this->b, &this->c);
+  //cholmod_free_sparse(&L_sparse, &c);
+  cholmod_finish(&c);  
 }
 
 void chooseDenseColumns(const HighsSparseMatrix &highs_a,
@@ -141,28 +160,88 @@ void chooseDenseColumns(const HighsSparseMatrix &highs_a,
 
 }
 
+void MA86Data::clear() {
+  // Free the memory allocated for MA86
+  return wrapper_ma86_finalise(&this->keep, &this->control);
+}
+
+void QDLDLData::clear() {
+  free(this->Lp);
+  free(this->Li);
+  free(this->Lx);
+  free(this->D);
+  free(this->Dinv);
+  free(this->etree);
+  free(this->Lnz);
+  free(this->iwork);
+  free(this->bwork);
+  free(this->fwork);
+  free(this->x);
+}
+
+/*
+1-Spral
+2-MA86
+3-QDLQL
+*/
 int augmentedInvert(const HighsSparseMatrix &highs_a,
                     const std::vector<double> &theta, IpmInvert &invert,
-                    ExperimentData &experiment_data) {
+                    ExperimentData &experiment_data,
+		                const int solver_type) {
   assert(!invert.valid);
 
   assert(highs_a.isColwise());
   double start_time0 = getWallTime();
   experiment_data.reset();
-  experiment_data.decomposer = "ssids";
-  experiment_data.system_type = kSystemTypeAugmented;
-  experiment_data.system_size = highs_a.num_col_ + highs_a.num_row_;
-  experiment_data.system_nnz = highs_a.num_col_ + 2 * highs_a.numNz();
-  experiment_data.analyseTheta(theta);
+  if (solver_type == 1) {
+    experiment_data.decomposer = "ssids";
+    experiment_data.system_type = kSystemTypeAugmented;
+    experiment_data.system_size = highs_a.num_col_ + highs_a.num_row_;
+    experiment_data.system_nnz = highs_a.num_col_ + 2 * highs_a.numNz();
+    experiment_data.analyseTheta(theta);
 
-  SsidsData &ssids_data = invert.ssids_data;
-  int factor_status =
+    SsidsData &ssids_data = invert.ssids_data;
+    int factor_status =
       callSsidsAugmentedFactor(highs_a, theta, ssids_data, experiment_data);
-  experiment_data.nla_time.total = getWallTime() - start_time0;
+    experiment_data.time_taken = getWallTime() - start_time0;
 
-  if (factor_status)
-    return factor_status;
-  invert.valid = true;
+    if (factor_status)
+      return factor_status;
+    invert.valid = true;
+    return 0;
+  }
+
+  if (solver_type == 2){
+    experiment_data.decomposer = "ma86";
+    experiment_data.system_type = kSystemTypeAugmented;
+    experiment_data.system_size = highs_a.num_col_;
+    experiment_data.system_nnz = highs_a.numNz();
+
+    MA86Data& ma86_data = invert.ma86_data;
+    int factor_status = 
+      callMA86AugmentedFactor(highs_a, theta, ma86_data, experiment_data);
+    experiment_data.time_taken = getWallTime() - start_time0;
+
+    if (factor_status) return factor_status;
+    invert.valid = true;
+    return 0;
+  }
+
+  if (solver_type == 3){
+    experiment_data.decomposer = "qdldl";
+    experiment_data.system_type = kSystemTypeAugmented;
+    experiment_data.system_size = highs_a.num_col_;
+    experiment_data.system_nnz = highs_a.numNz();
+
+    QDLDLData& qdldl_data = invert.qdldl_data;
+    int factor_status = 
+      callQDLDLAugmentedFactor(highs_a, theta, qdldl_data, experiment_data);
+    experiment_data.time_taken = getWallTime() - start_time0;
+
+    if (factor_status) return factor_status;
+    invert.valid = true;
+    return 0;    
+  }
   return 0;
 }
 
@@ -171,9 +250,12 @@ void augmentedSolve(const HighsSparseMatrix &highs_a,
                     const std::vector<double> &rhs_x,
                     const std::vector<double> &rhs_y,
                     std::vector<double> &lhs_x, std::vector<double> &lhs_y,
-                    IpmInvert &invert, ExperimentData &experiment_data) {
+                    IpmInvert &invert, ExperimentData &experiment_data,
+                    const int solver_type) {
   assert(invert.valid);
   SsidsData &ssids_data = invert.ssids_data;
+  MA86Data &ma86_data = invert.ma86_data;
+  QDLDLData &qdldl_data = invert.qdldl_data;
 
   double start_time = getWallTime();
   int row_index_offset = highs_a.num_col_;
@@ -184,8 +266,16 @@ void augmentedSolve(const HighsSparseMatrix &highs_a,
   for (int iRow = 0; iRow < highs_a.num_row_; iRow++)
     rhs.push_back(rhs_y[iRow]);
   int system_size = highs_a.num_col_ + highs_a.num_row_;
-  callSsidsSolve(system_size, 1, rhs.data(), ssids_data);
-  experiment_data.nla_time.solve = getWallTime() - start_time;
+
+  if (solver_type == 1){
+    callSsidsSolve(system_size, 1, rhs.data(), ssids_data);
+  } else if (solver_type == 2){
+    callMA86Solve(system_size, 1, rhs.data(), ma86_data);
+  } else if (solver_type == 3){
+    callQDLDLSolve(system_size, 1, rhs.data(), invert.qdldl_data);
+  }
+  
+  experiment_data.solve_time = getWallTime() - start_time;
 
   lhs_x.resize(highs_a.num_col_);
   lhs_y.resize(highs_a.num_row_);
@@ -199,7 +289,8 @@ void augmentedSolve(const HighsSparseMatrix &highs_a,
 }
 
 double augmentedCondition(const HighsSparseMatrix &matrix,
-                          const std::vector<double> &theta, IpmInvert &invert) {
+                          const std::vector<double> &theta, IpmInvert &invert,
+                          const int solver_type) {
   assert(invert.valid);
   SsidsData &ssids_data = invert.ssids_data;
   const bool chatty = false;
@@ -260,7 +351,7 @@ double augmentedCondition(const HighsSparseMatrix &matrix,
     VectorScale(from_y_iterate, 1 / from_iterate_norm);
 
     augmentedSolve(matrix, theta, from_x_iterate, from_y_iterate, to_x_iterate,
-                   to_y_iterate, invert, experiment_data);
+                   to_y_iterate, invert, experiment_data, solver_type);
 
     double to_iterate_norm = Norm2(to_x_iterate, to_y_iterate);
     const bool converged =
@@ -286,8 +377,8 @@ int newtonInvert(const HighsSparseMatrix &highs_a,
                  const std::vector<double> &theta, IpmInvert &invert,
                  const int option_max_dense_col,
                  const double option_dense_col_tolerance,
-                 ExperimentData &experiment_data,
-		 const bool quiet) {
+                 ExperimentData &experiment_data, const bool quiet,
+		             const int solver_type) {
   const bool first_call_with_theta = !invert.valid;
   assert(first_call_with_theta);
   assert(highs_a.isColwise());
@@ -302,7 +393,6 @@ int newtonInvert(const HighsSparseMatrix &highs_a,
   std::vector<double> &hatA_d = invert.hatA_d;
 
   experiment_data.reset();
-  experiment_data.decomposer = "ssids";
   experiment_data.system_type = kSystemTypeNewton;
   experiment_data.system_size = system_size;
   experiment_data.analyseTheta(theta);
@@ -318,12 +408,41 @@ int newtonInvert(const HighsSparseMatrix &highs_a,
     use_theta[iCol] = 0;
   }
   HighsSparseMatrix AAT = computeAThetaAT(highs_a, use_theta);
+  std::cout << "In newtonInvert, solver_type = " << solver_type << std::endl;
+  if (solver_type == 1){
+    experiment_data.decomposer = "ssids";
+  } else if (solver_type == 2) {
+    experiment_data.decomposer = "ma86";
+  } else if (solver_type == 3) {
+    experiment_data.decomposer = "qdldl";
+  } else if (solver_type == 4) {
+    experiment_data.decomposer = "cholmod";
+  }
+  
+  experiment_data.system_type = kSystemTypeNewton;
+  experiment_data.system_size = system_size;
   experiment_data.system_nnz = AAT.numNz();
 
-  experiment_data.nla_time.form = getWallTime() - start_time;
+  experiment_data.form_time = getWallTime() - start_time;
+  SsidsData ssids_data;
+  MA86Data ma86_data;
+  QDLDLData qdldl_data;
+  CholmodData cholmod_data;
+  int factor_status;
+  if (solver_type == 1){
+    SsidsData &ssids_data = invert.ssids_data;
+    factor_status = callSsidsNewtonFactor(AAT, ssids_data, experiment_data);
+  } else if (solver_type == 2) {
+    MA86Data &ma86_data = invert.ma86_data;
+    factor_status = callMA86NewtonFactor(AAT, ma86_data, experiment_data);
+  } else if (solver_type == 3) {
+    QDLDLData &qdldl_data = invert.qdldl_data;
+    factor_status = callQDLDLNewtonFactor(AAT, qdldl_data, experiment_data);
+  } else if (solver_type == 4) {
+    CholmodData &cholmod_data = invert.cholmod_data;
+    factor_status = callCholmodNewtonFactor(AAT, cholmod_data, experiment_data);
+  }
 
-  SsidsData &ssids_data = invert.ssids_data;
-  int factor_status = callSsidsNewtonFactor(AAT, ssids_data, experiment_data);
   if (factor_status)
     return factor_status;
 
@@ -340,7 +459,16 @@ int newtonInvert(const HighsSparseMatrix &highs_a,
         hatA_d[offset + highs_a.index_[iEl]] = highs_a.value_[iEl];
       offset += system_size;
     }
-    callSsidsSolve(system_size, use_num_dense_col, hatA_d.data(), ssids_data);
+    if (solver_type == 1){
+      callSsidsSolve(system_size, use_num_dense_col, hatA_d.data(), ssids_data);
+    } else if (solver_type == 2) {
+      callMA86Solve(system_size, use_num_dense_col, hatA_d.data(), ma86_data);
+    } else if (solver_type == 3){
+      callQDLDLSolve(system_size, use_num_dense_col, hatA_d.data(), qdldl_data);
+    } else if (solver_type == 4) {
+      callCholmodSolve(system_size, use_num_dense_col, hatA_d.data(), cholmod_data);
+    }
+    
     // Now form D = \Theta_d^{-1} + \hat{A}_d^TA_d
     std::vector<std::vector<double>> &d_matrix = invert.d_matrix;
     d_matrix.resize(use_num_dense_col);
@@ -358,11 +486,11 @@ int newtonInvert(const HighsSparseMatrix &highs_a,
       d_matrix[d_col][d_col] += 1 / theta_d[d_col];
       offset += system_size;
     }
-    experiment_data.nla_time.factorization += getWallTime() - start_time;
+    experiment_data.factorization_time += getWallTime() - start_time;
   }
   invert.system_size = system_size;
   invert.use_num_dense_col = use_num_dense_col;
-  experiment_data.nla_time.total = getWallTime() - start_time0;
+  experiment_data.time_taken = getWallTime() - start_time0;
   invert.valid = true;
   return 0;
 }
@@ -370,9 +498,9 @@ int newtonInvert(const HighsSparseMatrix &highs_a,
 int newtonSolve(const HighsSparseMatrix &highs_a,
                 const std::vector<double> &theta,
                 const std::vector<double> &rhs, std::vector<double> &lhs,
-                IpmInvert &invert, ExperimentData &experiment_data) {
+                IpmInvert &invert, ExperimentData &experiment_data,
+                const int& solver_type) {
   assert(invert.valid);
-  SsidsData &ssids_data = invert.ssids_data;
 
   double start_time = getWallTime();
 
@@ -382,7 +510,16 @@ int newtonSolve(const HighsSparseMatrix &highs_a,
   const std::vector<double> &theta_d = invert.theta_d;
   const std::vector<double> &hatA_d = invert.hatA_d;
   lhs = rhs;
-  callSsidsSolve(system_size, 1, lhs.data(), ssids_data);
+  if (solver_type == 1){
+    callSsidsSolve(system_size, 1, lhs.data(), invert.ssids_data);
+  } else if (solver_type == 2) {
+    callMA86Solve(system_size, 1, lhs.data(), invert.ma86_data);
+  } else if (solver_type == 3){
+    callQDLDLSolve(system_size, 1, lhs.data(), invert.qdldl_data);
+  } else if (solver_type == 4) {
+    callCholmodSolve(system_size, 1, lhs.data(), invert.cholmod_data);
+  }
+  //callSsidsSolve(system_size, 1, lhs.data(), ssids_data);
   if (use_num_dense_col) {
     std::vector<std::vector<double>> d_matrix = invert.d_matrix;
     std::vector<double> d_sol;
@@ -409,7 +546,7 @@ int newtonSolve(const HighsSparseMatrix &highs_a,
       offset += system_size;
     }
   }
-  experiment_data.nla_time.solve = getWallTime() - start_time;
+  experiment_data.solve_time = getWallTime() - start_time;
 
   experiment_data.residual_error =
       residualErrorNewton(highs_a, theta, rhs, lhs);
@@ -417,7 +554,7 @@ int newtonSolve(const HighsSparseMatrix &highs_a,
 }
 
 double newtonCondition(const HighsSparseMatrix &matrix,
-                       const std::vector<double> &theta, IpmInvert &invert) {
+                       const std::vector<double> &theta, IpmInvert &invert, const int& solver_type) {
   assert(invert.valid);
   SsidsData &ssids_data = invert.ssids_data;
   const bool chatty = false;
@@ -457,7 +594,7 @@ double newtonCondition(const HighsSparseMatrix &matrix,
     assert(from_iterate_norm > 0);
     VectorScale(from_iterate, 1 / from_iterate_norm);
     newtonSolve(matrix, theta, from_iterate, to_iterate, invert,
-                experiment_data);
+                experiment_data,solver_type);
     double to_iterate_norm = Norm2(to_iterate);
     const bool converged =
         std::fabs(lambda_1 - to_iterate_norm) / std::max(1.0, lambda_1) <
@@ -669,7 +806,7 @@ int callSsidsAugmentedFactor(const HighsSparseMatrix &matrix,
                              const std::vector<double> &theta,
                              SsidsData &ssids_data,
                              ExperimentData &experiment_data) {
-  experiment_data.nla_time.form = 0;
+  experiment_data.form_time = 0;
   double start_time = getWallTime();
 
   // Prepare data structures for SPRAL
@@ -725,7 +862,7 @@ int callSsidsAugmentedFactor(const HighsSparseMatrix &matrix,
   ssids_data.options.array_base = array_base;
   //  ssids_data.options.print_level = 2;
 
-  experiment_data.nla_time.setup = getWallTime() - start_time;
+  experiment_data.setup_time = getWallTime() - start_time;
 
   // Perform analyse and factorise with data checking
   bool check = true;
@@ -733,7 +870,7 @@ int callSsidsAugmentedFactor(const HighsSparseMatrix &matrix,
   spral_ssids_analyse(check, experiment_data.system_size, nullptr, ptr_ptr,
 		      row_ptr, nullptr, &ssids_data.akeep, &ssids_data.options,
 		      &ssids_data.inform);
-  experiment_data.nla_time.analysis = getWallTime() - start_time;
+  experiment_data.analysis_time = getWallTime() - start_time;
   if (ssids_data.inform.flag < 0)
     return 1;
 
@@ -742,7 +879,7 @@ int callSsidsAugmentedFactor(const HighsSparseMatrix &matrix,
   spral_ssids_factor(positive_definite, nullptr, nullptr, val_ptr, nullptr,
 		     ssids_data.akeep, &ssids_data.fkeep, &ssids_data.options,
 		     &ssids_data.inform);
-  experiment_data.nla_time.factorization = getWallTime() - start_time;
+  experiment_data.factorization_time = getWallTime() - start_time;
   if (ssids_data.inform.flag < 0)
     return 1;
   experiment_data.nnz_L = ssids_data.inform.num_factor;
@@ -792,7 +929,7 @@ int callSsidsNewtonFactor(const HighsSparseMatrix &AThetaAT,
   ssids_data.options.array_base =
     array_base; // Need to set to 1 if using Fortran 1-based indexing
 
-  experiment_data.nla_time.setup = getWallTime() - start_time;
+  experiment_data.setup_time = getWallTime() - start_time;
 
   // Perform analyse and factorise with data checking
   bool check = true;
@@ -800,7 +937,7 @@ int callSsidsNewtonFactor(const HighsSparseMatrix &AThetaAT,
   spral_ssids_analyse(check, AThetaAT.num_col_, nullptr, ptr_ptr, row_ptr,
 		      nullptr, &ssids_data.akeep, &ssids_data.options,
 		      &ssids_data.inform);
-  experiment_data.nla_time.analysis = getWallTime() - start_time;
+  experiment_data.analysis_time = getWallTime() - start_time;
   if (ssids_data.inform.flag < 0)
     return 1;
 
@@ -809,7 +946,7 @@ int callSsidsNewtonFactor(const HighsSparseMatrix &AThetaAT,
   spral_ssids_factor(positive_definite, nullptr, nullptr, val_ptr, nullptr,
 		     ssids_data.akeep, &ssids_data.fkeep, &ssids_data.options,
 		     &ssids_data.inform);
-  experiment_data.nla_time.factorization = getWallTime() - start_time;
+  experiment_data.factorization_time = getWallTime() - start_time;
   if (ssids_data.inform.flag < 0)
     return 1;
 
@@ -831,4 +968,411 @@ void callSsidsSolve(const int system_size, const int num_rhs, double *rhs,
                     SsidsData &ssids_data) {
   spral_ssids_solve(0, num_rhs, rhs, system_size, ssids_data.akeep,
 		    ssids_data.fkeep, &ssids_data.options, &ssids_data.inform);
+}
+
+int callMA86AugmentedFactor(const HighsSparseMatrix& matrix,
+			    const std::vector<double>& theta,
+			    MA86Data& ma86_data,
+			    ExperimentData& experiment_data){
+  int n = matrix.num_col_;
+  int m = matrix.num_row_;
+  experiment_data.form_time = 0;
+  double start_time = getWallTime();
+
+  const int array_base = 0;
+  std::vector<int> ptr;
+  std::vector<int> row;
+  std::vector<double> val;
+
+  // Extract lower triangular part of augmented system
+  int row_index_offset = matrix.num_col_;
+  for (int iCol = 0; iCol < matrix.num_col_; iCol++) {
+    const double theta_i = !theta.empty() ? theta[iCol] : 1;
+    
+    ptr.push_back(val.size()); 
+    val.push_back(-1/theta_i);
+    row.push_back(iCol); 
+    for (int iEl = matrix.start_[iCol]; iEl < matrix.start_[iCol+1]; iEl++) {
+      int iRow = matrix.index_[iEl];
+
+      val.push_back(matrix.value_[iEl]);
+      row.push_back(row_index_offset + iRow);
+    }
+  }
+
+  const double diagonal = 1e-20;//1e-20;
+  for (int iRow = 0; iRow < matrix.num_row_; iRow++) {
+    std::cout << "val.size" << val.size() << std::endl;
+    ptr.push_back(val.size()); 
+    if (diagonal) {
+      val.push_back(diagonal);
+      row.push_back(row_index_offset + iRow); 
+    }
+  }
+
+  ptr.push_back(val.size());
+
+  ma86_data.order.resize(m+n);
+  for (int i = 0; i < m+n; i++) ma86_data.order[i] = i;
+
+  wrapper_ma86_default_control(&ma86_data.control);
+  experiment_data.setup_time = getWallTime() - start_time;
+  start_time = getWallTime();
+  wrapper_ma86_analyse(n+m, ptr.data(), row.data(), ma86_data.order.data(),
+                       &ma86_data.keep, &ma86_data.control, &ma86_data.info);
+  experiment_data.analysis_time = getWallTime() - start_time;
+  if (ma86_data.info.flag < 0) return 1;
+  start_time = getWallTime();
+  wrapper_ma86_factor(n+m, ptr.data(), row.data(), val.data(), ma86_data.order.data(),
+                       &ma86_data.keep, &ma86_data.control, &ma86_data.info);
+  if (ma86_data.info.flag < 0) return 1;
+  experiment_data.factorization_time = getWallTime() - start_time;
+  experiment_data.nnz_L = ma86_data.info.num_factor;
+  experiment_data.fillIn_LL();
+
+  return 0;
+}
+
+int callMA86NewtonFactor(const HighsSparseMatrix& AThetaAT,
+			                  MA86Data& ma86_data,
+			                  ExperimentData& experiment_data){
+  double start_time = getWallTime();
+
+  int n = AThetaAT.num_col_;
+  const int array_base = 0;
+  std::vector<int> ptr;
+  std::vector<int> row;
+  std::vector<double> val;
+
+  // Extract upper triangular part of AAT in fortran
+  for (int col = 0; col < AThetaAT.num_col_; col++){
+      ptr.push_back(val.size());
+      for (int idx = AThetaAT.start_[col]; idx < AThetaAT.start_[col+1]; idx++){
+          int row_idx = AThetaAT.index_[idx];
+          if (row_idx >= col){
+              val.push_back(AThetaAT.value_[idx]);
+              row.push_back(row_idx);
+          }
+      }
+  }
+
+
+  std::cout << std::endl;
+
+  // Add the last pointer
+  ptr.push_back(val.size());
+
+  //print ptr
+  for (int i = 0; i < ptr.size(); i++){
+      std::cout << ptr[i] << " ";
+  }
+  ma86_data.order.resize(AThetaAT.num_row_);
+  for (int i = 0; i < n; i++) ma86_data.order[i] = i;
+
+  wrapper_ma86_default_control(&ma86_data.control);
+  experiment_data.setup_time = getWallTime() - start_time;
+  start_time = getWallTime();
+  wrapper_ma86_analyse(n, ptr.data(), row.data(), ma86_data.order.data(),
+                       &ma86_data.keep, &ma86_data.control, &ma86_data.info);
+  experiment_data.analysis_time = getWallTime() - start_time;
+  if (ma86_data.info.flag < 0) return 1;
+  start_time = getWallTime();
+  wrapper_ma86_factor(n, ptr.data(), row.data(), val.data(), ma86_data.order.data(),
+                       &ma86_data.keep, &ma86_data.control, &ma86_data.info);
+  if (ma86_data.info.flag < 0) return 1;
+  experiment_data.factorization_time = getWallTime() - start_time;
+  experiment_data.nnz_L = ma86_data.info.num_factor;
+  experiment_data.fillIn_LL();
+
+  return 0;
+}
+
+void callMA86Solve(const int system_size,
+		   const int num_rhs,
+		   double* rhs,
+		   MA86Data& ma86_data){
+  wrapper_ma86_solve(0,1, system_size, rhs, ma86_data.order.data(), &ma86_data.keep, &ma86_data.control, &ma86_data.info);
+}
+
+int callQDLDLNewtonFactor(const HighsSparseMatrix& AThetaAT,
+			 QDLDLData& qdldl_data,
+			 ExperimentData& experiment_data){
+  double start_time = getWallTime();
+
+  int n = AThetaAT.num_col_;
+  QDLDL_int An = AThetaAT.num_col_;
+  std::vector<QDLDL_int> Ap(An+1);
+  std::vector<QDLDL_int> Ai;
+  std::vector<QDLDL_float> Ax;
+
+  for (int col = 0; col < AThetaAT.num_col_; col++){
+      Ap[col] = Ai.size();
+      for (int idx = AThetaAT.start_[col]; idx < AThetaAT.start_[col+1]; idx++){
+          int row_idx = AThetaAT.index_[idx];
+          if (row_idx <= col){
+              Ai.push_back(row_idx);
+              Ax.push_back(AThetaAT.value_[idx]);
+          }
+      }
+  }
+  Ap[An] = Ai.size();
+
+  QDLDL_int *Ap_star = Ap.data();
+  QDLDL_int *Ai_star = Ai.data();
+  QDLDL_float *Ax_star = Ax.data();
+ 
+  experiment_data.setup_time = getWallTime() - start_time;
+  /*--------------------------------
+  * pre-factorisation memory allocations
+  *---------------------------------*/
+  start_time = getWallTime();
+  qdldl_data.etree = (QDLDL_int*)malloc(sizeof(QDLDL_int)*An);
+  qdldl_data.Lnz   = (QDLDL_int*)malloc(sizeof(QDLDL_int)*An);
+
+  //For the L factors.   Li and Lx are sparsity dependent
+  //so must be done after the etree is constructed
+  qdldl_data.Lp    = (QDLDL_int*)malloc(sizeof(QDLDL_int)*(An+1));
+  qdldl_data.D     = (QDLDL_float*)malloc(sizeof(QDLDL_float)*An);
+  qdldl_data.Dinv  = (QDLDL_float*)malloc(sizeof(QDLDL_float)*An);
+
+
+  qdldl_data.iwork = (QDLDL_int*)malloc(sizeof(QDLDL_int)*(3*An));
+  qdldl_data.bwork = (QDLDL_bool*)malloc(sizeof(QDLDL_bool)*An);
+  qdldl_data.fwork = (QDLDL_float*)malloc(sizeof(QDLDL_float)*An);
+
+  
+  /*--------------------------------
+  * elimination tree calculation
+  *---------------------------------*/
+  
+  qdldl_data.sumLnz = QDLDL_etree(An,Ap_star,Ai.data(),qdldl_data.iwork,qdldl_data.Lnz,qdldl_data.etree);
+  experiment_data.analysis_time = getWallTime() - start_time;
+  /*--------------------------------
+  * LDL factorisation
+  *---------------------------------*/
+  start_time = getWallTime();
+  //First allocate memory for Li and Lx
+  experiment_data.nnz_L = qdldl_data.sumLnz;
+  //std::cout << "sumLnz = " << sumLnz << std::endl;
+  qdldl_data.Li    = (QDLDL_int*)malloc(sizeof(QDLDL_int)*qdldl_data.sumLnz);
+  
+  qdldl_data.Lx    = (QDLDL_float*)malloc(sizeof(QDLDL_float)*qdldl_data.sumLnz);
+
+  //now factor
+  QDLDL_factor(An,Ap_star,Ai.data(),Ax.data(),qdldl_data.Lp,qdldl_data.Li,qdldl_data.Lx,qdldl_data.D,qdldl_data.Dinv,qdldl_data.Lnz,qdldl_data.etree,qdldl_data.bwork,qdldl_data.iwork,qdldl_data.fwork);
+  qdldl_data.x = (QDLDL_float*)malloc(sizeof(QDLDL_float)*An);
+  experiment_data.factorization_time = getWallTime() - start_time;
+  experiment_data.fillIn_LDL();
+  return 0;
+}
+/*
+void callQDLDLSolve(const int system_size,
+		   const int num_rhs,
+		   double* rhs,
+		   QDLDLData& qdldl_data){
+  // print rhs
+  QDLDL_solve(qdldl_data.Ln,qdldl_data.Lp,qdldl_data.Li,qdldl_data.Lx,qdldl_data.Dinv, qdldl_data.x);
+      
+}*/
+void callQDLDLSolve(const int system_size,
+                    const int num_rhs,
+                    double* rhs,
+                    QDLDLData& qdldl_data){
+  // Copy rhs to qdldl_data.x before the solve operation
+  //memcpy(qdldl_data.x, rhs, system_size * sizeof(double));
+
+  //for(int i=0;i < system_size-1; i++) qdldl_data.x[i] = rhs[i];
+  // Solve the system
+  QDLDL_solve(qdldl_data.Ln,qdldl_data.Lp,qdldl_data.Li,qdldl_data.Lx,qdldl_data.Dinv, rhs);
+  
+  // Copy the result back into rhs
+  //memcpy(rhs, qdldl_data.x, system_size * sizeof(double));
+}
+
+
+int callQDLDLAugmentedFactor(const HighsSparseMatrix& matrix,
+			    const std::vector<double>& theta,
+			    QDLDLData& qdldl_data,
+			    ExperimentData& experiment_data){
+  experiment_data.form_time = 0;          
+  double start_time = getWallTime();
+  HighsSparseMatrix A_rowwise=matrix;
+  A_rowwise.ensureRowwise();
+
+  int n = matrix.num_col_;
+  QDLDL_int An = matrix.num_col_;
+  const int array_base = 0;
+  std::vector<QDLDL_int> Ap;
+  std::vector<QDLDL_int> Ai;
+  std::vector<QDLDL_float> Ax;
+
+  int row_index_offset = matrix.num_col_;
+  int column_index_offset = matrix.num_row_;
+  // Extract lower triangular part of augmented system row-wise
+  //
+  // First the rows    for [-\Theta^{-1}]
+  //                       [      A     ]
+  for (int iCol = 0; iCol < A_rowwise.num_col_; iCol++){
+    const double theta_i = !theta.empty() ? theta[iCol] : 1;
+    Ap.push_back(Ax.size());
+    Ax.push_back(-1/theta_i);
+    Ai.push_back(iCol + array_base);
+    
+  }
+
+  const double diagonal = 0; //1e-20
+  for (int iRow = 0; iRow < matrix.num_row_; iRow++){
+    Ap.push_back(Ax.size());
+    for (int idx = A_rowwise.start_[iRow]; idx < A_rowwise.start_[iRow+1]; idx++){
+      int row_idx = A_rowwise.index_[idx];
+      Ai.push_back(row_idx + array_base );
+      Ax.push_back(A_rowwise.value_[idx]);  
+    }
+    
+    if (diagonal) {
+      Ai.push_back(iRow + row_index_offset + array_base);
+      Ax.push_back(diagonal);
+    }
+  }
+
+  Ap.push_back(Ax.size());
+
+  QDLDL_int *Ap_star = Ap.data();
+  QDLDL_int *Ai_star = Ai.data();
+  QDLDL_float *Ax_star = Ax.data();
+  experiment_data.setup_time = getWallTime() - start_time;
+  /*--------------------------------
+  * pre-factorisation memory allocations
+  *---------------------------------*/
+  start_time = getWallTime();
+  qdldl_data.etree = (QDLDL_int*)malloc(sizeof(QDLDL_int)*An);
+  qdldl_data.Lnz   = (QDLDL_int*)malloc(sizeof(QDLDL_int)*An);
+
+  //For the L factors.   Li and Lx are sparsity dependent
+  //so must be done after the etree is constructed
+  qdldl_data.Lp    = (QDLDL_int*)malloc(sizeof(QDLDL_int)*(An+1));
+  qdldl_data.D     = (QDLDL_float*)malloc(sizeof(QDLDL_float)*An);
+  qdldl_data.Dinv  = (QDLDL_float*)malloc(sizeof(QDLDL_float)*An);
+
+
+  qdldl_data.iwork = (QDLDL_int*)malloc(sizeof(QDLDL_int)*(3*An));
+  qdldl_data.bwork = (QDLDL_bool*)malloc(sizeof(QDLDL_bool)*An);
+  qdldl_data.fwork = (QDLDL_float*)malloc(sizeof(QDLDL_float)*An);
+
+  
+  /*--------------------------------
+  * elimination tree calculation
+  *---------------------------------*/
+  
+  qdldl_data.sumLnz = QDLDL_etree(An,Ap_star,Ai.data(),qdldl_data.iwork,qdldl_data.Lnz,qdldl_data.etree);
+  experiment_data.analysis_time = getWallTime() - start_time;
+  /*--------------------------------
+  * LDL factorisation
+  *---------------------------------*/
+  start_time = getWallTime();
+  //First allocate memory for Li and Lx
+  experiment_data.nnz_L = qdldl_data.sumLnz;
+  std::cout << "sumLnz = " << qdldl_data.sumLnz << std::endl;
+  qdldl_data.Li    = (QDLDL_int*)malloc(sizeof(QDLDL_int)*qdldl_data.sumLnz);
+  
+  qdldl_data.Lx    = (QDLDL_float*)malloc(sizeof(QDLDL_float)*qdldl_data.sumLnz);
+  qdldl_data.x = (QDLDL_float*)malloc(sizeof(QDLDL_float)*An);
+  
+  //now factor
+  QDLDL_factor(An,Ap_star,Ai.data(),Ax.data(),qdldl_data.Lp,qdldl_data.Li,qdldl_data.Lx,qdldl_data.D,qdldl_data.Dinv,qdldl_data.Lnz,qdldl_data.etree,qdldl_data.bwork,qdldl_data.iwork,qdldl_data.fwork);
+  experiment_data.factorization_time = getWallTime() - start_time;
+  experiment_data.fillIn_LDL();
+  return 0;
+}
+
+int callCholmodNewtonFactor(const HighsSparseMatrix &AThetaAT,
+                          CholmodData &cholmod_data,
+                          ExperimentData &experiment_data,
+                          const int num_thods){
+  experiment_data.form_time = 0;
+  double start_time = getWallTime();
+
+  cholmod_data.c;
+  cholmod_start(&cholmod_data.c);
+
+  //create the cholmod_triplet structure
+  //cholmod_triplet* T = cholmod_allocate_triplet(AThetaAT.num_row_, AThetaAT.num_col_, AThetaAT.value_.size(), 1, CHOLMOD_REAL, &cholmod_data.c);
+  cholmod_data.T = cholmod_allocate_triplet(AThetaAT.num_row_, AThetaAT.num_col_, AThetaAT.value_.size(), 1, CHOLMOD_REAL, &cholmod_data.c);
+  int* Ti = static_cast<int*>(cholmod_data.T->i);
+  int* Tj = static_cast<int*>(cholmod_data.T->j);
+  double* Tx = static_cast<double*>(cholmod_data.T->x);
+  // Extract upper triangular part of AThetaAT
+  for (int col = 0; col < AThetaAT.num_col_; col++){
+      for (int idx = AThetaAT.start_[col]; idx < AThetaAT.start_[col+1]; idx++){
+          if (col >= AThetaAT.index_[idx]){
+              *Ti++ = AThetaAT.index_[idx];
+              *Tj++ = col;
+              *Tx++ = AThetaAT.value_[idx];
+          }
+      }
+  }
+  cholmod_data.T->nnz = Tx - static_cast<double*>(cholmod_data.T->x);
+
+//   cholmod_print_triplet(T, "T", &c);
+  cholmod_check_triplet(cholmod_data.T, &cholmod_data.c);
+  
+  cholmod_data.a = cholmod_triplet_to_sparse(cholmod_data.T, 1, &cholmod_data.c);
+
+//    cholmod_print_sparse(a,"A",&c);
+  cholmod_check_sparse(cholmod_data.a,&cholmod_data.c);
+  experiment_data.setup_time = getWallTime() - start_time;
+  start_time = getWallTime();
+  /*
+  If you are going to factorize hundreds or more matrices with the same
+  * nonzero pattern, you may wish to spend a great deal of time finding a
+  * good permutation.  In this case, try setting Common->nmethods to 9.
+  * The time spent in cholmod_analysis will be very high, but you need to
+  * call it only once.
+  */
+  //c.nmethods = num_thods;
+  //c.method[2].ordering = CHOLMOD_METIS;
+  //c.postorder = 0;
+  cholmod_data.L = cholmod_analyze(cholmod_data.a, &cholmod_data.c);
+  experiment_data.analysis_time = getWallTime() - start_time;
+  start_time = getWallTime();
+
+  cholmod_factorize(cholmod_data.a, cholmod_data.L, &cholmod_data.c);
+  
+  size_t nnz = 0;
+  if (cholmod_data.L->is_super) {  // Supernodal factor
+      for (size_t s = 0; s < cholmod_data.L->nsuper; s++) {
+          int pi = ((int*)(cholmod_data.L->pi))[s];
+          int pj = ((int*)(cholmod_data.L->pi))[s+1];
+          for (int p = pi; p < pj; p++) {
+              int i = ((int*)(cholmod_data.L->s))[p];
+              nnz += (cholmod_data.L->n - i);
+          }
+      }
+      //std::cout << "Number of nonzeros in L = " << nnz << std::endl;
+  }
+  else {  // Simplicial factor
+      for (size_t j = 0; j < cholmod_data.L->n; j++) {
+          nnz += ((int*)(cholmod_data.L->nz))[j];
+      }
+      //std::cout << "Number of nonzeros in L = " << nnz << std::endl;
+  }
+  experiment_data.factorization_time = getWallTime() - start_time;
+  experiment_data.nnz_L = nnz;
+  experiment_data.fillIn_LL();
+
+  return 0;
+}
+
+void callCholmodSolve(const int system_size, const int num_rhs, double *rhs,
+                    CholmodData &cholmod_data){
+  // Create a cholmod_dense structure for rhs
+  cholmod_dense* rhs_dense = cholmod_allocate_dense(system_size, num_rhs, system_size, CHOLMOD_REAL, &(cholmod_data.c));
+  std::copy_n(rhs, system_size, static_cast<double*>(rhs_dense->x));
+
+  cholmod_dense* x = cholmod_solve(CHOLMOD_A, cholmod_data.L, rhs_dense, &(cholmod_data.c));
+
+  // Copy the solution back into rhs
+  std::copy_n(static_cast<double*>(x->x), system_size, rhs);
+
+  cholmod_free_dense(&rhs_dense, &(cholmod_data.c));
 }

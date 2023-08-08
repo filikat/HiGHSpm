@@ -12,16 +12,6 @@ const int kDataNotSet = -1;
 const int kSystemTypeAugmented = 1;
 const int kSystemTypeNewton = 2;
 
-struct NlaTime {
-  double form;
-  double setup;
-  double analysis;
-  double factorization;
-  double solve;
-  double total;
-  void reset();
-};
-
 class ExperimentData {
 public: 
   std::string decomposer;
@@ -44,8 +34,13 @@ public:
   double condition;
 
   // time
-  NlaTime nla_time;
-  
+  double time_taken;
+  double form_time;
+  double setup_time;
+  double analysis_time;
+  double factorization_time;
+  double solve_time;
+
   // Theta
   double theta_min;
   double theta_geomean;
@@ -74,7 +69,12 @@ public:
     solution_error = kDataNotSet;
     residual_error.first = kDataNotSet;
     residual_error.second = kDataNotSet;
-    nla_time.reset();
+    time_taken = kDataNotSet;
+    form_time = kDataNotSet;
+    setup_time = kDataNotSet;
+    analysis_time = kDataNotSet;
+    factorization_time = kDataNotSet;
+    solve_time = kDataNotSet;
     theta_min = kDataNotSet;
     theta_geomean = kDataNotSet;
     theta_max = kDataNotSet;
@@ -92,7 +92,6 @@ public:
 double getWallTime();
 
 std::ostream &operator<<(std::ostream &os, const ExperimentData &data);
-NlaTime sumNlaTime(const std::vector<ExperimentData> &experiment_data);
 void writeDataToCSV(const std::vector<ExperimentData> &data,
                     const std::string &filename);
 std::pair<double, double> residualErrorAugmented(
