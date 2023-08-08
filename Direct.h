@@ -3,31 +3,44 @@
 
 #include "ExperimentData.h"
 #include "VectorOperations.h"
-#include "spral.h" 
+#ifdef HAVE_SPRAL
+#include "spral.h"
+#endif
 #include "util/HighsSparseMatrix.h"
+#ifdef HAVE_CHOLMOD
 #include "suitesparse/cholmod.h"
+#endif
 extern "C" {
+#ifdef HAVE_MA86
 	#include "hsl_ma86_wrapper.h"
+#endif
+#ifdef HAVE_QDLDL
   #include "qdldl.h"
+#endif
 }
 
 struct SsidsData {
   void *akeep{nullptr};
   void *fkeep{nullptr};
+#ifdef HAVE_SPRAL
   struct spral_ssids_options options;
   struct spral_ssids_inform inform;
+#endif
   int clear();
 };
 
 struct MA86Data { 
 	void *keep;
+#ifdef HAVE_MA86
 	ma86_control_d control;
 	ma86_info_d info;
+#endif
 	std::vector<int> order;
 	void clear();
 };
 
 struct QDLDLData{
+#ifdef HAVE_QDLDL
   QDLDL_int Ln;
   QDLDL_int *Lp;
   QDLDL_int *Li;
@@ -44,16 +57,19 @@ struct QDLDLData{
   QDLDL_float *fwork;
 
   QDLDL_float *x; //Data for results of A\b
+#endif
   void clear();
 };
 
 struct CholmodData{
+#ifdef HAVE_CHOLMOD
   cholmod_common c;
   cholmod_triplet* T;
   cholmod_sparse* a;
   cholmod_factor* L;
   cholmod_dense* x;
   cholmod_dense* b;
+#endif
   void clear();
 };
 

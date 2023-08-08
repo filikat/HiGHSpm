@@ -40,6 +40,9 @@ COMPILER_FLAGS="-g -fopenmp"
 # -O3"
 #COMPILER_FLAGS="-O3 -fopenmp "
 
+# Possibly define the compiler preprocessor settings
+COMPILER_PREPROCESS="-DHAVE_SPRAL -DHAVE_MA86 -DHAVE_QDLDL -DHAVE_CHOLMOD"
+
 # Define source file - that might change
 #SOURCE_FILE="testSolve.cpp Direct.cpp ExperimentData.cpp VectorOperations.cpp"
 SOURCE_FILE="testSolve.cpp IPM_caller.cpp IPM_model.cpp NormalEquations.cpp ConjugateGradient.cpp Direct.cpp VectorOperations.cpp IPM_aux.cpp ExperimentData.cpp"
@@ -50,6 +53,7 @@ rm $OUTPUT_FILE
 # Compilerm
 $YOUR_CPP_COMPILER \
     $COMPILER_FLAGS \
+    $COMPILER_PREPROCESS \
     $SOURCE_FILE \
     $MA86WRAPPER_O \
     -I$SPRAL_INCLUDE_DIR \

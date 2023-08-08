@@ -21,10 +21,15 @@ void IpmInvert::clear(const int solver_type) {
 
 int SsidsData::clear() {
   // Free the memory allocated for SPRAL
+#ifdef HAVE_SPRAL
   return spral_ssids_free(&this->akeep, &this->fkeep);
+#else
+  return 1;
+#endif
 }
 
 void CholmodData::clear() {   
+#ifdef HAVE_CHOLMOD
   cholmod_free_factor(&this->L, &this->c);
   cholmod_free_sparse(&this->a, &this->c);
   cholmod_free_triplet(&this->T, &this->c);
@@ -33,6 +38,7 @@ void CholmodData::clear() {
   cholmod_free_dense(&this->b, &this->c);
   //cholmod_free_sparse(&L_sparse, &c);
   cholmod_finish(&c);  
+#endif
 }
 
 void chooseDenseColumns(const HighsSparseMatrix &highs_a,
@@ -162,10 +168,13 @@ void chooseDenseColumns(const HighsSparseMatrix &highs_a,
 
 void MA86Data::clear() {
   // Free the memory allocated for MA86
-  return wrapper_ma86_finalise(&this->keep, &this->control);
+#ifdef HAVE_MA86
+  wrapper_ma86_finalise(&this->keep, &this->control);
+#endif
 }
 
 void QDLDLData::clear() {
+#ifdef HAVE_QDLDL
   free(this->Lp);
   free(this->Li);
   free(this->Lx);
@@ -177,6 +186,7 @@ void QDLDLData::clear() {
   free(this->bwork);
   free(this->fwork);
   free(this->x);
+#endif
 }
 
 /*
@@ -806,6 +816,7 @@ int callSsidsAugmentedFactor(const HighsSparseMatrix &matrix,
                              const std::vector<double> &theta,
                              SsidsData &ssids_data,
                              ExperimentData &experiment_data) {
+#ifdef HAVE_SPRAL
   experiment_data.form_time = 0;
   double start_time = getWallTime();
 
@@ -885,11 +896,15 @@ int callSsidsAugmentedFactor(const HighsSparseMatrix &matrix,
   experiment_data.nnz_L = ssids_data.inform.num_factor;
   experiment_data.fillIn_LL();
   return 0;
+#else
+  return 1;
+#endif
 }
 
 int callSsidsNewtonFactor(const HighsSparseMatrix &AThetaAT,
                           SsidsData &ssids_data,
                           ExperimentData &experiment_data) {
+#ifdef HAVE_SPRAL
   double start_time = getWallTime();
   // Prepare data structures for SPRAL
   const int array_base = 0;
@@ -962,18 +977,24 @@ int callSsidsNewtonFactor(const HighsSparseMatrix &AThetaAT,
   experiment_data.nnz_L = ssids_data.inform.num_factor;
   experiment_data.fillIn_LL();
   return 0;
+#else
+  return 1;
+#endif
 }
 
 void callSsidsSolve(const int system_size, const int num_rhs, double *rhs,
                     SsidsData &ssids_data) {
+#ifdef HAVE_SPRAL
   spral_ssids_solve(0, num_rhs, rhs, system_size, ssids_data.akeep,
 		    ssids_data.fkeep, &ssids_data.options, &ssids_data.inform);
+#endif
 }
 
 int callMA86AugmentedFactor(const HighsSparseMatrix& matrix,
 			    const std::vector<double>& theta,
 			    MA86Data& ma86_data,
 			    ExperimentData& experiment_data){
+#ifdef HAVE_MA86
   int n = matrix.num_col_;
   int m = matrix.num_row_;
   experiment_data.form_time = 0;
@@ -1031,11 +1052,15 @@ int callMA86AugmentedFactor(const HighsSparseMatrix& matrix,
   experiment_data.fillIn_LL();
 
   return 0;
+#else
+  return 1;
+#endif
 }
 
 int callMA86NewtonFactor(const HighsSparseMatrix& AThetaAT,
 			                  MA86Data& ma86_data,
 			                  ExperimentData& experiment_data){
+#ifdef HAVE_MA86
   double start_time = getWallTime();
 
   int n = AThetaAT.num_col_;
@@ -1085,18 +1110,24 @@ int callMA86NewtonFactor(const HighsSparseMatrix& AThetaAT,
   experiment_data.fillIn_LL();
 
   return 0;
+#else
+  return 1;
+#endif
 }
 
 void callMA86Solve(const int system_size,
 		   const int num_rhs,
 		   double* rhs,
 		   MA86Data& ma86_data){
+#ifdef HAVE_MA86
   wrapper_ma86_solve(0,1, system_size, rhs, ma86_data.order.data(), &ma86_data.keep, &ma86_data.control, &ma86_data.info);
+#endif
 }
 
 int callQDLDLNewtonFactor(const HighsSparseMatrix& AThetaAT,
 			 QDLDLData& qdldl_data,
 			 ExperimentData& experiment_data){
+#ifdef HAVE_QDLDL
   double start_time = getWallTime();
 
   int n = AThetaAT.num_col_;
@@ -1164,6 +1195,9 @@ int callQDLDLNewtonFactor(const HighsSparseMatrix& AThetaAT,
   experiment_data.factorization_time = getWallTime() - start_time;
   experiment_data.fillIn_LDL();
   return 0;
+#else
+  return 1;
+#endif
 }
 /*
 void callQDLDLSolve(const int system_size,
@@ -1178,6 +1212,7 @@ void callQDLDLSolve(const int system_size,
                     const int num_rhs,
                     double* rhs,
                     QDLDLData& qdldl_data){
+#ifdef HAVE_QDLDL
   // Copy rhs to qdldl_data.x before the solve operation
   //memcpy(qdldl_data.x, rhs, system_size * sizeof(double));
 
@@ -1187,6 +1222,7 @@ void callQDLDLSolve(const int system_size,
   
   // Copy the result back into rhs
   //memcpy(rhs, qdldl_data.x, system_size * sizeof(double));
+#endif
 }
 
 
@@ -1194,6 +1230,7 @@ int callQDLDLAugmentedFactor(const HighsSparseMatrix& matrix,
 			    const std::vector<double>& theta,
 			    QDLDLData& qdldl_data,
 			    ExperimentData& experiment_data){
+#ifdef HAVE_QDLDL
   experiment_data.form_time = 0;          
   double start_time = getWallTime();
   HighsSparseMatrix A_rowwise=matrix;
@@ -1283,12 +1320,16 @@ int callQDLDLAugmentedFactor(const HighsSparseMatrix& matrix,
   experiment_data.factorization_time = getWallTime() - start_time;
   experiment_data.fillIn_LDL();
   return 0;
+#else
+  return 1;
+#endif
 }
 
 int callCholmodNewtonFactor(const HighsSparseMatrix &AThetaAT,
                           CholmodData &cholmod_data,
                           ExperimentData &experiment_data,
                           const int num_thods){
+#ifdef HAVE_CHOLMOD
   experiment_data.form_time = 0;
   double start_time = getWallTime();
 
@@ -1361,10 +1402,14 @@ int callCholmodNewtonFactor(const HighsSparseMatrix &AThetaAT,
   experiment_data.fillIn_LL();
 
   return 0;
+#else
+  return 1;
+#endif
 }
 
 void callCholmodSolve(const int system_size, const int num_rhs, double *rhs,
                     CholmodData &cholmod_data){
+#ifdef HAVE_CHOLMOD
   // Create a cholmod_dense structure for rhs
   cholmod_dense* rhs_dense = cholmod_allocate_dense(system_size, num_rhs, system_size, CHOLMOD_REAL, &(cholmod_data.c));
   std::copy_n(rhs, system_size, static_cast<double*>(rhs_dense->x));
@@ -1375,4 +1420,5 @@ void callCholmodSolve(const int system_size, const int num_rhs, double *rhs,
   std::copy_n(static_cast<double*>(x->x), system_size, rhs);
 
   cholmod_free_dense(&rhs_dense, &(cholmod_data.c));
+#endif
 }
