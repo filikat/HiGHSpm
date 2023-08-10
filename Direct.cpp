@@ -420,8 +420,9 @@ int newtonInvert(const HighsSparseMatrix &highs_a,
     theta_d.push_back(theta[iCol]);
     use_theta[iCol] = 0;
   }
-  HighsSparseMatrix AAT = computeAThetaAT(highs_a, use_theta);
-  std::cout << "In newtonInvert, solver_type = " << solver_type << std::endl;
+  HighsSparseMatrix AAT;
+  int AAT_status = computeAThetaAT(highs_a, use_theta, AAT);
+  assert(!AAT_status);
   if (solver_type == 1){
     experiment_data.decomposer = "ssids";
   } else if (solver_type == 2) {
@@ -437,22 +438,18 @@ int newtonInvert(const HighsSparseMatrix &highs_a,
   experiment_data.system_nnz = AAT.numNz();
 
   experiment_data.form_time = getWallTime() - start_time;
-  SsidsData ssids_data;
-  MA86Data ma86_data;
-  QDLDLData qdldl_data;
-  CholmodData cholmod_data;
+  SsidsData &ssids_data = invert.ssids_data;
+  MA86Data &ma86_data = invert.ma86_data;
+  QDLDLData &qdldl_data = invert.qdldl_data;
+  CholmodData &cholmod_data = invert.cholmod_data;
   int factor_status;
   if (solver_type == 1){
-    SsidsData &ssids_data = invert.ssids_data;
     factor_status = callSsidsNewtonFactor(AAT, ssids_data, experiment_data);
   } else if (solver_type == 2) {
-    MA86Data &ma86_data = invert.ma86_data;
     factor_status = callMA86NewtonFactor(AAT, ma86_data, experiment_data);
   } else if (solver_type == 3) {
-    QDLDLData &qdldl_data = invert.qdldl_data;
     factor_status = callQDLDLNewtonFactor(AAT, qdldl_data, experiment_data);
   } else if (solver_type == 4) {
-    CholmodData &cholmod_data = invert.cholmod_data;
     factor_status = callCholmodNewtonFactor(AAT, cholmod_data, experiment_data);
   }
 
@@ -657,15 +654,16 @@ void productAThetaAT(const HighsSparseMatrix &matrix,
   matrix.product(result, ATx);
 }
 
-HighsSparseMatrix computeAThetaAT(const HighsSparseMatrix &matrix,
-                                  const std::vector<double> &theta) {
-  const bool scatter = true;
+int computeAThetaAT(const HighsSparseMatrix &matrix,
+		    const std::vector<double> &theta,
+		    HighsSparseMatrix& AAT,
+		    const int max_num_nz,
+		    const int method) {
   // Create a row-wise copy of the matrix
   HighsSparseMatrix AT = matrix;
   AT.ensureRowwise();
 
   int AAT_dim = matrix.num_row_;
-  HighsSparseMatrix AAT;
   AAT.num_col_ = AAT_dim;
   AAT.num_row_ = AAT_dim;
   AAT.start_.resize(AAT_dim + 1, 0);
@@ -674,7 +672,7 @@ HighsSparseMatrix computeAThetaAT(const HighsSparseMatrix &matrix,
 
   // First pass to calculate the number of non-zero elements in each column
   //
-  if (scatter) {
+  if (method == 0) {
     std::vector<double> matrix_row(matrix.num_col_, 0);
     for (int iRow = 0; iRow < AAT_dim; iRow++) {
       for (int iEl = AT.start_[iRow]; iEl < AT.start_[iRow + 1]; iEl++)
@@ -697,6 +695,45 @@ HighsSparseMatrix computeAThetaAT(const HighsSparseMatrix &matrix,
         matrix_row[AT.index_[iEl]] = 0;
       for (int ix = 0; ix < matrix.num_col_; ix++)
         assert(!matrix_row[ix]);
+    }
+  } else if (method == 1) {
+    printf("max_num_nz = %d\n", max_num_nz);
+    std::vector<double> AAT_col_value(AAT_dim, 0);
+    std::vector<int> AAT_col_index(AAT_dim);
+    std::vector<bool> AAT_col_in_index(AAT_dim, false);
+    for (int iRow = 0; iRow < AAT_dim; iRow++) {
+      // Go along the row of A, and then down the columns corresponding
+      // to its nonzeros
+      int num_col_el = 0;
+      for (int iRowEl = AT.start_[iRow]; iRowEl < AT.start_[iRow + 1]; iRowEl++) {
+	int iCol = AT.index_[iRowEl];
+	const double theta_value = !theta.empty() ? theta[iCol] : 1;
+	const double row_value = theta_value * AT.value_[iRowEl];
+	for (int iColEl = matrix.start_[iCol]; iColEl < matrix.start_[iCol + 1]; iColEl++) {
+	  int iRow1 = matrix.index_[iColEl];
+	  if (iRow1 < iRow) continue;
+	  double term = row_value * matrix.value_[iColEl];
+	  if (!AAT_col_in_index[iRow1]) {
+	    // This entry is not yet in the list of possible nonzeros
+	    AAT_col_in_index[iRow1] = true;
+	    AAT_col_index[num_col_el++] = iRow1;
+	    AAT_col_value[iRow1] = term;
+	  } else {
+	    // This entry is in the list of possible nonzeros
+	    AAT_col_value[iRow1] += term;
+	  }
+	}
+      }
+      for (int iEl = 0; iEl < num_col_el; iEl++) {
+	int iCol = AAT_col_index[iEl];
+	assert(iCol >= iRow);
+	non_zero_values.emplace_back(iRow, iCol, AAT_col_value[iCol]);
+	AAT_col_value[iCol] = 0; // Not strictly necessary, but simplifies debugging
+	AAT_col_in_index[iCol] = false;
+	AAT.start_[iRow + 1]++;
+	if (iRow != iCol)
+	  AAT.start_[iCol + 1]++;
+      }
     }
   } else {
     assert(increasingIndex(AT));
@@ -757,7 +794,7 @@ HighsSparseMatrix computeAThetaAT(const HighsSparseMatrix &matrix,
     }
   }
   AAT.p_end_.clear();
-  return AAT;
+  return 0;
 }
 
 // Gaussian elimination with partial pivoting for a dense matrix

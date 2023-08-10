@@ -118,11 +118,14 @@ int main(int argc, char** argv){
   }
   matrix.ensureColwise();
   HighsRandom random;
-  const bool unit_solution = true; // false;
+  const bool unit_solution = false;
   double theta_random_mu = 1e-3;   // 1e2;
   std::vector<double> theta;
-  for (int ix = 0; ix < x_dim; ix++)
-    theta.push_back(1.0 + theta_random_mu * random.fraction());
+  for (int ix = 0; ix < x_dim; ix++) {
+    const double theta_value = 1.0 + theta_random_mu * random.fraction();
+    //    const double theta_value = 1.0 + std::pow(10, -(ix+1));
+    theta.push_back(theta_value);
+  }
 
   // Test solution of
   //
@@ -155,7 +158,7 @@ int main(int argc, char** argv){
   std::vector<double> rhs_y;
   matrix.product(rhs_y, x_star);
 
-  const bool augmented_solve = false;
+  const bool augmented_solve = true;
   const bool newton_solve = true;
   assert(augmented_solve || newton_solve);
   if (augmented_solve) {
