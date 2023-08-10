@@ -602,6 +602,14 @@ void IPM_caller::SolveNewtonSystem(const HighsSparseMatrix &highs_a,
           augmentedInvert(highs_a, theta, invert, experiment_data);
       assert(!augmented_invert_status);
     }
+    // When solving the augmented system, the right side for the
+    // predictor should be (res7; res1), but for the corrector it
+    // should be (res7; 0)
+    if (isCorrector) {
+      // Check that res1 has been zeroed
+      const double res1_norm = Norm2(Res.res1);
+      assert(!res1_norm);
+    }
     augmentedSolve(highs_a, theta, res7, Res.res1, augmented_delta_x,
                    augmented_delta_y, invert, experiment_data);
     experiment_data.time_taken += experiment_data.solve_time;
