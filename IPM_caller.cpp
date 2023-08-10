@@ -247,6 +247,7 @@ Output IPM_caller::Solve() {
       NewtonDir DeltaCor(m, n);
 
       // Solve Newton system for corrector
+      Res.res1.assign(m, 0.0);
       SolveNewtonSystem(model.highs_a, scaling, Res, isCorrector, DeltaCor);
 
       // Compute full Newton direction for corrector
@@ -481,7 +482,7 @@ void IPM_caller::ComputeScaling(std::vector<double> &scaling) {
 // =======================================================================
 // SOLVE NEWTON SYSTEM
 // =======================================================================
-void IPM_caller::SolveNewtonSystem(const HighsSparseMatrix &highs_a,
+int IPM_caller::SolveNewtonSystem(const HighsSparseMatrix &highs_a,
                                    const std::vector<double> &scaling,
                                    const Residuals &Res, bool isCorrector,
                                    NewtonDir &Delta) {

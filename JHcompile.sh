@@ -47,8 +47,8 @@ COMPILER_FLAGS="-g -fopenmp"
 COMPILER_PREPROCESS="-DHAVE_SPRAL"
 
 # Define source file - that might change
-SOURCE_FILE="testSolve.cpp Direct.cpp ExperimentData.cpp VectorOperations.cpp"
-#SOURCE_FILE="mainIPM.cpp IPM_caller.cpp IPM_model.cpp NormalEquations.cpp ConjugateGradient.cpp Direct.cpp VectorOperations.cpp IPM_aux.cpp ExperimentData.cpp"
+#SOURCE_FILE="testSolve.cpp Direct.cpp ExperimentData.cpp VectorOperations.cpp"
+SOURCE_FILE="mainIPM.cpp IPM_caller.cpp IPM_model.cpp NormalEquations.cpp ConjugateGradient.cpp Direct.cpp VectorOperations.cpp IPM_aux.cpp ExperimentData.cpp"
 
 OUTPUT_FILE=a.out
 rm $OUTPUT_FILE
