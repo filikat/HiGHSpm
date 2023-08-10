@@ -2,6 +2,7 @@
 #define DIRECT_H
 
 #include "ExperimentData.h"
+#include "ExperimentData.h"
 #include "VectorOperations.h"
 #ifdef HAVE_SPRAL
 #include "spral.h"
@@ -19,6 +20,16 @@ extern "C" {
 #endif
 }
 
+enum DecomposerStatus {
+  kDecomposerStatusMin = 0,
+  kDecomposerStatusOk = kDecomposerStatusMin,
+  kDecomposerStatusErrorOom,
+  kDecomposerStatusErrorFactorize,
+  kDecomposerStatusErrorSolve,
+  kDecomposerStatusErrorClear,
+  kDecomposerStatusMax = kDecomposerStatusErrorClear
+};
+  
 struct SsidsData {
   void *akeep{nullptr};
   void *fkeep{nullptr};

@@ -23,16 +23,6 @@ enum OptionPredCor {
   kOptionPredCorDefault = kOptionPredCorAvoid
 };
 
-enum DecomposerStatus {
-  kDecomposerStatusMin = 0,
-  kDecomposerStatusOk = kDecomposerStatusMin,
-  kDecomposerStatusErrorOom,
-  kDecomposerStatusErrorFactorize,
-  kDecomposerStatusErrorSolve,
-  kDecomposerStatusErrorClear,
-  kDecomposerStatusMax = kDecomposerStatusErrorClear
-};
-  
 const double kOptionDenseColToleranceMin = 0;
 const double kOptionDenseColToleranceDefault = 0.5;
 const double kOptionDenseColToleranceMax = 1.1;

@@ -22,9 +22,10 @@ void IpmInvert::clear(const int solver_type) {
 int SsidsData::clear() {
   // Free the memory allocated for SPRAL
 #ifdef HAVE_SPRAL
-  return spral_ssids_free(&this->akeep, &this->fkeep);
+  if (spral_ssids_free(&this->akeep, &this->fkeep)) return kDecomposerStatusErrorClear;
+  return kDecomposerStatusOk;
 #else
-  return 1;
+  return kDecomposerStatusErrorClear;
 #endif
 }
 
@@ -206,6 +207,7 @@ int augmentedInvert(const HighsSparseMatrix &highs_a,
   assert(highs_a.isColwise());
   double start_time0 = getWallTime();
   experiment_data.reset();
+  assert(solver_type >= 1 && solver_type <= 3);
   if (solver_type == 1) {
     experiment_data.decomposer = "ssids";
     experiment_data.system_type = kSystemTypeAugmented;
@@ -221,7 +223,7 @@ int augmentedInvert(const HighsSparseMatrix &highs_a,
     if (factor_status)
       return factor_status;
     invert.valid = true;
-    return 0;
+    return kDecomposerStatusOk;
   }
 
   if (solver_type == 2){
@@ -237,7 +239,7 @@ int augmentedInvert(const HighsSparseMatrix &highs_a,
 
     if (factor_status) return factor_status;
     invert.valid = true;
-    return 0;
+    return kDecomposerStatusOk;
   }
 
   if (solver_type == 3){
@@ -253,9 +255,9 @@ int augmentedInvert(const HighsSparseMatrix &highs_a,
 
     if (factor_status) return factor_status;
     invert.valid = true;
-    return 0;    
+    return kDecomposerStatusOk;    
   }
-  return 0;
+  return kDecomposerStatusOk;
 }
 
 void augmentedSolve(const HighsSparseMatrix &highs_a,
@@ -422,7 +424,7 @@ int newtonInvert(const HighsSparseMatrix &highs_a,
   }
   HighsSparseMatrix AAT;
   int AAT_status = computeAThetaAT(highs_a, use_theta, AAT);
-  assert(!AAT_status);
+  if (AAT_status) return AAT_status;
   if (solver_type == 1){
     experiment_data.decomposer = "ssids";
   } else if (solver_type == 2) {
@@ -502,7 +504,7 @@ int newtonInvert(const HighsSparseMatrix &highs_a,
   invert.use_num_dense_col = use_num_dense_col;
   experiment_data.time_taken = getWallTime() - start_time0;
   invert.valid = true;
-  return 0;
+  return kDecomposerStatusOk;
 }
 
 int newtonSolve(const HighsSparseMatrix &highs_a,
@@ -546,7 +548,7 @@ int newtonSolve(const HighsSparseMatrix &highs_a,
     // Now solve d_matrix.d_sol = d_rhs
     int gepp_status = gepp(d_matrix, d_rhs, d_sol);
     if (gepp_status)
-      return 1;
+      return kDecomposerStatusErrorFactorize;
 
     // Subtract \hat{A}_d^Td_sol from lhs
     offset = 0;
@@ -560,7 +562,7 @@ int newtonSolve(const HighsSparseMatrix &highs_a,
 
   experiment_data.residual_error =
       residualErrorNewton(highs_a, theta, rhs, lhs);
-  return 0;
+  return kDecomposerStatusOk;
 }
 
 double newtonCondition(const HighsSparseMatrix &matrix,
@@ -697,7 +699,7 @@ int computeAThetaAT(const HighsSparseMatrix &matrix,
         assert(!matrix_row[ix]);
     }
   } else if (method == 1) {
-    printf("max_num_nz = %d\n", max_num_nz);
+    int AAT_num_nz = 0;
     std::vector<double> AAT_col_value(AAT_dim, 0);
     std::vector<int> AAT_col_index(AAT_dim);
     std::vector<bool> AAT_col_in_index(AAT_dim, false);
@@ -727,12 +729,14 @@ int computeAThetaAT(const HighsSparseMatrix &matrix,
       for (int iEl = 0; iEl < num_col_el; iEl++) {
 	int iCol = AAT_col_index[iEl];
 	assert(iCol >= iRow);
+	if (AAT_num_nz == max_num_nz) return kDecomposerStatusErrorOom;
 	non_zero_values.emplace_back(iRow, iCol, AAT_col_value[iCol]);
 	AAT_col_value[iCol] = 0; // Not strictly necessary, but simplifies debugging
 	AAT_col_in_index[iCol] = false;
 	AAT.start_[iRow + 1]++;
 	if (iRow != iCol)
 	  AAT.start_[iCol + 1]++;
+	AAT_num_nz += iRow != iCol ? 2 : 1;
       }
     }
   } else {
@@ -794,7 +798,7 @@ int computeAThetaAT(const HighsSparseMatrix &matrix,
     }
   }
   AAT.p_end_.clear();
-  return 0;
+  return kDecomposerStatusOk;
 }
 
 // Gaussian elimination with partial pivoting for a dense matrix
@@ -847,7 +851,7 @@ int gepp(const std::vector<std::vector<double>> &matrix,
       solution[iRow] -= solution[iCol] * ge_matrix[iRow][iCol];
     solution[iRow] /= ge_matrix[iRow][iRow];
   }
-  return 0;
+  return kDecomposerStatusOk;
 }
 
 // int ssids_decompose();
@@ -923,7 +927,7 @@ int callSsidsAugmentedFactor(const HighsSparseMatrix &matrix,
 		      &ssids_data.inform);
   experiment_data.analysis_time = getWallTime() - start_time;
   if (ssids_data.inform.flag < 0)
-    return 1;
+    return kDecomposerStatusErrorFactorize;
 
   bool positive_definite = false;
   start_time = getWallTime();
@@ -932,12 +936,12 @@ int callSsidsAugmentedFactor(const HighsSparseMatrix &matrix,
 		     &ssids_data.inform);
   experiment_data.factorization_time = getWallTime() - start_time;
   if (ssids_data.inform.flag < 0)
-    return 1;
+    return kDecomposerStatusErrorFactorize;
   experiment_data.nnz_L = ssids_data.inform.num_factor;
   experiment_data.fillIn_LL();
-  return 0;
+  return kDecomposerStatusOk;
 #else
-  return 1;
+  return kDecomposerStatusErrorFactorize;
 #endif
 }
 
@@ -994,7 +998,7 @@ int callSsidsNewtonFactor(const HighsSparseMatrix &AThetaAT,
 		      &ssids_data.inform);
   experiment_data.analysis_time = getWallTime() - start_time;
   if (ssids_data.inform.flag < 0)
-    return 1;
+    return kDecomposerStatusErrorFactorize;
 
   bool positive_definite = true;
   start_time = getWallTime();
@@ -1003,7 +1007,7 @@ int callSsidsNewtonFactor(const HighsSparseMatrix &AThetaAT,
 		     &ssids_data.inform);
   experiment_data.factorization_time = getWallTime() - start_time;
   if (ssids_data.inform.flag < 0)
-    return 1;
+    return kDecomposerStatusErrorFactorize;
 
   /*
   //Return the diagonal entries of the Cholesky factor
@@ -1016,9 +1020,9 @@ int callSsidsNewtonFactor(const HighsSparseMatrix &AThetaAT,
   */
   experiment_data.nnz_L = ssids_data.inform.num_factor;
   experiment_data.fillIn_LL();
-  return 0;
+  return kDecomposerStatusOk;
 #else
-  return 1;
+  return kDecomposerStatusErrorFactorize;
 #endif
 }
 
@@ -1082,18 +1086,18 @@ int callMA86AugmentedFactor(const HighsSparseMatrix& matrix,
   wrapper_ma86_analyse(n+m, ptr.data(), row.data(), ma86_data.order.data(),
                        &ma86_data.keep, &ma86_data.control, &ma86_data.info);
   experiment_data.analysis_time = getWallTime() - start_time;
-  if (ma86_data.info.flag < 0) return 1;
+  if (ma86_data.info.flag < 0) return kDecomposerStatusErrorFactorize;
   start_time = getWallTime();
   wrapper_ma86_factor(n+m, ptr.data(), row.data(), val.data(), ma86_data.order.data(),
                        &ma86_data.keep, &ma86_data.control, &ma86_data.info);
-  if (ma86_data.info.flag < 0) return 1;
+  if (ma86_data.info.flag < 0) return kDecomposerStatusErrorFactorize;
   experiment_data.factorization_time = getWallTime() - start_time;
   experiment_data.nnz_L = ma86_data.info.num_factor;
   experiment_data.fillIn_LL();
 
-  return 0;
+  return kDecomposerStatusOk;
 #else
-  return 1;
+  return kDecomposerStatusErrorFactorize;
 #endif
 }
 
@@ -1140,18 +1144,18 @@ int callMA86NewtonFactor(const HighsSparseMatrix& AThetaAT,
   wrapper_ma86_analyse(n, ptr.data(), row.data(), ma86_data.order.data(),
                        &ma86_data.keep, &ma86_data.control, &ma86_data.info);
   experiment_data.analysis_time = getWallTime() - start_time;
-  if (ma86_data.info.flag < 0) return 1;
+  if (ma86_data.info.flag < 0) return kDecomposerStatusErrorFactorize;
   start_time = getWallTime();
   wrapper_ma86_factor(n, ptr.data(), row.data(), val.data(), ma86_data.order.data(),
                        &ma86_data.keep, &ma86_data.control, &ma86_data.info);
-  if (ma86_data.info.flag < 0) return 1;
+  if (ma86_data.info.flag < 0) return kDecomposerStatusErrorFactorize;
   experiment_data.factorization_time = getWallTime() - start_time;
   experiment_data.nnz_L = ma86_data.info.num_factor;
   experiment_data.fillIn_LL();
 
-  return 0;
+  return kDecomposerStatusOk;
 #else
-  return 1;
+  return kDecomposerStatusErrorFactorize;
 #endif
 }
 
@@ -1234,9 +1238,9 @@ int callQDLDLNewtonFactor(const HighsSparseMatrix& AThetaAT,
   qdldl_data.x = (QDLDL_float*)malloc(sizeof(QDLDL_float)*An);
   experiment_data.factorization_time = getWallTime() - start_time;
   experiment_data.fillIn_LDL();
-  return 0;
+  return kDecomposerStatusOk;
 #else
-  return 1;
+  return kDecomposerStatusErrorFactorize;
 #endif
 }
 /*
@@ -1359,9 +1363,9 @@ int callQDLDLAugmentedFactor(const HighsSparseMatrix& matrix,
   QDLDL_factor(An,Ap_star,Ai.data(),Ax.data(),qdldl_data.Lp,qdldl_data.Li,qdldl_data.Lx,qdldl_data.D,qdldl_data.Dinv,qdldl_data.Lnz,qdldl_data.etree,qdldl_data.bwork,qdldl_data.iwork,qdldl_data.fwork);
   experiment_data.factorization_time = getWallTime() - start_time;
   experiment_data.fillIn_LDL();
-  return 0;
+  return kDecomposerStatusOk;
 #else
-  return 1;
+  return kDecomposerStatusErrorFactorize;
 #endif
 }
 
@@ -1441,9 +1445,9 @@ int callCholmodNewtonFactor(const HighsSparseMatrix &AThetaAT,
   experiment_data.nnz_L = nnz;
   experiment_data.fillIn_LL();
 
-  return 0;
+  return kDecomposerStatusOk;
 #else
-  return 1;
+  return kDecomposerStatusErrorFactorize;
 #endif
 }
 

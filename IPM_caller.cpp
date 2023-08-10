@@ -555,7 +555,7 @@ void IPM_caller::SolveNewtonSystem(const HighsSparseMatrix &highs_a,
         int newton_invert_status =
             newtonInvert(highs_a, theta, invert, option_max_dense_col,
                          option_dense_col_tolerance, experiment_data);
-        assert(!newton_invert_status);
+        if (newton_invert_status) return newton_invert_status;
       }
       int newton_solve_status = newtonSolve(
           highs_a, theta, res8, newton_delta_y, invert, experiment_data);
@@ -563,8 +563,7 @@ void IPM_caller::SolveNewtonSystem(const HighsSparseMatrix &highs_a,
         experiment_data.condition = newtonCondition(highs_a, theta, invert);
         experiment_data_record.push_back(experiment_data);
       }
-
-      assert(!newton_solve_status);
+      if (newton_solve_status) return newton_solve_status;
       if (check_with_cg) {
         double inf_norm_solution_diff = infNormDiff(newton_delta_y, Delta.y);
         if (inf_norm_solution_diff > kSolutionDiffTolerance) {
@@ -600,7 +599,7 @@ void IPM_caller::SolveNewtonSystem(const HighsSparseMatrix &highs_a,
     if (first_call_with_theta) {
       int augmented_invert_status =
           augmentedInvert(highs_a, theta, invert, experiment_data);
-      assert(!augmented_invert_status);
+      if (augmented_invert_status) return augmented_invert_status;
     }
     augmentedSolve(highs_a, theta, res7, Res.res1, augmented_delta_x,
                    augmented_delta_y, invert, experiment_data);
@@ -631,6 +630,7 @@ void IPM_caller::SolveNewtonSystem(const HighsSparseMatrix &highs_a,
       Delta.y = augmented_delta_y;
     }
   }
+  return 0;
 }
 
 // =======================================================================

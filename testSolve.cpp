@@ -27,8 +27,10 @@ int callNewtonSolve(const HighsSparseMatrix &highs_a,
   IpmInvert invert;
   int newton_status = newtonInvert(highs_a, theta, invert, option_max_dense_col,
                                    option_dense_col_tolerance, experiment_data, true, solver_type);
+  if (newton_status) return newton_status;
   newton_status =
       newtonSolve(highs_a, theta, rhs, lhs, invert, experiment_data, solver_type);
+  if (newton_status) return newton_status;
   experiment_data.time_taken += experiment_data.solve_time;
 
   experiment_data.model_num_col = x_dim;
