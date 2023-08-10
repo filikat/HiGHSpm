@@ -37,8 +37,7 @@ LIBS="-lhighs -lspral -lblas -llapack -lqdldl -lm -lstdc++ -lgfortran -lz -lchol
 # 
 # When you're doing performance tests, use -O3
 COMPILER_FLAGS="-g -fopenmp"
-# -O3"
-#COMPILER_FLAGS="-O3 -fopenmp "
+#COMPILER_FLAGS="-O3 -fopenmp -DNDEBUG"
 
 # Possibly define the compiler preprocessor settings
 COMPILER_PREPROCESS="-DHAVE_SPRAL  -DHAVE_QDLDL -DHAVE_CHOLMOD -DHAVE_MA86"
