@@ -31,12 +31,12 @@ MA86WRAPPER_C=hsl_ma86_wrapper.c
 MA86WRAPPER_O=hsl_ma86_wrapper.o
 
 # Define libraries
-LIBS="-lhighs -lspral -lblas -llapack -lqdldl -lm -lstdc++ -lgfortran -lz -lcholmod -lhsl_ma86 -lmetis"
+LIBS="-lboost_program_options -lhighs -lspral -lblas -llapack -lqdldl -lm -lstdc++ -lgfortran -lz -lcholmod -lhsl_ma86 -lmetis"
 
 # Define the compiler flags to use in C and C++.
 # 
 # When you're doing performance tests, use -O3
-COMPILER_FLAGS="-g -fopenmp"
+COMPILER_FLAGS="-g -fopenmp -O3"
 # -O3"
 #COMPILER_FLAGS="-O3 -fopenmp "
 
@@ -44,8 +44,8 @@ COMPILER_FLAGS="-g -fopenmp"
 COMPILER_PREPROCESS="-DHAVE_SPRAL  -DHAVE_QDLDL -DHAVE_CHOLMOD -DHAVE_MA86"
 
 # Define source file - that might change
-#SOURCE_FILE="testSolve.cpp Direct.cpp ExperimentData.cpp VectorOperations.cpp"
-SOURCE_FILE="mainIPM.cpp IPM_caller.cpp IPM_model.cpp NormalEquations.cpp ConjugateGradient.cpp Direct.cpp VectorOperations.cpp IPM_aux.cpp ExperimentData.cpp"
+SOURCE_FILE="testSolve.cpp Direct.cpp ExperimentData.cpp VectorOperations.cpp"
+#SOURCE_FILE="mainIPM.cpp IPM_caller.cpp IPM_model.cpp NormalEquations.cpp ConjugateGradient.cpp Direct.cpp VectorOperations.cpp IPM_aux.cpp ExperimentData.cpp"
 
 OUTPUT_FILE=a.out
 rm $OUTPUT_FILE

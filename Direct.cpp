@@ -224,9 +224,9 @@ int augmentedInvert(const HighsSparseMatrix &highs_a,
   if (solver_type == 2){
     experiment_data.decomposer = "ma86";
     experiment_data.system_type = kSystemTypeAugmented;
-    experiment_data.system_size = highs_a.num_col_;
-    experiment_data.system_nnz = highs_a.numNz();
-
+    experiment_data.system_size = highs_a.num_col_ + highs_a.num_row_;
+    experiment_data.system_nnz = highs_a.num_col_ + 2 * highs_a.numNz();
+    experiment_data.analyseTheta(theta);
     MA86Data& ma86_data = invert.ma86_data;
     int factor_status = 
       callMA86AugmentedFactor(highs_a, theta, ma86_data, experiment_data);
@@ -240,8 +240,9 @@ int augmentedInvert(const HighsSparseMatrix &highs_a,
   if (solver_type == 3){
     experiment_data.decomposer = "qdldl";
     experiment_data.system_type = kSystemTypeAugmented;
-    experiment_data.system_size = highs_a.num_col_;
-    experiment_data.system_nnz = highs_a.numNz();
+    experiment_data.system_size = highs_a.num_col_ + highs_a.num_row_;
+    experiment_data.system_nnz = highs_a.num_col_ + 2 * highs_a.numNz();
+    experiment_data.analyseTheta(theta);
 
     QDLDLData& qdldl_data = invert.qdldl_data;
     int factor_status = 
@@ -418,7 +419,7 @@ int newtonInvert(const HighsSparseMatrix &highs_a,
     use_theta[iCol] = 0;
   }
   HighsSparseMatrix AAT = computeAThetaAT(highs_a, use_theta);
-  std::cout << "In newtonInvert, solver_type = " << solver_type << std::endl;
+
   if (solver_type == 1){
     experiment_data.decomposer = "ssids";
   } else if (solver_type == 2) {
@@ -1023,7 +1024,6 @@ int callMA86AugmentedFactor(const HighsSparseMatrix& matrix,
 
   const double diagonal = 1e-20;//1e-20;
   for (int iRow = 0; iRow < matrix.num_row_; iRow++) {
-    std::cout << "val.size" << val.size() << std::endl;
     ptr.push_back(val.size()); 
     if (diagonal) {
       val.push_back(diagonal);
@@ -1081,16 +1081,9 @@ int callMA86NewtonFactor(const HighsSparseMatrix& AThetaAT,
       }
   }
 
-
-  std::cout << std::endl;
-
   // Add the last pointer
   ptr.push_back(val.size());
 
-  //print ptr
-  for (int i = 0; i < ptr.size(); i++){
-      std::cout << ptr[i] << " ";
-  }
   ma86_data.order.resize(AThetaAT.num_row_);
   for (int i = 0; i < n; i++) ma86_data.order[i] = i;
 
