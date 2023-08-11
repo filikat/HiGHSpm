@@ -557,6 +557,10 @@ int IPM_caller::SolveNewtonSystem(const HighsSparseMatrix &highs_a,
             newtonInvert(highs_a, theta, invert, option_max_dense_col,
                          option_dense_col_tolerance, experiment_data);
         if (newton_invert_status) return newton_invert_status;
+      } else {
+	// Just set this to avoid assert when writing out
+	// experiment_data in the event of a solution error
+	experiment_data.system_type = kSystemTypeNewton;
       }
       int newton_solve_status = newtonSolve(
           highs_a, theta, res8, newton_delta_y, invert, experiment_data);
@@ -601,6 +605,10 @@ int IPM_caller::SolveNewtonSystem(const HighsSparseMatrix &highs_a,
       int augmented_invert_status =
           augmentedInvert(highs_a, theta, invert, experiment_data);
       if (augmented_invert_status) return augmented_invert_status;
+    } else {
+      // Just set this to avoid assert when writing out
+      // experiment_data in the event of a solution error
+      experiment_data.system_type = kSystemTypeNewton;
     }
     // When solving the augmented system, the right side for the
     // predictor should be (res7; res1), but for the corrector it
