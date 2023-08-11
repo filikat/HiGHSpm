@@ -27,8 +27,10 @@ int callNewtonSolve(const HighsSparseMatrix &highs_a,
   IpmInvert invert;
   int newton_status = newtonInvert(highs_a, theta, invert, option_max_dense_col,
                                    option_dense_col_tolerance, experiment_data, true, solver_type);
+  if (newton_status) return newton_status;
   newton_status =
       newtonSolve(highs_a, theta, rhs, lhs, invert, experiment_data, solver_type);
+  if (newton_status) return newton_status;
   experiment_data.time_taken += experiment_data.solve_time;
 
   experiment_data.model_num_col = x_dim;
@@ -118,11 +120,14 @@ int main(int argc, char** argv){
   }
   matrix.ensureColwise();
   HighsRandom random;
-  const bool unit_solution = true; // false;
+  const bool unit_solution = false;
   double theta_random_mu = 1e-3;   // 1e2;
   std::vector<double> theta;
-  for (int ix = 0; ix < x_dim; ix++)
-    theta.push_back(1.0 + theta_random_mu * random.fraction());
+  for (int ix = 0; ix < x_dim; ix++) {
+    const double theta_value = 1.0 + theta_random_mu * random.fraction();
+    //    const double theta_value = 1.0 + std::pow(10, -(ix+1));
+    theta.push_back(theta_value);
+  }
 
   // Test solution of
   //
@@ -155,7 +160,7 @@ int main(int argc, char** argv){
   std::vector<double> rhs_y;
   matrix.product(rhs_y, x_star);
 
-  const bool augmented_solve = false;
+  const bool augmented_solve = true;
   const bool newton_solve = true;
   assert(augmented_solve || newton_solve);
   if (augmented_solve) {

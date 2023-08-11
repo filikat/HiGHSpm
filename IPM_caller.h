@@ -225,7 +225,7 @@ private:
   //  Do not form Theta = diag( scaling )^{-1} in this case.
   //
   // ===================================================================================
-  void SolveNewtonSystem(
+  int SolveNewtonSystem(
       // INPUT
       const HighsSparseMatrix &highs_a,   // constraint matrix
       const std::vector<double> &scaling, // diagonal scaling, length n
