@@ -188,6 +188,12 @@ Output IPM_caller::Solve() {
     std::vector<double> scaling(n, 0.0);
     ComputeScaling(scaling);
 
+    // Clear any existing INVERT now that scaling has changed
+    invert.clear();
+
+    //    printf("grep %d & %3.1f & %3.1f & %5.1g & %5.1g & %5.1g & %5.1g\n",
+    //	   iter, It.x[0],It.x[1],1/scaling[0],1/scaling[1],1/scaling[2],1/scaling[3]);
+
     // Initialize Newton direction
     NewtonDir Delta(m, n);
 
@@ -209,7 +215,6 @@ Output IPM_caller::Solve() {
       ComputeResiduals_56(sigma * mu, Delta, isCorrector, Res);
 
       // Solve Newton system
-      invert.clear();
       SolveNewtonSystem(model.highs_a, scaling, Res, isCorrector, Delta);
 
       // Compute full Newton direction
@@ -247,6 +252,7 @@ Output IPM_caller::Solve() {
       NewtonDir DeltaCor(m, n);
 
       // Solve Newton system for corrector
+      Res.res1.assign(m, 0.0);
       SolveNewtonSystem(model.highs_a, scaling, Res, isCorrector, DeltaCor);
 
       // Compute full Newton direction for corrector
@@ -481,7 +487,7 @@ void IPM_caller::ComputeScaling(std::vector<double> &scaling) {
 // =======================================================================
 // SOLVE NEWTON SYSTEM
 // =======================================================================
-void IPM_caller::SolveNewtonSystem(const HighsSparseMatrix &highs_a,
+int IPM_caller::SolveNewtonSystem(const HighsSparseMatrix &highs_a,
                                    const std::vector<double> &scaling,
                                    const Residuals &Res, bool isCorrector,
                                    NewtonDir &Delta) {
@@ -517,6 +523,7 @@ void IPM_caller::SolveNewtonSystem(const HighsSparseMatrix &highs_a,
   //
   std::vector<double> theta;
   scaling2theta(scaling, theta);
+
   const bool first_call_with_theta = !invert.valid;
   ExperimentData experiment_data;
   experiment_data.reset();
@@ -556,6 +563,10 @@ void IPM_caller::SolveNewtonSystem(const HighsSparseMatrix &highs_a,
             newtonInvert(highs_a, theta, invert, option_max_dense_col,
                          option_dense_col_tolerance, experiment_data);
         if (newton_invert_status) return newton_invert_status;
+      } else {
+	// Just set this to avoid assert when writing out
+	// experiment_data in the event of a solution error
+	experiment_data.system_type = kSystemTypeNewton;
       }
       int newton_solve_status = newtonSolve(
           highs_a, theta, res8, newton_delta_y, invert, experiment_data);
@@ -600,6 +611,18 @@ void IPM_caller::SolveNewtonSystem(const HighsSparseMatrix &highs_a,
       int augmented_invert_status =
           augmentedInvert(highs_a, theta, invert, experiment_data);
       if (augmented_invert_status) return augmented_invert_status;
+    } else {
+      // Just set this to avoid assert when writing out
+      // experiment_data in the event of a solution error
+      experiment_data.system_type = kSystemTypeNewton;
+    }
+    // When solving the augmented system, the right side for the
+    // predictor should be (res7; res1), but for the corrector it
+    // should be (res7; 0)
+    if (isCorrector) {
+      // Check that res1 has been zeroed
+      const double res1_norm = Norm2(Res.res1);
+      assert(!res1_norm);
     }
     augmentedSolve(highs_a, theta, res7, Res.res1, augmented_delta_x,
                    augmented_delta_y, invert, experiment_data);
