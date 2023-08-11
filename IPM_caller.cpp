@@ -188,6 +188,9 @@ Output IPM_caller::Solve() {
     std::vector<double> scaling(n, 0.0);
     ComputeScaling(scaling);
 
+    //    printf("grep %d & %3.1f & %3.1f & %5.1g & %5.1g & %5.1g & %5.1g\n",
+    //	   iter, It.x[0],It.x[1],1/scaling[0],1/scaling[1],1/scaling[2],1/scaling[3]);
+
     // Initialize Newton direction
     NewtonDir Delta(m, n);
 
