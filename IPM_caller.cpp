@@ -188,6 +188,9 @@ Output IPM_caller::Solve() {
     std::vector<double> scaling(n, 0.0);
     ComputeScaling(scaling);
 
+    // Clear any existing INVERT now that scaling has changed
+    invert.clear();
+
     //    printf("grep %d & %3.1f & %3.1f & %5.1g & %5.1g & %5.1g & %5.1g\n",
     //	   iter, It.x[0],It.x[1],1/scaling[0],1/scaling[1],1/scaling[2],1/scaling[3]);
 
@@ -212,7 +215,6 @@ Output IPM_caller::Solve() {
       ComputeResiduals_56(sigma * mu, Delta, isCorrector, Res);
 
       // Solve Newton system
-      invert.clear();
       SolveNewtonSystem(model.highs_a, scaling, Res, isCorrector, Delta);
 
       // Compute full Newton direction
@@ -521,6 +523,7 @@ int IPM_caller::SolveNewtonSystem(const HighsSparseMatrix &highs_a,
   //
   std::vector<double> theta;
   scaling2theta(scaling, theta);
+
   const bool first_call_with_theta = !invert.valid;
   ExperimentData experiment_data;
   experiment_data.reset();

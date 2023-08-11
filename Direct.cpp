@@ -522,6 +522,7 @@ int newtonSolve(const HighsSparseMatrix &highs_a,
   const std::vector<double> &theta_d = invert.theta_d;
   const std::vector<double> &hatA_d = invert.hatA_d;
   lhs = rhs;
+  // Form \hat_b = \hat{A}_d^Tb (as d_rhs);
   if (solver_type == 1){
     callSsidsSolve(system_size, 1, lhs.data(), invert.ssids_data);
   } else if (solver_type == 2) {
@@ -531,11 +532,9 @@ int newtonSolve(const HighsSparseMatrix &highs_a,
   } else if (solver_type == 4) {
     callCholmodSolve(system_size, 1, lhs.data(), invert.cholmod_data);
   }
-  //callSsidsSolve(system_size, 1, lhs.data(), ssids_data);
   if (use_num_dense_col) {
     std::vector<std::vector<double>> d_matrix = invert.d_matrix;
     std::vector<double> d_sol;
-    // Now form \hat_b = \hat{A}_d^Tb (as d_rhs);
     std::vector<double> d_rhs;
     int offset = 0;
     for (int d_col = 0; d_col < use_num_dense_col; d_col++) {
