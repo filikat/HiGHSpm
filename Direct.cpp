@@ -101,7 +101,7 @@ void chooseDenseColumns(const HighsSparseMatrix &highs_a,
   }
   const bool check_num_ok_sparse_theta = true;//false;
   if (check_num_ok_sparse_theta) {
-    double ok_sparse_theta = max_sparse_theta / 1e6;
+    double ok_sparse_theta = max_sparse_theta * ok_theta_relative_tolerance;
     for (;;) {
       // Count the number of sparse theta values that are at least ok_sparse_theta
       int num_ok_sparse_theta = 0;

@@ -29,7 +29,9 @@ enum DecomposerStatus {
   kDecomposerStatusErrorClear,
   kDecomposerStatusMax = kDecomposerStatusErrorClear
 };
-  
+
+const double ok_theta_relative_tolerance = 1e-3;
+
 struct SsidsData {
   void *akeep{nullptr};
   void *fkeep{nullptr};

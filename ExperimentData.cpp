@@ -165,7 +165,7 @@ void writeDataToCSV(const std::vector<ExperimentData> &data,
   // Write header
   outputFile << "Decomposer,";
   if (system_type == kSystemTypeNewton) {
-    outputFile << "Num dense col,System max dense col,AAT NNZ,(%),";
+    outputFile << "Num dense col,System max dense col,Large Theta (%),AAT NNZ,(%),";
   } else {
     outputFile << "System NNZ,(%),";
   }
@@ -183,6 +183,8 @@ void writeDataToCSV(const std::vector<ExperimentData> &data,
     if (system_type == kSystemTypeNewton) {
       outputFile << experimentData.use_num_dense_col << ",";
       outputFile << experimentData.system_max_dense_col << ",";
+      double large_theta_pct = 1e2 * double(experimentData.theta_num_large) / float_dim;
+      outputFile << large_theta_pct << ",";
     }
     outputFile << experimentData.system_nnz << ",";
     const double system_density =
@@ -298,6 +300,7 @@ void ExperimentData::analyseTheta(const std::vector<double> &theta, const bool q
   assert(max_log10_theta>0);
   this->theta_min = min_log10_theta;
   this->theta_max = max_log10_theta;
+  const double large_theta = this->theta_max * ok_theta_relative_tolerance;
   min_log10_theta = std::log10(min_log10_theta);
   max_log10_theta = std::log10(max_log10_theta);
   double v;
@@ -310,7 +313,7 @@ void ExperimentData::analyseTheta(const std::vector<double> &theta, const bool q
   for (int ix = 0; ix < dim; ix++) {
     if (theta[ix]*10 < theta_geomean) {
       this->theta_num_small++;
-    } else if (theta[ix] <= theta_geomean*10) {
+    } else if (theta[ix] < large_theta) {
       this->theta_num_medium++;
     } else {
       this->theta_num_large++;
