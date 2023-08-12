@@ -24,6 +24,8 @@ int main(int argc, char **argv) {
     return 1;
   }
 
+   double start_time0 = getWallTime();
+   double start_time = start_time0;
   // ===================================================================================
   // READ PROBLEM
   // ===================================================================================
@@ -35,14 +37,19 @@ int main(int argc, char **argv) {
   std::string model = extractModelName(model_file);
   HighsStatus status = highs.readModel(model_file);
   assert(status == HighsStatus::kOk);
-  const bool presolve = false;
+  double read_time = getWallTime() - start_time;
+  const bool presolve = false;//true;
   HighsLp lp;
+  double presolve_time = -1;
   if (presolve) {
+    start_time = getWallTime();
     status = highs.presolve();
     assert(status == HighsStatus::kOk);
     lp = highs.getPresolvedLp();
+    presolve_time = getWallTime() - start_time;
   } else {
     lp = highs.getLp();
+    presolve_time = 0;
   }
 
   // ===================================================================================
@@ -60,6 +67,7 @@ int main(int argc, char **argv) {
   // ===================================================================================
 
   // Make a local copy of LP data to be modified
+  start_time = getWallTime();
   int n = lp.num_col_;
   int m = lp.num_row_;
   std::vector<double> obj(lp.col_cost_);
@@ -72,6 +80,26 @@ int main(int argc, char **argv) {
   // Prepare vectors for different formulation
   std::vector<double> rhs(lp.num_row_);
   std::vector<int> constraints(lp.num_row_);
+
+  int num_free_col = 0;
+  for (int i = 0; i < n; ++i) {
+    if (lower[i] <= -kHighsInf &&
+	upper[i] >= kHighsInf) num_free_col++;
+  }
+  if (num_free_col) {
+    const double bound_on_free = 2e3;
+    printf("Model has %d/%d free columns: replacing bounds with [%g, %g]\n",
+	   num_free_col, n, -bound_on_free, bound_on_free);
+    for (int i = 0; i < n; ++i) {
+      if (lower[i] <= -kHighsInf &&
+	  upper[i] >= kHighsInf) {
+	lower[i] = -bound_on_free;	
+	upper[i] = bound_on_free;	
+      }
+    }
+  }
+  
+
 
   int num_slacks{};
 
@@ -144,10 +172,12 @@ int main(int argc, char **argv) {
       values.push_back(-1.0);
     }
   }
+  double setup_time = getWallTime() - start_time;
 
   // ===================================================================================
   // LOAD AND SOLVE THE PROBLEM
   // ===================================================================================
+  start_time = getWallTime();
 
   // create instance of IPM
   IPM_caller ipm{};
@@ -201,16 +231,50 @@ int main(int argc, char **argv) {
   // load the problem
   ipm.Load(n, m, obj.data(), rhs.data(), lower.data(), upper.data(),
            colptr.data(), rowind.data(), values.data(), constraints.data());
+  double load_time = getWallTime() - start_time;
 
   // solve LP
+  start_time = getWallTime();
   ipm.Solve();
+  double optimize_time = getWallTime() - start_time;
+
+  double run_time = getWallTime() - start_time0;
 
   if (!ipm.experiment_data_record.empty()) {
+    NlaTime sum_nla_time = sumNlaTime(ipm.experiment_data_record);
+    if (sum_nla_time.total > 1e-3) {
+      double sum_time =
+	sum_nla_time.form + sum_nla_time.setup +
+	sum_nla_time.analysis + sum_nla_time.factorization +
+	sum_nla_time.solve;
+      assert(sum_time>0);
+      if (sum_time>0) {
+	printf("NLA time profile\n");
+	printf("Form      %5.2f (%5.1f%% sum)\n", sum_nla_time.form, 100*sum_nla_time.form/sum_time);
+	printf("Setup     %5.2f (%5.1f%% sum)\n", sum_nla_time.setup, 100*sum_nla_time.setup/sum_time);
+	printf("Analyse   %5.2f (%5.1f%% sum)\n", sum_nla_time.analysis, 100*sum_nla_time.analysis/sum_time);
+	printf("Factorize %5.2f (%5.1f%% sum)\n", sum_nla_time.factorization, 100*sum_nla_time.factorization/sum_time);
+	printf("Solve     %5.2f (%5.1f%% sum)\n", sum_nla_time.solve, 100*sum_nla_time.solve/sum_nla_time.total);
+	printf("Total     %5.2f (%5.1f%% optimize)\n", sum_nla_time.total, 100*sum_nla_time.total/optimize_time);
+      }
+    }    
     ipm.experiment_data_record[0].model_name = model;
     ipm.experiment_data_record[0].model_num_col = lp.num_col_;
     ipm.experiment_data_record[0].model_num_row = lp.num_row_;
     std::string csv_file_name = model + "_direct.csv";
     writeDataToCSV(ipm.experiment_data_record, csv_file_name);
   }
+  if (run_time > 1e-3) {
+    double sum_time = read_time + presolve_time + setup_time + load_time + optimize_time;
+    printf("\nTime profile\n");
+    printf("Read      %5.2f (%5.1f%% sum)\n", read_time, 100*read_time/sum_time);
+    printf("Presolve  %5.2f (%5.1f%% sum)\n", presolve_time, 100*presolve_time/sum_time);
+    printf("Setup     %5.2f (%5.1f%% sum)\n", setup_time, 100*setup_time/sum_time);
+    printf("Load      %5.2f (%5.1f%% sum)\n", load_time, 100*load_time/sum_time);
+    printf("Optimize  %5.2f (%5.1f%% sum)\n", optimize_time, 100*optimize_time/sum_time);
+    printf("Sum       %5.2f (%5.1f%% run)\n", sum_time, 100*sum_time/run_time);
+    printf("Run       %5.2f\n", run_time);
+  }
+
   return 0;
 }

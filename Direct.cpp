@@ -218,7 +218,7 @@ int augmentedInvert(const HighsSparseMatrix &highs_a,
     SsidsData &ssids_data = invert.ssids_data;
     int factor_status =
       callSsidsAugmentedFactor(highs_a, theta, ssids_data, experiment_data);
-    experiment_data.time_taken = getWallTime() - start_time0;
+    experiment_data.nla_time.total = getWallTime() - start_time0;
 
     if (factor_status)
       return factor_status;
@@ -235,7 +235,7 @@ int augmentedInvert(const HighsSparseMatrix &highs_a,
     MA86Data& ma86_data = invert.ma86_data;
     int factor_status = 
       callMA86AugmentedFactor(highs_a, theta, ma86_data, experiment_data);
-    experiment_data.time_taken = getWallTime() - start_time0;
+    experiment_data.nla_time.total = getWallTime() - start_time0;
 
     if (factor_status) return factor_status;
     invert.valid = true;
@@ -251,7 +251,7 @@ int augmentedInvert(const HighsSparseMatrix &highs_a,
     QDLDLData& qdldl_data = invert.qdldl_data;
     int factor_status = 
       callQDLDLAugmentedFactor(highs_a, theta, qdldl_data, experiment_data);
-    experiment_data.time_taken = getWallTime() - start_time0;
+    experiment_data.nla_time.total = getWallTime() - start_time0;
 
     if (factor_status) return factor_status;
     invert.valid = true;
@@ -290,7 +290,7 @@ void augmentedSolve(const HighsSparseMatrix &highs_a,
     callQDLDLSolve(system_size, 1, rhs.data(), invert.qdldl_data);
   }
   
-  experiment_data.solve_time = getWallTime() - start_time;
+  experiment_data.nla_time.solve = getWallTime() - start_time;
 
   lhs_x.resize(highs_a.num_col_);
   lhs_y.resize(highs_a.num_row_);
@@ -439,7 +439,7 @@ int newtonInvert(const HighsSparseMatrix &highs_a,
   experiment_data.system_size = system_size;
   experiment_data.system_nnz = AAT.numNz();
 
-  experiment_data.form_time = getWallTime() - start_time;
+  experiment_data.nla_time.form = getWallTime() - start_time;
   SsidsData &ssids_data = invert.ssids_data;
   MA86Data &ma86_data = invert.ma86_data;
   QDLDLData &qdldl_data = invert.qdldl_data;
@@ -498,11 +498,11 @@ int newtonInvert(const HighsSparseMatrix &highs_a,
       d_matrix[d_col][d_col] += 1 / theta_d[d_col];
       offset += system_size;
     }
-    experiment_data.factorization_time += getWallTime() - start_time;
+    experiment_data.nla_time.factorization += getWallTime() - start_time;
   }
   invert.system_size = system_size;
   invert.use_num_dense_col = use_num_dense_col;
-  experiment_data.time_taken = getWallTime() - start_time0;
+  experiment_data.nla_time.total = getWallTime() - start_time0;
   invert.valid = true;
   return kDecomposerStatusOk;
 }
@@ -557,7 +557,7 @@ int newtonSolve(const HighsSparseMatrix &highs_a,
       offset += system_size;
     }
   }
-  experiment_data.solve_time = getWallTime() - start_time;
+  experiment_data.nla_time.solve = getWallTime() - start_time;
 
   experiment_data.residual_error =
       residualErrorNewton(highs_a, theta, rhs, lhs);
@@ -860,7 +860,7 @@ int callSsidsAugmentedFactor(const HighsSparseMatrix &matrix,
                              SsidsData &ssids_data,
                              ExperimentData &experiment_data) {
 #ifdef HAVE_SPRAL
-  experiment_data.form_time = 0;
+  experiment_data.nla_time.form = 0;
   double start_time = getWallTime();
 
   // Prepare data structures for SPRAL
@@ -916,7 +916,7 @@ int callSsidsAugmentedFactor(const HighsSparseMatrix &matrix,
   ssids_data.options.array_base = array_base;
   //  ssids_data.options.print_level = 2;
 
-  experiment_data.setup_time = getWallTime() - start_time;
+  experiment_data.nla_time.setup = getWallTime() - start_time;
 
   // Perform analyse and factorise with data checking
   bool check = true;
@@ -924,7 +924,7 @@ int callSsidsAugmentedFactor(const HighsSparseMatrix &matrix,
   spral_ssids_analyse(check, experiment_data.system_size, nullptr, ptr_ptr,
 		      row_ptr, nullptr, &ssids_data.akeep, &ssids_data.options,
 		      &ssids_data.inform);
-  experiment_data.analysis_time = getWallTime() - start_time;
+  experiment_data.nla_time.analysis = getWallTime() - start_time;
   if (ssids_data.inform.flag < 0)
     return kDecomposerStatusErrorFactorize;
 
@@ -933,7 +933,7 @@ int callSsidsAugmentedFactor(const HighsSparseMatrix &matrix,
   spral_ssids_factor(positive_definite, nullptr, nullptr, val_ptr, nullptr,
 		     ssids_data.akeep, &ssids_data.fkeep, &ssids_data.options,
 		     &ssids_data.inform);
-  experiment_data.factorization_time = getWallTime() - start_time;
+  experiment_data.nla_time.factorization = getWallTime() - start_time;
   if (ssids_data.inform.flag < 0)
     return kDecomposerStatusErrorFactorize;
   experiment_data.nnz_L = ssids_data.inform.num_factor;
@@ -987,7 +987,7 @@ int callSsidsNewtonFactor(const HighsSparseMatrix &AThetaAT,
   ssids_data.options.array_base =
     array_base; // Need to set to 1 if using Fortran 1-based indexing
 
-  experiment_data.setup_time = getWallTime() - start_time;
+  experiment_data.nla_time.setup = getWallTime() - start_time;
 
   // Perform analyse and factorise with data checking
   bool check = true;
@@ -995,7 +995,7 @@ int callSsidsNewtonFactor(const HighsSparseMatrix &AThetaAT,
   spral_ssids_analyse(check, AThetaAT.num_col_, nullptr, ptr_ptr, row_ptr,
 		      nullptr, &ssids_data.akeep, &ssids_data.options,
 		      &ssids_data.inform);
-  experiment_data.analysis_time = getWallTime() - start_time;
+  experiment_data.nla_time.analysis = getWallTime() - start_time;
   if (ssids_data.inform.flag < 0)
     return kDecomposerStatusErrorFactorize;
 
@@ -1004,7 +1004,7 @@ int callSsidsNewtonFactor(const HighsSparseMatrix &AThetaAT,
   spral_ssids_factor(positive_definite, nullptr, nullptr, val_ptr, nullptr,
 		     ssids_data.akeep, &ssids_data.fkeep, &ssids_data.options,
 		     &ssids_data.inform);
-  experiment_data.factorization_time = getWallTime() - start_time;
+  experiment_data.nla_time.factorization = getWallTime() - start_time;
   if (ssids_data.inform.flag < 0)
     return kDecomposerStatusErrorFactorize;
 
@@ -1040,7 +1040,7 @@ int callMA86AugmentedFactor(const HighsSparseMatrix& matrix,
 #ifdef HAVE_MA86
   int n = matrix.num_col_;
   int m = matrix.num_row_;
-  experiment_data.form_time = 0;
+  experiment_data.nla_time.form = 0;
   double start_time = getWallTime();
 
   const int array_base = 0;
@@ -1274,7 +1274,7 @@ int callQDLDLAugmentedFactor(const HighsSparseMatrix& matrix,
 			    QDLDLData& qdldl_data,
 			    ExperimentData& experiment_data){
 #ifdef HAVE_QDLDL
-  experiment_data.form_time = 0;          
+  experiment_data.nla_time.form = 0;          
   double start_time = getWallTime();
   HighsSparseMatrix A_rowwise=matrix;
   A_rowwise.ensureRowwise();
@@ -1373,7 +1373,7 @@ int callCholmodNewtonFactor(const HighsSparseMatrix &AThetaAT,
                           ExperimentData &experiment_data,
                           const int num_thods){
 #ifdef HAVE_CHOLMOD
-  experiment_data.form_time = 0;
+  experiment_data.nla_time.form = 0;
   double start_time = getWallTime();
 
   cholmod_data.c;
