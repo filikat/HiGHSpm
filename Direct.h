@@ -153,13 +153,14 @@ void productAThetaAT(const HighsSparseMatrix &matrix,
 int computeAThetaAT(const HighsSparseMatrix &matrix,
 		    const std::vector<double> &theta,
 		    HighsSparseMatrix& AAT,
-		    const int max_num_nz = 100000000,
+		    const int method = 1,
+		    const int max_num_nz = 100000000
 		    // Cant exceed kHighsIInf = 2,147,483,647,
 		    // otherwise start_ values may overflow. Even
 		    // 100,000,000 is probably too large, unless the
 		    // matrix is near-full, since fill-in will
 		    // overflow pointers
-		    const int method = 1);
+		    );
 
 int gepp(const std::vector<std::vector<double>> &matrix,
          const std::vector<double> &rhs, std::vector<double> &solution);

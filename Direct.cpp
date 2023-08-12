@@ -99,7 +99,7 @@ void chooseDenseColumns(const HighsSparseMatrix &highs_a,
     if (is_dense[iCol]) continue;
     max_sparse_theta = std::max(theta[iCol], max_sparse_theta);
   }
-  const bool check_num_ok_sparse_theta = true;//false;
+  const bool check_num_ok_sparse_theta = true;//false;//
   if (check_num_ok_sparse_theta) {
     double ok_sparse_theta = max_sparse_theta * ok_theta_relative_tolerance;
     for (;;) {
@@ -127,6 +127,7 @@ void chooseDenseColumns(const HighsSparseMatrix &highs_a,
 	  int col_nz = highs_a.start_[iCol + 1] - highs_a.start_[iCol];
 	  double density_value = double(col_nz) / double(system_size);
 	  max_sparse_col_density = std::max(density_value, max_sparse_col_density);
+	  printf("Eliminate dense column %d of density %g\n", iCol, density_value);
 	} else {
 	  new_dense_col.push_back(iCol);
 	}
@@ -416,11 +417,28 @@ int newtonInvert(const HighsSparseMatrix &highs_a,
 		     option_max_dense_col, option_dense_col_tolerance,
 		     dense_col, experiment_data, quiet);
   int use_num_dense_col = dense_col.size();
-  // Zero the entries of use_theta corresponding to dense columns
+  // Zero the entries of use_theta corresponding to dense columns  
   for (int ix = 0; ix < use_num_dense_col; ix++) {
     int iCol = dense_col[ix];
     theta_d.push_back(theta[iCol]);
     use_theta[iCol] = 0;
+  }
+  // Possibly zero the entries of use_theta corresponding to small
+  // values of theta
+  const double zero_theta_relative_tolerance = 0;//1e-8;//
+  const double zero_theta_tolerance =  experiment_data.theta_max * zero_theta_relative_tolerance;
+  if (zero_theta_tolerance>0) {
+    int num_zeroed_theta = 0;
+    for (int iCol = 0; iCol < highs_a.num_col_; iCol++) {
+      if (std::fabs(use_theta[iCol]) < zero_theta_tolerance) {
+	use_theta[iCol] = 0;
+	num_zeroed_theta++;
+      }
+    }
+    if (num_zeroed_theta) printf("Zeroed %d/%d theta values less than %g\n",
+				 num_zeroed_theta,
+				 highs_a.num_col_,
+				 zero_theta_tolerance);
   }
   HighsSparseMatrix AAT;
   int AAT_status = computeAThetaAT(highs_a, use_theta, AAT);
@@ -658,8 +676,8 @@ void productAThetaAT(const HighsSparseMatrix &matrix,
 int computeAThetaAT(const HighsSparseMatrix &matrix,
 		    const std::vector<double> &theta,
 		    HighsSparseMatrix& AAT,
-		    const int max_num_nz,
-		    const int method) {
+		    const int method,
+		    const int max_num_nz) {
   // Create a row-wise copy of the matrix
   HighsSparseMatrix AT = matrix;
   AT.ensureRowwise();
@@ -709,6 +727,7 @@ int computeAThetaAT(const HighsSparseMatrix &matrix,
       for (int iRowEl = AT.start_[iRow]; iRowEl < AT.start_[iRow + 1]; iRowEl++) {
 	int iCol = AT.index_[iRowEl];
 	const double theta_value = !theta.empty() ? theta[iCol] : 1;
+	if (!theta_value) continue;
 	const double row_value = theta_value * AT.value_[iRowEl];
 	for (int iColEl = matrix.start_[iCol]; iColEl < matrix.start_[iCol + 1]; iColEl++) {
 	  int iRow1 = matrix.index_[iColEl];
@@ -729,13 +748,16 @@ int computeAThetaAT(const HighsSparseMatrix &matrix,
 	int iCol = AAT_col_index[iEl];
 	assert(iCol >= iRow);
 	if (AAT_num_nz == max_num_nz) return kDecomposerStatusErrorOom;
-	non_zero_values.emplace_back(iRow, iCol, AAT_col_value[iCol]);
+	const double value = AAT_col_value[iCol];
+	if (std::abs(value) > 1e-10) {
+	  non_zero_values.emplace_back(iRow, iCol, value);
+	  AAT.start_[iRow + 1]++;
+	  if (iRow != iCol)
+	    AAT.start_[iCol + 1]++;
+	  AAT_num_nz += iRow != iCol ? 2 : 1;
+	}
 	AAT_col_value[iCol] = 0; // Not strictly necessary, but simplifies debugging
 	AAT_col_in_index[iCol] = false;
-	AAT.start_[iRow + 1]++;
-	if (iRow != iCol)
-	  AAT.start_[iCol + 1]++;
-	AAT_num_nz += iRow != iCol ? 2 : 1;
       }
     }
   } else {
