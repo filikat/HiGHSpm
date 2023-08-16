@@ -20,8 +20,18 @@ extern "C" {
 #endif
 }
 
+enum DecomposerSource {
+  kDecomposerSourceMin = 0,
+  kDecomposerSourceSsids = kDecomposerSourceMin,
+  kDecomposerSourceMa86,
+  kDecomposerSourceQdldl,
+  kDecomposerSourceCholmod,
+  kDecomposerSourceHighs,
+  kDecomposerSourceMax = kDecomposerSourceHighs
+};
+
 enum DecomposerStatus {
-  kDecomposerStatusMin = 0,
+  kDecomposerStatusMin = 1,
   kDecomposerStatusOk = kDecomposerStatusMin,
   kDecomposerStatusErrorOom,
   kDecomposerStatusErrorFactorize,
@@ -88,6 +98,7 @@ struct CholmodData{
 
 struct IpmInvert {
   bool valid = false;
+  int decomposer_source = 0;
   int system_size = 0;
   int use_num_dense_col = 0;
   std::vector<int> dense_col;

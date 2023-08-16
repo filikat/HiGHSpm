@@ -8,14 +8,16 @@ void IpmInvert::clear(const int solver_type) {
   this->theta_d.clear();
   this->hatA_d.clear();
   this->d_matrix.clear();
-  if (solver_type == 1){
+  if (solver_type == kDecomposerSourceSsids){
     this->ssids_data.clear();
-  } else if (solver_type == 2){
+  } else if (solver_type == kDecomposerSourceMa86){
     this->ma86_data.clear();
-  } else if (solver_type == 3){
+  } else if (solver_type == kDecomposerSourceQdldl){
     this->qdldl_data.clear();
-  } else if (solver_type == 4){
+  } else if (solver_type == kDecomposerSourceCholmod){
     this->cholmod_data.clear();
+  } else if (solver_type == kDecomposerSourceHighs){
+    assert(111==222);
   }
 }
 
@@ -198,18 +200,25 @@ void QDLDLData::clear() {
 1-Spral
 2-MA86
 3-QDLQL
+5-HiGHS
 */
 int augmentedInvert(const HighsSparseMatrix &highs_a,
                     const std::vector<double> &theta, IpmInvert &invert,
                     ExperimentData &experiment_data,
-		                const int solver_type) {
+		    const int solver_type) {
   assert(!invert.valid);
-
   assert(highs_a.isColwise());
+
+  invert.decomposer_source = solver_type;
+
   double start_time0 = getWallTime();
   experiment_data.reset();
-  assert(solver_type >= 1 && solver_type <= 3);
-  if (solver_type == 1) {
+  assert(solver_type >= kDecomposerSourceMin &&
+	 solver_type <= kDecomposerSourceMax &&
+	 solver_type != kDecomposerSourceCholmod);
+
+  int factor_status;
+  if (solver_type == kDecomposerSourceSsids) {
     experiment_data.decomposer = "ssids";
     experiment_data.system_type = kSystemTypeAugmented;
     experiment_data.system_size = highs_a.num_col_ + highs_a.num_row_;
@@ -217,7 +226,7 @@ int augmentedInvert(const HighsSparseMatrix &highs_a,
     experiment_data.analyseTheta(theta);
 
     SsidsData &ssids_data = invert.ssids_data;
-    int factor_status =
+    factor_status =
       callSsidsAugmentedFactor(highs_a, theta, ssids_data, experiment_data);
     experiment_data.nla_time.total = getWallTime() - start_time0;
 
@@ -225,40 +234,36 @@ int augmentedInvert(const HighsSparseMatrix &highs_a,
       return factor_status;
     invert.valid = true;
     return kDecomposerStatusOk;
-  }
-
-  if (solver_type == 2){
+  } else if (solver_type == kDecomposerSourceMa86) {
     experiment_data.decomposer = "ma86";
     experiment_data.system_type = kSystemTypeAugmented;
     experiment_data.system_size = highs_a.num_col_;
     experiment_data.system_nnz = highs_a.numNz();
 
     MA86Data& ma86_data = invert.ma86_data;
-    int factor_status = 
+    factor_status = 
       callMA86AugmentedFactor(highs_a, theta, ma86_data, experiment_data);
     experiment_data.nla_time.total = getWallTime() - start_time0;
 
     if (factor_status) return factor_status;
     invert.valid = true;
     return kDecomposerStatusOk;
-  }
-
-  if (solver_type == 3){
+  } else if (solver_type == kDecomposerSourceQdldl){
     experiment_data.decomposer = "qdldl";
     experiment_data.system_type = kSystemTypeAugmented;
     experiment_data.system_size = highs_a.num_col_;
     experiment_data.system_nnz = highs_a.numNz();
 
     QDLDLData& qdldl_data = invert.qdldl_data;
-    int factor_status = 
+    factor_status = 
       callQDLDLAugmentedFactor(highs_a, theta, qdldl_data, experiment_data);
     experiment_data.nla_time.total = getWallTime() - start_time0;
-
-    if (factor_status) return factor_status;
-    invert.valid = true;
-    return kDecomposerStatusOk;    
+  } else if (solver_type == kDecomposerSourceHighs) {
+    assert(111==222);
   }
-  return kDecomposerStatusOk;
+  if (factor_status) return factor_status;
+  invert.valid = true;
+  return kDecomposerStatusOk;    
 }
 
 void augmentedSolve(const HighsSparseMatrix &highs_a,
@@ -283,14 +288,16 @@ void augmentedSolve(const HighsSparseMatrix &highs_a,
     rhs.push_back(rhs_y[iRow]);
   int system_size = highs_a.num_col_ + highs_a.num_row_;
 
-  if (solver_type == 1){
+  assert(invert.decomposer_source == solver_type);
+  if (solver_type == kDecomposerSourceSsids) {
     callSsidsSolve(system_size, 1, rhs.data(), ssids_data);
-  } else if (solver_type == 2){
+  } else if (solver_type == kDecomposerSourceMa86) {
     callMA86Solve(system_size, 1, rhs.data(), ma86_data);
-  } else if (solver_type == 3){
+  } else if (solver_type == kDecomposerSourceQdldl) {
     callQDLDLSolve(system_size, 1, rhs.data(), invert.qdldl_data);
+  } else if (solver_type == kDecomposerSourceHighs) {
+    assert(111==666);
   }
-  
   experiment_data.nla_time.solve = getWallTime() - start_time;
 
   lhs_x.resize(highs_a.num_col_);
@@ -443,16 +450,20 @@ int newtonInvert(const HighsSparseMatrix &highs_a,
   HighsSparseMatrix AAT;
   int AAT_status = computeAThetaAT(highs_a, use_theta, AAT);
   if (AAT_status) return AAT_status;
-  if (solver_type == 1){
+  assert(solver_type >= kDecomposerSourceMin &&
+	 solver_type <= kDecomposerSourceMax);
+  if (solver_type == kDecomposerSourceSsids){
     experiment_data.decomposer = "ssids";
-  } else if (solver_type == 2) {
+  } else if (solver_type == kDecomposerSourceMa86) {
     experiment_data.decomposer = "ma86";
-  } else if (solver_type == 3) {
+  } else if (solver_type == kDecomposerSourceQdldl) {
     experiment_data.decomposer = "qdldl";
-  } else if (solver_type == 4) {
+  } else if (solver_type == kDecomposerSourceCholmod) {
     experiment_data.decomposer = "cholmod";
+  } else if (solver_type == kDecomposerSourceHighs) {
+    experiment_data.decomposer = "HiGHS";
   }
-  
+
   experiment_data.system_type = kSystemTypeNewton;
   experiment_data.system_size = system_size;
   experiment_data.system_nnz = AAT.numNz();
@@ -463,14 +474,17 @@ int newtonInvert(const HighsSparseMatrix &highs_a,
   QDLDLData &qdldl_data = invert.qdldl_data;
   CholmodData &cholmod_data = invert.cholmod_data;
   int factor_status;
-  if (solver_type == 1){
+  if (solver_type == kDecomposerSourceSsids){
     factor_status = callSsidsNewtonFactor(AAT, ssids_data, experiment_data);
-  } else if (solver_type == 2) {
+  } else if (solver_type == kDecomposerSourceMa86) {
     factor_status = callMA86NewtonFactor(AAT, ma86_data, experiment_data);
-  } else if (solver_type == 3) {
+  } else if (solver_type == kDecomposerSourceQdldl) {
     factor_status = callQDLDLNewtonFactor(AAT, qdldl_data, experiment_data);
-  } else if (solver_type == 4) {
+  } else if (solver_type == kDecomposerSourceCholmod) {
     factor_status = callCholmodNewtonFactor(AAT, cholmod_data, experiment_data);
+  } else if (solver_type == kDecomposerSourceHighs) {
+    assert(111==222);
+    //    factor_status = callHighsNewtonFactor(AAT, Highs_data, experiment_data);
   }
 
   if (factor_status)
@@ -489,14 +503,17 @@ int newtonInvert(const HighsSparseMatrix &highs_a,
         hatA_d[offset + highs_a.index_[iEl]] = highs_a.value_[iEl];
       offset += system_size;
     }
-    if (solver_type == 1){
+    if (solver_type == kDecomposerSourceSsids){
       callSsidsSolve(system_size, use_num_dense_col, hatA_d.data(), ssids_data);
-    } else if (solver_type == 2) {
+    } else if (solver_type == kDecomposerSourceMa86) {
       callMA86Solve(system_size, use_num_dense_col, hatA_d.data(), ma86_data);
-    } else if (solver_type == 3){
+    } else if (solver_type == kDecomposerSourceQdldl){
       callQDLDLSolve(system_size, use_num_dense_col, hatA_d.data(), qdldl_data);
-    } else if (solver_type == 4) {
+    } else if (solver_type == kDecomposerSourceCholmod) {
       callCholmodSolve(system_size, use_num_dense_col, hatA_d.data(), cholmod_data);
+    } else if (solver_type == kDecomposerSourceHighs){
+    assert(111==222);
+      //      callHIGHSSolve(system_size, use_num_dense_col, hatA_d.data(), Highs_data);
     }
     
     // Now form D = \Theta_d^{-1} + \hat{A}_d^TA_d
@@ -541,14 +558,17 @@ int newtonSolve(const HighsSparseMatrix &highs_a,
   const std::vector<double> &hatA_d = invert.hatA_d;
   lhs = rhs;
   // Form \hat_b = \hat{A}_d^Tb (as d_rhs);
-  if (solver_type == 1){
+  if (solver_type == kDecomposerSourceSsids){
     callSsidsSolve(system_size, 1, lhs.data(), invert.ssids_data);
-  } else if (solver_type == 2) {
+  } else if (solver_type == kDecomposerSourceMa86) {
     callMA86Solve(system_size, 1, lhs.data(), invert.ma86_data);
-  } else if (solver_type == 3){
+  } else if (solver_type == kDecomposerSourceQdldl){
     callQDLDLSolve(system_size, 1, lhs.data(), invert.qdldl_data);
-  } else if (solver_type == 4) {
+  } else if (solver_type == kDecomposerSourceCholmod) {
     callCholmodSolve(system_size, 1, lhs.data(), invert.cholmod_data);
+  } else if (solver_type == kDecomposerSourceHighs){
+    //    callHIGHSSolve(system_size, 1, lhs.data(), invert.Highs_data);
+    assert(111==222);
   }
   if (use_num_dense_col) {
     std::vector<std::vector<double>> d_matrix = invert.d_matrix;
