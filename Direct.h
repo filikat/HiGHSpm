@@ -109,7 +109,8 @@ struct IpmInvert {
   MA86Data ma86_data;
   QDLDLData qdldl_data;
   CholmodData cholmod_data;
-  void clear(const int solver_type = 1);
+  HFactor highs_factor;
+  void clear();
 };
 
 void chooseDenseColumns(const HighsSparseMatrix &highs_a,
@@ -173,6 +174,10 @@ int computeAThetaAT(const HighsSparseMatrix &matrix,
 		    // overflow pointers
 		    );
 
+int analyseScaledRowNorms(const HighsSparseMatrix &matrix,
+			  const std::vector<double> &theta,
+			  const bool quiet = true);
+
 int gepp(const std::vector<std::vector<double>> &matrix,
          const std::vector<double> &rhs, std::vector<double> &solution);
 
@@ -220,5 +225,17 @@ int callCholmodNewtonFactor(const HighsSparseMatrix &AThetaAT,
                           const int num_thods = 3);
 void callCholmodSolve(const int system_size, const int num_rhs, double *rhs,
                     CholmodData &cholmod_data);	
+
+int callHighsAugmentedFactor(const HighsSparseMatrix &matrix,
+                             const std::vector<double> &theta,
+                             HFactor& highs_factor,
+                             ExperimentData &experiment_data);
+
+int callHighsNewtonFactor(const HighsSparseMatrix &AThetaAT,
+			  HFactor& highs_factor,
+			  ExperimentData &experiment_data);
+
+void callHighsSolve(const int system_size, const int num_rhs, double *rhs,
+		    HFactor& highs_factor);
 
 #endif
