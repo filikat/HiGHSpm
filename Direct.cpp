@@ -422,6 +422,7 @@ int newtonInvert(const HighsSparseMatrix &highs_a,
 				 highs_a.num_col_,
 				 zero_theta_tolerance);
   }
+  experiment_data.analyseTheta(use_theta, false);
   HighsSparseMatrix AAT;
   int AAT_status = computeAThetaAT(highs_a, use_theta, AAT);
   if (AAT_status) return AAT_status;
@@ -887,7 +888,7 @@ int analyseScaledRowNorms(const HighsSparseMatrix &matrix,
     if (value == 0) num_zero_row++;
   }
   if (!quiet) 
-    analyseVectorValues(nullptr, "Squared 2-norm of A.Theta rows", matrix.num_row_,
+    analyseVectorValues(nullptr, "Squared 2-norm of A.Theta^(1/2) rows", matrix.num_row_,
 			row_norm);
   return num_zero_row;
 }
@@ -1029,6 +1030,8 @@ int callSsidsNewtonFactor(const HighsSparseMatrix &AThetaAT,
   // Need to set to 1 if using Fortran 1-based indexing
   ssids_data.options.array_base =
     array_base; // Need to set to 1 if using Fortran 1-based indexing
+  // Scaling option for SSIDS
+  ssids_data.options.scaling = 1;
 
   experiment_data.nla_time.setup = getWallTime() - start_time;
 
