@@ -413,6 +413,29 @@ void IPM_caller::ComputeResiduals_56(const double sigmaMu,
   }
 }
 
+void IPM_caller::reportOptions() {
+
+  std::cout << "Option settings\n";
+  std::cout << "NLA option:                  ";
+  if (option_nla == kOptionNlaCg) {
+    std::cout << "Newton CG\n";
+  } else if (option_nla == kOptionNlaAugmented || option_nla == kOptionNlaAugmentedCg) {
+    std::cout << "Augmented direct\n";
+  } else if (option_nla == kOptionNlaNewton || option_nla == kOptionNlaNewtonCg) {
+    std::cout << "Newton direct\n";
+  }
+  std::cout << "Predictor-corrector:         ";
+  if (this->option_predcor) {
+    std::cout << "On\n";
+  } else {
+    std::cout << "Off\n";
+  }
+  std::cout << "Max number of dense columns: " << this->option_max_dense_col << "\n";
+  std::cout << "Tolerance for dense columns: " << this->option_dense_col_tolerance << "\n";
+  std::cout << "IPM iteration limit:         " << this->option_iteration_limit << "\n";
+  std::cout << "IPM tolerance:               " << this->option_ipm_tolerance << "\n";
+}
+
 std::vector<double> IPM_caller::ComputeResiduals_7(const Residuals &Res,
                                                    bool isCorrector) {
 
@@ -527,6 +550,7 @@ int IPM_caller::SolveNewtonSystem(const HighsSparseMatrix &highs_a,
   const bool first_call_with_theta = !invert.valid;
   ExperimentData experiment_data;
   experiment_data.reset();
+  if (first_call_with_theta) experiment_data.analyseTheta(theta, false);
   if (use_cg || use_direct_newton) {
     // Have to solve the Newton system
     //
@@ -570,10 +594,8 @@ int IPM_caller::SolveNewtonSystem(const HighsSparseMatrix &highs_a,
       }
       int newton_solve_status = newtonSolve(
           highs_a, theta, res8, newton_delta_y, invert, experiment_data);
-      if (first_call_with_theta) {
+      if (first_call_with_theta) 
         experiment_data.condition = newtonCondition(highs_a, theta, invert);
-        experiment_data_record.push_back(experiment_data);
-      }
       if (newton_solve_status) return newton_solve_status;
       if (check_with_cg) {
         double inf_norm_solution_diff = infNormDiff(newton_delta_y, Delta.y);
@@ -627,10 +649,8 @@ int IPM_caller::SolveNewtonSystem(const HighsSparseMatrix &highs_a,
     augmentedSolve(highs_a, theta, res7, Res.res1, augmented_delta_x,
                    augmented_delta_y, invert, experiment_data);
     experiment_data.nla_time.total += experiment_data.nla_time.solve;
-    if (first_call_with_theta) {
+    if (first_call_with_theta) 
       experiment_data.condition = augmentedCondition(highs_a, theta, invert);
-      experiment_data_record.push_back(experiment_data);
-    }
     if (check_with_cg) {
       double inf_norm_solution_diff = infNormDiff(augmented_delta_x, Delta.x);
       if (inf_norm_solution_diff > kSolutionDiffTolerance) {
@@ -653,6 +673,8 @@ int IPM_caller::SolveNewtonSystem(const HighsSparseMatrix &highs_a,
       Delta.y = augmented_delta_y;
     }
   }
+  if (first_call_with_theta)
+    experiment_data_record.push_back(experiment_data);
   return 0;
 }
 

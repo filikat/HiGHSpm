@@ -2,7 +2,7 @@
 
 YOUR_CPP_COMPILER="g++"
 
-ProtoIPM_HOME="$HOME/ProtoIPMe"
+ProtoIPM_HOME="$HOME/ProtoIPM"
 
 # Define directories
 #

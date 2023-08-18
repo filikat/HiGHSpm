@@ -228,6 +228,8 @@ int main(int argc, char **argv) {
     return 1;
   }
 
+  ipm.reportOptions();
+
   // load the problem
   ipm.Load(n, m, obj.data(), rhs.data(), lower.data(), upper.data(),
            colptr.data(), rowind.data(), values.data(), constraints.data());

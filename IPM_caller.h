@@ -31,12 +31,14 @@ public:
   // ===================================================================================
   // Run-time options
   // ===================================================================================
-  int option_iteration_limit = 100;
+  // Firstly the ones read from the command line
   int option_nla = kOptionNlaDefault;
-  int option_max_dense_col = kOptionMaxDenseColDefault;
-  double option_ipm_tolerance = 1e-6;
-  double option_dense_col_tolerance = kOptionDenseColToleranceDefault;
   int option_predcor = kOptionPredCorDefault;
+  int option_max_dense_col = kOptionMaxDenseColDefault;
+  // Now the options set internally
+  double option_dense_col_tolerance = kOptionDenseColToleranceDefault;
+  int option_iteration_limit = 100;
+  double option_ipm_tolerance = 1e-6;
 
   // Direct solver experiment data record
   std::vector<ExperimentData> experiment_data_record;
@@ -74,6 +76,8 @@ public:
   // SOLVE THE LP
   // ===================================================================================
   Output Solve();
+
+  void reportOptions();
 
 private:
   // ===================================================================================

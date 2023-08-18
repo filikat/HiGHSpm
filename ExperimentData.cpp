@@ -166,7 +166,7 @@ void writeDataToCSV(const std::vector<ExperimentData> &data,
   outputFile << "System size," << data[0].system_size << "\n";
 
   // Write header
-  outputFile << "Decomposer,";
+  outputFile << "Record,Decomposer,";
   if (system_type == kSystemTypeNewton) {
     outputFile << "Num dense col,System max dense col,Large Theta (%),AAT NNZ,(%),";
   } else {
@@ -178,11 +178,14 @@ void writeDataToCSV(const std::vector<ExperimentData> &data,
                 "Factorization time, Solve time\n";
 
   // Write data
+  int record=0;
   for (const auto &experimentData : data) {
+    record++;
     outputFile << experimentData.decomposer << ",";
     //if (experimentData.system_type != system_type)
     //  break;
     double float_dim = double(experimentData.system_size);
+    outputFile << record << ",";
     if (system_type == kSystemTypeNewton) {
       outputFile << experimentData.use_num_dense_col << ",";
       outputFile << experimentData.system_max_dense_col << ",";
@@ -339,10 +342,12 @@ void ExperimentData::analyseTheta(const std::vector<double> &theta, const bool q
 	 int(this->theta_num_small), int(this->theta_num_medium), int(this->theta_num_large));
   printf("Order |");
   for (int k = 0; k < num_k; k++) 
-    printf(" %3d |", this->theta_order0+k);
+    if (theta_order_k[k])
+      printf("%5d |", this->theta_order0+k);
   printf("\n");
   printf("Order |");
   for (int k = 0; k < num_k; k++) 
-    printf(" %3d |", theta_order_k[k]);
+    if (theta_order_k[k])
+      printf("%5d |", theta_order_k[k]);
   printf("\n");
 }

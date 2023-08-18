@@ -102,7 +102,7 @@ void chooseDenseColumns(const HighsSparseMatrix &highs_a,
     if (is_dense[iCol]) continue;
     max_sparse_theta = std::max(theta[iCol], max_sparse_theta);
   }
-  const bool check_num_ok_sparse_theta = true;//false;//
+  const bool check_num_ok_sparse_theta = false;//true;//
   if (check_num_ok_sparse_theta) {
     double ok_sparse_theta = max_sparse_theta * ok_theta_relative_tolerance;
     for (;;) {
@@ -213,12 +213,9 @@ int augmentedInvert(const HighsSparseMatrix &highs_a,
   invert.decomposer_source = decomposer_source;
 
   double start_time0 = getWallTime();
-  experiment_data.reset();
   assert(decomposer_source >= kDecomposerSourceMin &&
 	 decomposer_source <= kDecomposerSourceMax &&
 	 decomposer_source != kDecomposerSourceCholmod);
-
-  experiment_data.analyseTheta(theta);
 
   int factor_status;
   experiment_data.system_type = kSystemTypeAugmented;
@@ -395,10 +392,8 @@ int newtonInvert(const HighsSparseMatrix &highs_a,
   std::vector<double> &theta_d = invert.theta_d;
   std::vector<double> &hatA_d = invert.hatA_d;
 
-  experiment_data.reset();
   experiment_data.system_type = kSystemTypeNewton;
   experiment_data.system_size = system_size;
-  experiment_data.analyseTheta(theta);
 
   chooseDenseColumns(highs_a, theta,
 		     option_max_dense_col, option_dense_col_tolerance,
@@ -430,6 +425,11 @@ int newtonInvert(const HighsSparseMatrix &highs_a,
   HighsSparseMatrix AAT;
   int AAT_status = computeAThetaAT(highs_a, use_theta, AAT);
   if (AAT_status) return AAT_status;
+
+  const bool aat_quiet = false;
+  if (!aat_quiet) 
+    analyseVectorValues(nullptr, "A.Theta.A^T nonzeros", AAT.numNz(),
+			AAT.value_);
 
   experiment_data.system_type = kSystemTypeNewton;
   experiment_data.system_size = system_size;
@@ -673,9 +673,9 @@ int computeAThetaAT(const HighsSparseMatrix &matrix,
   // Create a row-wise copy of the matrix
   HighsSparseMatrix AT = matrix;
   AT.ensureRowwise();
-  int num_zero_row = analyseScaledRowNorms(matrix, theta, true);
+  int num_zero_row = analyseScaledRowNorms(AT, theta, false);
   if (num_zero_row > 0) {
-    printf("A.Thata has %d zero rows\n", num_zero_row);
+    printf("A.Theta has %d zero rows\n", num_zero_row);
     return kDecomposerStatusErrorFactorize;
   }
 
@@ -881,14 +881,13 @@ int analyseScaledRowNorms(const HighsSparseMatrix &matrix,
   std::vector<double> row_norm(num_row, 0);
   for (int iRow = 0; iRow < num_row; iRow++) {
     double value = 0;
-    for (int iEl = matrix.start_[iRow]; iEl < matrix.start_[iRow+1]; iEl++) {
-      value += theta[matrix.index_[iEl]] * std::abs(matrix.value_[iEl]);
-    }
+    for (int iEl = matrix.start_[iRow]; iEl < matrix.start_[iRow+1]; iEl++) 
+      value += theta[matrix.index_[iEl]] * matrix.value_[iEl] * matrix.value_[iEl];
     row_norm[iRow] = value;
     if (value == 0) num_zero_row++;
   }
   if (!quiet) 
-    analyseVectorValues(nullptr, "Row norm", matrix.num_col_,
+    analyseVectorValues(nullptr, "Squared 2-norm of A.Theta rows", matrix.num_row_,
 			row_norm);
   return num_zero_row;
 }
@@ -966,17 +965,20 @@ int callSsidsAugmentedFactor(const HighsSparseMatrix &matrix,
 		      row_ptr, nullptr, &ssids_data.akeep, &ssids_data.options,
 		      &ssids_data.inform);
   experiment_data.nla_time.analysis = getWallTime() - start_time;
-  if (ssids_data.inform.flag < 0)
+  if (ssids_data.inform.flag < 0) {
+    printf("SSIDS analyse:   flag = %d\n", ssids_data.inform.flag);
     return kDecomposerStatusErrorFactorize;
-
+  }
   bool positive_definite = false;
   start_time = getWallTime();
   spral_ssids_factor(positive_definite, nullptr, nullptr, val_ptr, nullptr,
 		     ssids_data.akeep, &ssids_data.fkeep, &ssids_data.options,
 		     &ssids_data.inform);
   experiment_data.nla_time.factorization = getWallTime() - start_time;
-  if (ssids_data.inform.flag < 0)
+  if (ssids_data.inform.flag < 0) {
+    printf("SSIDS factorize: flag = %d\n", ssids_data.inform.flag);
     return kDecomposerStatusErrorFactorize;
+  }
   experiment_data.nnz_L = ssids_data.inform.num_factor;
   experiment_data.fillIn_LL();
   return kDecomposerStatusOk;
@@ -1037,8 +1039,10 @@ int callSsidsNewtonFactor(const HighsSparseMatrix &AThetaAT,
 		      nullptr, &ssids_data.akeep, &ssids_data.options,
 		      &ssids_data.inform);
   experiment_data.nla_time.analysis = getWallTime() - start_time;
-  if (ssids_data.inform.flag < 0)
+  if (ssids_data.inform.flag < 0) {
+    printf("SSIDS analyse:   flag = %d\n", ssids_data.inform.flag);
     return kDecomposerStatusErrorFactorize;
+  }
 
   bool positive_definite = true;
   start_time = getWallTime();
@@ -1046,9 +1050,10 @@ int callSsidsNewtonFactor(const HighsSparseMatrix &AThetaAT,
 		     ssids_data.akeep, &ssids_data.fkeep, &ssids_data.options,
 		     &ssids_data.inform);
   experiment_data.nla_time.factorization = getWallTime() - start_time;
-  if (ssids_data.inform.flag < 0)
+  if (ssids_data.inform.flag < 0) {
+    printf("SSIDS factorize: flag = %d\n", ssids_data.inform.flag);
     return kDecomposerStatusErrorFactorize;
-
+  }
   /*
   //Return the diagonal entries of the Cholesky factor
   std::vector<double> d(AThetaAT.num_col_);
