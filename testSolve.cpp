@@ -1,6 +1,7 @@
 #include "Direct.h"
 #include "Highs.h"
 #include <boost/program_options.hpp>
+#include <filesystem>
 namespace po = boost::program_options;
 
 bool infNormDiffOk(const std::vector<double> x0, const std::vector<double> x1) {
@@ -11,7 +12,9 @@ bool infNormDiffOk(const std::vector<double> x0, const std::vector<double> x1) {
   return norm_diff < 1e-12;
 }
 
-int callNewtonSolve(const HighsSparseMatrix &highs_a,
+int callNewtonSolve(ExperimentData &experiment_data,
+                    //const std::string model_file,
+                    const HighsSparseMatrix &highs_a,
                     const std::vector<double> &theta,
                     const std::vector<double> &rhs,
                     const std::vector<double> &exact_sol,
@@ -19,8 +22,8 @@ int callNewtonSolve(const HighsSparseMatrix &highs_a,
                     const double option_dense_col_tolerance,
                     const int solver_type
                     ) {
-  std::cout << "In callNewtonSolve, solver_type = " << solver_type << std::endl;                  
-  ExperimentData experiment_data;
+                
+  //ExperimentData experiment_data;
   const int x_dim = highs_a.num_col_;
   const int y_dim = highs_a.num_row_;
   std::vector<double> lhs(y_dim);
@@ -46,23 +49,18 @@ int callNewtonSolve(const HighsSparseMatrix &highs_a,
         std::max(std::fabs(exact_sol[ix] - lhs[ix]), solution_error);
   experiment_data.solution_error = solution_error;
   experiment_data.condition = newtonCondition(highs_a, theta, invert, solver_type);
-  std::cout << experiment_data << "\n";
+  //std::cout << experiment_data << "\n";
   return 0;
 }
 
 int main(int argc, char** argv){
-  int solverType;
-  if (argc == 2){
-    solverType = atoi(argv[1]);
-  } else {
-    std::cout << "Usage: ./testSolve solverType\n";
-    return 1;
-  }
-/*  po::options_description desc("Allowed options");
+  po::options_description desc("Allowed options");
   desc.add_options()
     ("help", "produce help message")
     ("solver,s", po::value<int>(), "set the solver type")
     ("density,d", po::value<double>(), "set the density threshold")
+    ("model,m", po::value<std::string>(), "model name") 
+    ("max_dense_col,mdc", po::value<int>(), "set the maximum number of dense columns")
   ;
 
   po::variables_map vm;
@@ -88,14 +86,41 @@ int main(int argc, char** argv){
     std::cout << "Density threshold was set to " << densityThreshold << ".\n";
   } else {
     std::cout << "Density threshold was not set. Using default: " << densityThreshold << ".\n";
-  }*/
+  }
+
+  std::string model;
+  if (vm.count("model")) {
+    model = vm["model"].as<std::string>();
+  } else {
+    std::cout << "Model was not set. Exiting...\n";
+    return 1;
+  }
+
+  int maxDenseCol = 5;  // default value
+  if (vm.count("max_dense_col")) {
+    maxDenseCol = vm["max_dense_col"].as<int>();
+    std::cout << "Maximum number of dense columns was set to " << maxDenseCol << ".\n";
+  } else {
+    std::cout << "Maximum number of dense columns was not set. Using default: " << maxDenseCol << ".\n";
+  }
 
   int x_dim;
   int y_dim;
   HighsSparseMatrix matrix;
   Highs highs;
-  highs.setOptionValue("output_flag", false);
-  HighsStatus status = highs.readModel("ml.mps");
+  //highs.setOptionValue("output_flag", false);
+
+  //HighsStatus status = highs.readModel("ml.mps");
+  // read A matrix from file
+  const std::string model_file = model;
+  std::filesystem::path p(model);
+  std::string stem = p.stem().string();
+
+  std::filesystem::path dir("../../result/");
+  std::filesystem::path full_path = dir / stem;
+  std::string new_path = full_path.string() + std::to_string(solverType)+".csv";
+  HighsStatus status = highs.readModel(model_file);
+
   if (status == HighsStatus::kOk) {
     matrix = highs.getLp().a_matrix_;
     y_dim = matrix.num_row_;
@@ -108,6 +133,7 @@ int main(int argc, char** argv){
     matrix.num_col_ += y_dim;
     x_dim = matrix.num_col_;
   } else {
+    printf("HiGHS fails to read %s\n", model_file.c_str());
     // Use a test matrix if there's no ml.mps
     x_dim = 4;
     y_dim = 2;
@@ -163,7 +189,41 @@ int main(int argc, char** argv){
   const bool augmented_solve = true;
   const bool newton_solve = true;
   assert(augmented_solve || newton_solve);
-  if (augmented_solve) {
+  std::vector<ExperimentData> experiment_data_list;
+  if (newton_solve) {
+    ExperimentData experiment_data;
+    // Now solve the Newton equation
+    //
+    // Form rhs_newton == rhs_y + A\Theta.rhs_x
+    
+    std::vector<double> theta_rhs_x = rhs_x;
+    for (int ix = 0; ix < x_dim; ix++)
+      theta_rhs_x[ix] *= theta[ix];
+    std::vector<double> a_theta_rhs_x;
+    matrix.product(a_theta_rhs_x, theta_rhs_x);
+    std::vector<double> rhs_newton = rhs_y;
+    for (int ix = 0; ix < y_dim; ix++)
+      rhs_newton[ix] += a_theta_rhs_x[ix];
+
+    //std::string new_path = full_path.string() + "_reduced.csv";
+    int newton_status =
+        callNewtonSolve(experiment_data, matrix, theta, rhs_newton, y_star, 0, 1.1, solverType);
+    experiment_data_list.push_back(experiment_data);
+    if (newton_status)
+      return 1;
+    /*
+    newton_status = callNewtonSolve(matrix, theta, rhs_newton, y_star, 4, 0.4);
+    if (newton_status) return 1;
+    newton_status = callNewtonSolve(matrix, theta, rhs_newton, y_star, 10, 0.4);
+    if (newton_status) return 1;
+    newton_status = callNewtonSolve(matrix, theta, rhs_newton, y_star, 20, 0.4);
+    if (newton_status) return 1;s
+    */
+    std::cout << experiment_data << "\n";
+
+  }
+  
+  if (augmented_solve && solverType != 4) {
     // Solve the augmented system
     std::vector<double> lhs_x;
     std::vector<double> lhs_y;
@@ -197,34 +257,12 @@ int main(int argc, char** argv){
     experiment_data.condition = augmentedCondition(matrix, theta, invert, solverType);
     std::cout << experiment_data << "\n";
     invert.clear();
+    experiment_data_list.push_back(experiment_data);
+    //std::string new_path = full_path.string() + "_augmented.csv";
+    //writeDataToCSV(experiment_data_list, new_path);
   }
 
-  if (newton_solve) {
-    // Now solve the Newton equation
-    //
-    // Form rhs_newton == rhs_y + A\Theta.rhs_x
-    
-    std::vector<double> theta_rhs_x = rhs_x;
-    for (int ix = 0; ix < x_dim; ix++)
-      theta_rhs_x[ix] *= theta[ix];
-    std::vector<double> a_theta_rhs_x;
-    matrix.product(a_theta_rhs_x, theta_rhs_x);
-    std::vector<double> rhs_newton = rhs_y;
-    for (int ix = 0; ix < y_dim; ix++)
-      rhs_newton[ix] += a_theta_rhs_x[ix];
 
-    int newton_status =
-        callNewtonSolve(matrix, theta, rhs_newton, y_star, 0, 1.1, solverType);
-    if (newton_status)
-      return 1;
-    /*
-    newton_status = callNewtonSolve(matrix, theta, rhs_newton, y_star, 4, 0.4);
-    if (newton_status) return 1;
-    newton_status = callNewtonSolve(matrix, theta, rhs_newton, y_star, 10, 0.4);
-    if (newton_status) return 1;
-    newton_status = callNewtonSolve(matrix, theta, rhs_newton, y_star, 20, 0.4);
-    if (newton_status) return 1;
-    */
-  }
+  writeDataToCSV(experiment_data_list, new_path);
   return 0;
 }

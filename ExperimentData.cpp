@@ -130,17 +130,20 @@ void writeDataToCSV(const std::vector<ExperimentData> &data,
     return;
 
   std::ofstream outputFile;
+
   outputFile.open(filename);
+  if (!outputFile)
+  throw std::runtime_error("Cannot open file " + filename);
 
   const int system_type = data[0].system_type;
   outputFile << "Model," << data[0].model_name << "\n";
   outputFile << "Num col," << data[0].model_num_col << "\n";
   outputFile << "Num row," << data[0].model_num_row << "\n";
-  if (system_type == kSystemTypeNewton) {
+  //if (system_type == kSystemTypeNewton) {
     outputFile << "max dense col," << data[0].model_max_dense_col << "\n";
     outputFile << "num dense col," << data[0].model_num_dense_col << "\n";
     outputFile << "dense col tolerance," << data[0].dense_col_tolerance << "\n";
-  }
+  //}
   outputFile << "System size," << data[0].system_size << "\n";
 
   // Write header
@@ -158,8 +161,8 @@ void writeDataToCSV(const std::vector<ExperimentData> &data,
   // Write data
   for (const auto &experimentData : data) {
     outputFile << experimentData.decomposer << ",";
-    if (experimentData.system_type != system_type)
-      break;
+    //if (experimentData.system_type != system_type)
+    //  break;
     double float_dim = double(experimentData.system_size);
     if (system_type == kSystemTypeNewton) {
       outputFile << experimentData.use_num_dense_col << ",";
