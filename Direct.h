@@ -21,7 +21,7 @@ extern "C" {
 }
 
 enum DecomposerSource {
-  kDecomposerSourceMin = 0,
+  kDecomposerSourceMin = 1,
   kDecomposerSourceSsids = kDecomposerSourceMin,
   kDecomposerSourceMa86,
   kDecomposerSourceQdldl,
@@ -31,7 +31,7 @@ enum DecomposerSource {
 };
 
 enum DecomposerStatus {
-  kDecomposerStatusMin = 1,
+  kDecomposerStatusMin = 0,
   kDecomposerStatusOk = kDecomposerStatusMin,
   kDecomposerStatusErrorOom,
   kDecomposerStatusErrorFactorize,

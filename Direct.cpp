@@ -430,19 +430,6 @@ int newtonInvert(const HighsSparseMatrix &highs_a,
   HighsSparseMatrix AAT;
   int AAT_status = computeAThetaAT(highs_a, use_theta, AAT);
   if (AAT_status) return AAT_status;
-  assert(decomposer_source >= kDecomposerSourceMin &&
-	 decomposer_source <= kDecomposerSourceMax);
-  if (decomposer_source == kDecomposerSourceSsids){
-    experiment_data.decomposer = "ssids";
-  } else if (decomposer_source == kDecomposerSourceMa86) {
-    experiment_data.decomposer = "ma86";
-  } else if (decomposer_source == kDecomposerSourceQdldl) {
-    experiment_data.decomposer = "qdldl";
-  } else if (decomposer_source == kDecomposerSourceCholmod) {
-    experiment_data.decomposer = "cholmod";
-  } else if (decomposer_source == kDecomposerSourceHighs) {
-    experiment_data.decomposer = "HiGHS";
-  }
 
   experiment_data.system_type = kSystemTypeNewton;
   experiment_data.system_size = system_size;
@@ -454,15 +441,22 @@ int newtonInvert(const HighsSparseMatrix &highs_a,
   QDLDLData &qdldl_data = invert.qdldl_data;
   CholmodData &cholmod_data = invert.cholmod_data;
   int factor_status;
+  assert(decomposer_source >= kDecomposerSourceMin &&
+	 decomposer_source <= kDecomposerSourceMax);
   if (decomposer_source == kDecomposerSourceSsids){
+    experiment_data.decomposer = "ssids";
     factor_status = callSsidsNewtonFactor(AAT, ssids_data, experiment_data);
   } else if (decomposer_source == kDecomposerSourceMa86) {
+    experiment_data.decomposer = "ma86";
     factor_status = callMA86NewtonFactor(AAT, ma86_data, experiment_data);
   } else if (decomposer_source == kDecomposerSourceQdldl) {
+    experiment_data.decomposer = "qdldl";
     factor_status = callQDLDLNewtonFactor(AAT, qdldl_data, experiment_data);
   } else if (decomposer_source == kDecomposerSourceCholmod) {
+    experiment_data.decomposer = "cholmod";
     factor_status = callCholmodNewtonFactor(AAT, cholmod_data, experiment_data);
   } else if (decomposer_source == kDecomposerSourceHighs) {
+    experiment_data.decomposer = "HiGHS";
     assert(111==222);
     //    factor_status = callHighsNewtonFactor(AAT, Highs_data, experiment_data);
   }
@@ -962,7 +956,7 @@ int callSsidsAugmentedFactor(const HighsSparseMatrix &matrix,
   ssids_data.options.array_base = array_base;
   //  ssids_data.options.print_level = 2;
 
-  experiment_data.system_nnz = matrix.num_col_ + 2 * highs_a.numNz() + matrix.num_row;
+  experiment_data.system_nnz = matrix.num_col_ + 2 * matrix.numNz() + matrix.num_row_;
   experiment_data.nla_time.setup = getWallTime() - start_time;
 
   // Perform analyse and factorise with data checking
@@ -1113,7 +1107,6 @@ int callMA86AugmentedFactor(const HighsSparseMatrix& matrix,
 
   const double diagonal = 1e-20;//1e-20;
   for (int iRow = 0; iRow < matrix.num_row_; iRow++) {
-    std::cout << "val.size" << val.size() << std::endl;
     ptr.push_back(val.size()); 
     if (diagonal) {
       val.push_back(diagonal);
@@ -1174,16 +1167,9 @@ int callMA86NewtonFactor(const HighsSparseMatrix& AThetaAT,
       }
   }
 
-
-  std::cout << std::endl;
-
   // Add the last pointer
   ptr.push_back(val.size());
 
-  //print ptr
-  for (int i = 0; i < ptr.size(); i++){
-      std::cout << ptr[i] << " ";
-  }
   ma86_data.order.resize(AThetaAT.num_row_);
   for (int i = 0; i < n; i++) ma86_data.order[i] = i;
 
