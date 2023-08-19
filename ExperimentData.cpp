@@ -10,6 +10,7 @@ double getWallTime() {
 }
 
 int roundDouble2Int(const double value) { return int(value + 0.5); }
+
 std::ostream &operator<<(std::ostream &os, const ExperimentData &data) {
   const int text_width = 30;
   const int num_width = 12;
@@ -72,6 +73,14 @@ std::ostream &operator<<(std::ostream &os, const ExperimentData &data) {
   }
   os << std::left << std::setw(text_width) << "system size: " << std::right
      << std::setw(num_width) << data.system_size << "\n";
+
+  assert(data.invert_status >= 0);
+  if (data.invert_status) {
+    os << std::left << std::setw(text_width) << "Failure: "
+       << std::right << std::setw(num_width) << data.invert_status << "\n";
+    return os;
+  }
+
   if (data.system_type == kSystemTypeNewton) {
     os << std::left << std::setw(text_width)
        << "system max col density: " << std::right << std::setw(num_width)
@@ -80,9 +89,11 @@ std::ostream &operator<<(std::ostream &os, const ExperimentData &data) {
   } else {
     os << std::left << std::setw(text_width) << "system nnz: ";
   }
+
   os << std::scientific;
   os << std::right << std::setw(num_width) << data.system_nnz << " ("
      << std::right << std::fixed << system_density << "%)\n";
+
   os << std::left << std::setw(text_width) << "L nnz: " << std::right
      << std::setw(num_width) << data.nnz_L << " (" << std::right << std::fixed
      << l_density << "%)\n";
@@ -158,21 +169,20 @@ void writeDataToCSV(const std::vector<ExperimentData> &data,
   outputFile << "Model," << data[0].model_name << "\n";
   outputFile << "Num col," << data[0].model_num_col << "\n";
   outputFile << "Num row," << data[0].model_num_row << "\n";
-  //if (system_type == kSystemTypeNewton) {
+  if (system_type == kSystemTypeNewton) {
     outputFile << "max dense col," << data[0].model_max_dense_col << "\n";
     outputFile << "num dense col," << data[0].model_num_dense_col << "\n";
     outputFile << "dense col tolerance," << data[0].dense_col_tolerance << "\n";
-  //}
-  outputFile << "System size," << data[0].system_size << "\n";
+  }
 
   // Write header
-  outputFile << "Record,Decomposer,";
+  outputFile << "Record,Decomposer,Model,System size,Min Theta,Max Theta,";
   if (system_type == kSystemTypeNewton) {
     outputFile << "Num dense col,System max dense col,Surplus large Theta,AAT NNZ,(%),";
   } else {
     outputFile << "System NNZ,(%),";
   }
-  outputFile << "NNZ L,(%),Fill factor,Min Theta,Max Theta,Condition,Solution Error,Abs residual "
+  outputFile << "NNZ L,(%),Fill factor,Condition,Solution Error,Abs residual "
                 "error,Rel residual error,";
   outputFile << "Time Taken, Form time, Setup time, Analyse time, "
                 "Factorization time, Solve time\n";
@@ -183,14 +193,24 @@ void writeDataToCSV(const std::vector<ExperimentData> &data,
     record++;
     outputFile << record << ",";
     outputFile << experimentData.decomposer << ",";
-    //if (experimentData.system_type != system_type)
-    //  break;
+    outputFile << data[0].model_name << ",";
+    outputFile << data[0].system_size << ",";
+    outputFile << experimentData.theta_min << ",";
+    outputFile << experimentData.theta_max << ",";
+    if (experimentData.system_type != system_type) break;
     double float_dim = double(experimentData.system_size);
     if (system_type == kSystemTypeNewton) {
       outputFile << experimentData.use_num_dense_col << ",";
       outputFile << experimentData.system_max_dense_col << ",";
       outputFile << experimentData.theta_num_large - experimentData.system_size << ",";
     }
+
+    assert(experimentData.invert_status >= 0);
+    if (experimentData.invert_status) {
+      outputFile << "Failure," << experimentData.invert_status << "\n";
+      continue;
+    }
+
     outputFile << experimentData.system_nnz << ",";
     const double system_density =
         float_dim
@@ -207,8 +227,6 @@ void writeDataToCSV(const std::vector<ExperimentData> &data,
             : -1;
     outputFile << l_density << ",";
     outputFile << experimentData.fill_in_factor << ",";
-    outputFile << experimentData.theta_min << ",";
-    outputFile << experimentData.theta_max << ",";
     outputFile << experimentData.condition << ",";
     outputFile << experimentData.solution_error << ",";
     outputFile << experimentData.residual_error.first << ",";

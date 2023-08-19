@@ -12,45 +12,37 @@ bool infNormDiffOk(const std::vector<double> x0, const std::vector<double> x1) {
   return norm_diff < 1e-12;
 }
 
-int callNewtonSolve(ExperimentData &experiment_data,
-                    //const std::string model_file,
+void callNewtonSolve(ExperimentData &experiment_data,
                     const HighsSparseMatrix &highs_a,
                     const std::vector<double> &theta,
                     const std::vector<double> &rhs,
                     const std::vector<double> &exact_sol,
                     const int option_max_dense_col,
                     const double option_dense_col_tolerance,
-                    const int solver_type
+                    const int decomposer_source
                     ) {
                 
-  //ExperimentData experiment_data;
   const int x_dim = highs_a.num_col_;
   const int y_dim = highs_a.num_row_;
-  std::vector<double> lhs(y_dim);
-  IpmInvert invert;
-  int newton_status = newtonInvert(highs_a, theta, invert, option_max_dense_col,
-                                   option_dense_col_tolerance, experiment_data, true, solver_type);
-  if (newton_status) return newton_status;
-  newton_status =
-      newtonSolve(highs_a, theta, rhs, lhs, invert, experiment_data, solver_type);
-  if (newton_status) return newton_status;
-  experiment_data.time_taken += experiment_data.solve_time;
-
   experiment_data.model_num_col = x_dim;
   experiment_data.model_num_row = y_dim;
-  if (newton_status) {
-    std::cout << experiment_data << "\n";
-    invert.clear(solver_type);
-    return newton_status;
-  }
-  double solution_error = 0;
-  for (int ix = 0; ix < y_dim; ix++)
-    solution_error =
+  std::vector<double> lhs(y_dim);
+  IpmInvert invert;
+  invert.decomposer_source = decomposer_source;
+  int newton_status = newtonInvert(highs_a, theta, invert, option_max_dense_col,
+                                   option_dense_col_tolerance, experiment_data, true, decomposer_source);
+  if (!newton_status) {
+    newton_status =
+      newtonSolve(highs_a, theta, rhs, lhs, invert, experiment_data, decomposer_source);
+    experiment_data.nla_time.total += experiment_data.nla_time.solve;
+    double solution_error = 0;
+    for (int ix = 0; ix < y_dim; ix++)
+      solution_error =
         std::max(std::fabs(exact_sol[ix] - lhs[ix]), solution_error);
-  experiment_data.solution_error = solution_error;
-  experiment_data.condition = newtonCondition(highs_a, theta, invert, solver_type);
-  //std::cout << experiment_data << "\n";
-  return 0;
+    experiment_data.solution_error = solution_error;
+    experiment_data.condition = newtonCondition(highs_a, theta, invert, decomposer_source);
+  }
+  invert.clear();
 }
 
 int main(int argc, char** argv){
@@ -72,21 +64,24 @@ int main(int argc, char** argv){
     return 1;
   }
 
-  int solverType = 2;  // default value
+  int decomposer_source = kDecomposerSourceMa86;  // default value
+  decomposer_source = kDecomposerSourceSsids; //JHmod
   if (vm.count("solver")) {
-    solverType = vm["solver"].as<int>();
-    std::cout << "Solver type was set to " << solverType << ".\n";
+    decomposer_source = vm["solver"].as<int>();
+    std::cout << "Solver type was set to "; 
   } else {
-    std::cout << "Solver type was not set. Using default: " << solverType << ".\n";
+    std::cout << "Solver type was not set. Using default: ";
   }
+  std::cout << decomposer_source << " (" << decomposerSource(decomposer_source) << ")\n";
 
-  double densityThreshold = 0.5;  // default value
+  double density_threshold = 0.5;  // default value
   if (vm.count("density")) {
-    densityThreshold = vm["density"].as<double>();
-    std::cout << "Density threshold was set to " << densityThreshold << ".\n";
+    density_threshold = vm["density"].as<double>();
+    std::cout << "Density threshold was set to ";
   } else {
-    std::cout << "Density threshold was not set. Using default: " << densityThreshold << ".\n";
+    std::cout << "Density threshold was not set. Using default: "; 
   }
+  std::cout << density_threshold << "\n";
 
   std::string model;
   if (vm.count("model")) {
@@ -96,12 +91,12 @@ int main(int argc, char** argv){
     return 1;
   }
 
-  int maxDenseCol = 5;  // default value
+  int max_dense_col = 5;  // default value
   if (vm.count("max_dense_col")) {
-    maxDenseCol = vm["max_dense_col"].as<int>();
-    std::cout << "Maximum number of dense columns was set to " << maxDenseCol << ".\n";
+    max_dense_col = vm["max_dense_col"].as<int>();
+    std::cout << "Maximum number of dense columns was set to " << max_dense_col << "\n";
   } else {
-    std::cout << "Maximum number of dense columns was not set. Using default: " << maxDenseCol << ".\n";
+    std::cout << "Maximum number of dense columns was not set. Using default: " << max_dense_col << ".\n";
   }
 
   int x_dim;
@@ -110,15 +105,15 @@ int main(int argc, char** argv){
   Highs highs;
   //highs.setOptionValue("output_flag", false);
 
-  //HighsStatus status = highs.readModel("ml.mps");
   // read A matrix from file
   const std::string model_file = model;
   std::filesystem::path p(model);
   std::string stem = p.stem().string();
 
-  std::filesystem::path dir("../../result/");
+  //  std::filesystem::path dir("../../result/");
+  std::filesystem::path dir("result/");
   std::filesystem::path full_path = dir / stem;
-  std::string new_path = full_path.string() + std::to_string(solverType)+".csv";
+  std::string new_path = full_path.string() + std::to_string(decomposer_source) + ".csv";
   HighsStatus status = highs.readModel(model_file);
 
   if (status == HighsStatus::kOk) {
@@ -147,11 +142,10 @@ int main(int argc, char** argv){
   matrix.ensureColwise();
   HighsRandom random;
   const bool unit_solution = false;
-  double theta_random_mu = 1e-3;   // 1e2;
+  double theta_random_mu = 0;//1e-3;   // 1e2;
   std::vector<double> theta;
   for (int ix = 0; ix < x_dim; ix++) {
     const double theta_value = 1.0 + theta_random_mu * random.fraction();
-    //    const double theta_value = 1.0 + std::pow(10, -(ix+1));
     theta.push_back(theta_value);
   }
 
@@ -186,12 +180,11 @@ int main(int argc, char** argv){
   std::vector<double> rhs_y;
   matrix.product(rhs_y, x_star);
 
-  const bool augmented_solve = true;
+  const bool augmented_solve = false;
   const bool newton_solve = true;
-  assert(augmented_solve || newton_solve);
+  assert(augmented_solve != newton_solve);
   std::vector<ExperimentData> experiment_data_list;
   if (newton_solve) {
-    ExperimentData experiment_data;
     // Now solve the Newton equation
     //
     // Form rhs_newton == rhs_y + A\Theta.rhs_x
@@ -205,61 +198,47 @@ int main(int argc, char** argv){
     for (int ix = 0; ix < y_dim; ix++)
       rhs_newton[ix] += a_theta_rhs_x[ix];
 
-    //std::string new_path = full_path.string() + "_reduced.csv";
-    int newton_status =
-        callNewtonSolve(experiment_data, matrix, theta, rhs_newton, y_star, 0, 1.1, solverType);
-    experiment_data_list.push_back(experiment_data);
-    if (newton_status)
-      return 1;
-    /*
-    newton_status = callNewtonSolve(matrix, theta, rhs_newton, y_star, 4, 0.4);
-    if (newton_status) return 1;
-    newton_status = callNewtonSolve(matrix, theta, rhs_newton, y_star, 10, 0.4);
-    if (newton_status) return 1;
-    newton_status = callNewtonSolve(matrix, theta, rhs_newton, y_star, 20, 0.4);
-    if (newton_status) return 1;s
-    */
+    ExperimentData experiment_data;
+    experiment_data.reset();
+    experiment_data.model_name = model;
+    callNewtonSolve(experiment_data, matrix, theta, rhs_newton, y_star, max_dense_col, density_threshold, decomposer_source);
     std::cout << experiment_data << "\n";
-
+    experiment_data_list.push_back(experiment_data);
   }
   
-  if (augmented_solve && solverType != 4) {
+  if (augmented_solve && decomposer_source != kDecomposerSourceCholmod) {
     // Solve the augmented system
     std::vector<double> lhs_x;
     std::vector<double> lhs_y;
 
     ExperimentData experiment_data;
-    IpmInvert invert;
+    experiment_data.reset();
+    experiment_data.model_name = model;
 
-    int augmented_status =
-        augmentedInvert(matrix, theta, invert, experiment_data, solverType);
-    if (augmented_status) {
-      invert.clear(solverType);
-      return 1;
-    }
-    augmentedSolve(matrix, theta, rhs_x, rhs_y, lhs_x, lhs_y, invert,
-                   experiment_data, solverType);
-    experiment_data.time_taken += experiment_data.solve_time;
     experiment_data.model_num_col = x_dim;
     experiment_data.model_num_row = y_dim;
-    if (augmented_status) {
-      std::cout << experiment_data << "\n";
-      return augmented_status;
-    }
-    double solution_error = 0;
-    for (int ix = 0; ix < x_dim; ix++)
-      solution_error =
+    IpmInvert invert;
+    invert.decomposer_source = decomposer_source;
+
+    int augmented_status =
+        augmentedInvert(matrix, theta, invert, experiment_data, decomposer_source);
+    if (!augmented_status) {
+      augmentedSolve(matrix, theta, rhs_x, rhs_y, lhs_x, lhs_y, invert,
+		     experiment_data, decomposer_source);
+      experiment_data.nla_time.total += experiment_data.nla_time.solve;
+      double solution_error = 0;
+      for (int ix = 0; ix < x_dim; ix++)
+	solution_error =
           std::max(std::fabs(x_star[ix] - lhs_x[ix]), solution_error);
-    for (int ix = 0; ix < y_dim; ix++)
-      solution_error =
+      for (int ix = 0; ix < y_dim; ix++)
+	solution_error =
           std::max(std::fabs(y_star[ix] - lhs_y[ix]), solution_error);
-    experiment_data.solution_error = solution_error;
-    experiment_data.condition = augmentedCondition(matrix, theta, invert, solverType);
-    std::cout << experiment_data << "\n";
+      experiment_data.solution_error = solution_error;
+      experiment_data.condition = augmentedCondition(matrix, theta, invert, decomposer_source);
+    }
     invert.clear();
+    std::cout << experiment_data << "\n";
     experiment_data_list.push_back(experiment_data);
-    //std::string new_path = full_path.string() + "_augmented.csv";
-    //writeDataToCSV(experiment_data_list, new_path);
   }
 
 

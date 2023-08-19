@@ -56,6 +56,8 @@ public:
   int theta_order0;
   std::vector<int> theta_order_k;
 
+  int invert_status;
+
   void reset() {
     decomposer = "na";
     model_num_col = kDataNotSet;
@@ -83,6 +85,7 @@ public:
     theta_num_large = kDataNotSet;
     theta_order0 = kDataNotSet;
     theta_order_k.clear();
+    invert_status = kDataNotSet;
   }
   void fillIn_LL();
   void fillIn_LDL();

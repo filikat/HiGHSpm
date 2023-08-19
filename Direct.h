@@ -113,6 +113,8 @@ struct IpmInvert {
   void clear();
 };
 
+std::string decomposerSource(int decomposer_source);
+
 void chooseDenseColumns(const HighsSparseMatrix &highs_a,
 			const std::vector<double> &theta, 
 			const int option_max_dense_col,
