@@ -1,5 +1,7 @@
 #include "Direct.h"
 #include "Highs.h"
+#include "util/HighsMatrixPic.h"
+#include "util/HighsUtils.h"
 #include <boost/program_options.hpp>
 #include <filesystem>
 namespace po = boost::program_options;
@@ -131,6 +133,11 @@ int main(int argc, char** argv){
   //highs.setOptionValue("output_flag", false);
   HighsStatus status = highs.readModel(model_file);
 
+  HighsLp lp = highs.getLp();
+  HighsOptions options;
+  //  writeLpMatrixPicToFile(options, "LpMatrix", lp);
+  //  analyseMatrixSparsity(options.log_options, "Matrix", lp.a_matrix_.num_col_, lp.a_matrix_.num_row_, lp.a_matrix_.start_, lp.a_matrix_.index_);
+
   if (status == HighsStatus::kOk) {
     matrix = highs.getLp().a_matrix_;
     y_dim = matrix.num_row_;
@@ -159,7 +166,7 @@ int main(int argc, char** argv){
   const bool unit_solution = false;
   double theta_random_mu = 0;//1e-3;   // 1e2;
   std::vector<double> theta;
-  const bool synthetic_theta = true;
+  const bool synthetic_theta = false;
   if (synthetic_theta) {
     theta.resize(x_dim);
     syntheticTheta(theta);
