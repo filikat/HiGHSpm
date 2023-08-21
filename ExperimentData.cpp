@@ -176,7 +176,7 @@ void writeDataToCSV(const std::vector<ExperimentData> &data,
   }
 
   // Write header
-  outputFile << "Record,Decomposer,Model,System size,Min Theta,Max Theta,";
+  outputFile << "Grep,Record,Decomposer,Model,System size,Min Theta,Max Theta,";
   if (system_type == kSystemTypeNewton) {
     outputFile << "Num dense col,System max dense col,Surplus large Theta,AAT NNZ,(%),";
   } else {
@@ -191,6 +191,7 @@ void writeDataToCSV(const std::vector<ExperimentData> &data,
   int record=0;
   for (const auto &experimentData : data) {
     record++;
+    outputFile << "Grep,";
     outputFile << record << ",";
     outputFile << experimentData.decomposer << ",";
     outputFile << data[0].model_name << ",";

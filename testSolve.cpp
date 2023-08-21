@@ -12,6 +12,18 @@ bool infNormDiffOk(const std::vector<double> x0, const std::vector<double> x1) {
   return norm_diff < 1e-12;
 }
 
+void syntheticTheta(std::vector<double> &theta) {
+  int dim = theta.size();
+  const double theta_log10_lo = -4;
+  const double theta_log10_hi = -theta_log10_lo;
+  const double theta_log10_dl = theta_log10_hi - theta_log10_lo;
+  HighsRandom random;
+  for (int i = 0; i < dim; i++) {
+    double theta_log10 = theta_log10_lo + random.fraction() * theta_log10_dl;
+    theta[i] = std::pow(10, theta_log10);
+  }  
+}
+
 void callNewtonSolve(ExperimentData &experiment_data,
                     const HighsSparseMatrix &highs_a,
                     const std::vector<double> &theta,
@@ -102,8 +114,6 @@ int main(int argc, char** argv){
   int x_dim;
   int y_dim;
   HighsSparseMatrix matrix;
-  Highs highs;
-  //highs.setOptionValue("output_flag", false);
 
   // read A matrix from file
   const std::string model_file = model;
@@ -114,6 +124,11 @@ int main(int argc, char** argv){
   std::filesystem::path dir("result/");
   std::filesystem::path full_path = dir / stem;
   std::string new_path = full_path.string() + std::to_string(decomposer_source) + ".csv";
+  std::cout << "\nExperimenting with file " << model_file << "\n";
+  std::cout.flush();
+
+  Highs highs;
+  //highs.setOptionValue("output_flag", false);
   HighsStatus status = highs.readModel(model_file);
 
   if (status == HighsStatus::kOk) {
@@ -144,9 +159,15 @@ int main(int argc, char** argv){
   const bool unit_solution = false;
   double theta_random_mu = 0;//1e-3;   // 1e2;
   std::vector<double> theta;
-  for (int ix = 0; ix < x_dim; ix++) {
-    const double theta_value = 1.0 + theta_random_mu * random.fraction();
-    theta.push_back(theta_value);
+  const bool synthetic_theta = true;
+  if (synthetic_theta) {
+    theta.resize(x_dim);
+    syntheticTheta(theta);
+  } else {
+    for (int ix = 0; ix < x_dim; ix++) {
+      const double theta_value = 1.0 + theta_random_mu * random.fraction();
+      theta.push_back(theta_value);
+    }
   }
 
   // Test solution of
@@ -180,8 +201,8 @@ int main(int argc, char** argv){
   std::vector<double> rhs_y;
   matrix.product(rhs_y, x_star);
 
-  const bool augmented_solve = false;
-  const bool newton_solve = true;
+  const bool augmented_solve = true;
+  const bool newton_solve = !augmented_solve;
   assert(augmented_solve != newton_solve);
   std::vector<ExperimentData> experiment_data_list;
   if (newton_solve) {
