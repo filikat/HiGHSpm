@@ -18,8 +18,7 @@ void IpmInvert::clear() {
   } else if (decomposer_source == kDecomposerSourceCholmod){
     this->cholmod_data.clear();
   } else if (decomposer_source == kDecomposerSourceHighs){
-    assert(111==222);    //    this->highs_factor.clear();
-      } else {
+  } else {
     assert(111==333);
   }
 }
@@ -292,7 +291,7 @@ void augmentedSolve(const HighsSparseMatrix &highs_a,
   } else if (decomposer_source == kDecomposerSourceQdldl) {
     callQDLDLSolve(system_size, 1, rhs.data(), invert.qdldl_data);
   } else if (decomposer_source == kDecomposerSourceHighs) {
-    callHighsSolve(system_size, 1, rhs.data(), invert.highs_factor);
+    callHighsSolve(rhs, invert.highs_factor);
   }
   experiment_data.nla_time.solve = getWallTime() - start_time;
 
@@ -503,7 +502,7 @@ int newtonInvert(const HighsSparseMatrix &highs_a,
     } else if (decomposer_source == kDecomposerSourceCholmod) {
       callCholmodSolve(system_size, use_num_dense_col, hatA_d.data(), cholmod_data);
     } else if (decomposer_source == kDecomposerSourceHighs){
-      callHighsSolve(system_size, use_num_dense_col, hatA_d.data(), highs_data);
+      callHighsSolve(hatA_d, highs_data);
     }
     
     // Now form D = \Theta_d^{-1} + \hat{A}_d^TA_d
@@ -559,7 +558,7 @@ int newtonSolve(const HighsSparseMatrix &highs_a,
   } else if (decomposer_source == kDecomposerSourceCholmod) {
     callCholmodSolve(system_size, 1, lhs.data(), invert.cholmod_data);
   } else if (decomposer_source == kDecomposerSourceHighs){
-    callHighsSolve(system_size, 1, lhs.data(), invert.highs_factor);
+    callHighsSolve(lhs, invert.highs_factor);
   }
   if (use_num_dense_col) {
     std::vector<std::vector<double>> d_matrix = invert.d_matrix;
@@ -978,6 +977,7 @@ int callSsidsAugmentedFactor(const HighsSparseMatrix &matrix,
   ssids_data.fkeep = nullptr;
   // Need to set to 1 if using Fortran 1-based indexing
   ssids_data.options.array_base = array_base;
+  ssids_data.options.scaling = 1;
   //  ssids_data.options.print_level = 2;
 
   experiment_data.system_nnz = matrix.num_col_ + 2 * matrix.numNz() + matrix.num_row_;
@@ -1554,24 +1554,68 @@ int callHighsAugmentedFactor(const HighsSparseMatrix &matrix,
   std::vector<HighsInt>& start = augmented.start_;
   std::vector<HighsInt>& index = augmented.index_;
   std::vector<double>& value = augmented.value_;
+  std::vector<HighsInt> basic_index;
+  std::vector<HighsInt> AT_start(matrix.num_row_, 0);
   for (int iCol = 0; iCol < matrix.num_col_; iCol++) {
+    basic_index.push_back(iCol);
     const double theta_i = !theta.empty() ? theta[iCol] : 1;
     value.push_back(-1 / theta_i);
     index.push_back(iCol);
     for (int iEl = matrix.start_[iCol]; iEl < matrix.start_[iCol + 1]; iEl++) {
+      const int iRow = matrix.index_[iEl];
+      AT_start[iRow]++;
       value.push_back(matrix.value_[iEl]);
-      index.push_back(row_index_offset + matrix.index_[iEl]);
+      index.push_back(row_index_offset + iRow);
     }
     start.push_back(index.size());
   }
   // Now the columns for [A^T]
   //                     [ 0 ]
+  //
+  // Set the starts for the remaining columns, and initialise AT_start
+  // for inserting indices and values
   for (int iRow = 0; iRow < matrix.num_row_; iRow++) {
-  // !!!! Insert A^T efficiently
-    start.push_back(index.size());
+    basic_index.push_back(row_index_offset+iRow);
+    start.push_back(start[row_index_offset+iRow] + AT_start[iRow]);
+    AT_start[iRow] = start[row_index_offset+iRow];
   }
-  
-  return kDecomposerStatusErrorFactorize;
+  const int system_size = matrix.num_col_ + matrix.num_row_;
+  const int augmented_nnz = start[system_size];
+  index.resize(augmented_nnz);
+  value.resize(augmented_nnz);
+  // Work through the columns of A as rows of A^T
+  for (int iCol = 0; iCol < matrix.num_col_; iCol++) {
+    for (int iEl = matrix.start_[iCol]; iEl < matrix.start_[iCol + 1]; iEl++) {
+      const int iRow = matrix.index_[iEl];
+      index[AT_start[iRow]] = iCol;
+      value[AT_start[iRow]] = matrix.value_[iEl];
+      AT_start[iRow]++;
+    }
+  }
+  augmented.num_col_ = system_size;
+  augmented.num_row_ = system_size;
+  assert(int(basic_index.size()) == system_size);
+
+  highs_factor.setup(augmented, basic_index);
+  experiment_data.system_nnz = augmented_nnz;
+  experiment_data.nla_time.setup = getWallTime() - start_time;
+
+  experiment_data.nla_time.analysis = 0;
+
+  start_time = getWallTime();
+  const HighsInt rank_deficiency = highs_factor.build();
+  experiment_data.nla_time.factorization = getWallTime() - start_time;
+
+  experiment_data.nnz_L = highs_factor.invert_num_el;
+  experiment_data.fillIn_LL();
+
+  int invert_status;
+  if (rank_deficiency) {
+    invert_status = kDecomposerStatusErrorFactorize;
+  } else {
+    invert_status = kDecomposerStatusOk;
+  }
+  return invert_status;
 }
 
 int callHighsNewtonFactor(const HighsSparseMatrix &AThetaAT,
@@ -1580,7 +1624,15 @@ int callHighsNewtonFactor(const HighsSparseMatrix &AThetaAT,
   return kDecomposerStatusErrorFactorize;
 }
 
-void callHighsSolve(const int system_size, const int num_rhs, double *rhs,
+void callHighsSolve(std::vector<std::vector<double>> rhs,
 		    HFactor& highs_factor) {
+  const int num_rhs = rhs.size();
+  for (int ix = 0; ix < num_rhs; ix++)
+    callHighsSolve(rhs[ix], highs_factor);
+}
+
+void callHighsSolve(std::vector<double> rhs,
+		    HFactor& highs_factor) {
+  highs_factor.ftranCall(rhs);  
 }
 

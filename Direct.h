@@ -237,7 +237,10 @@ int callHighsNewtonFactor(const HighsSparseMatrix &AThetaAT,
 			  HFactor& highs_factor,
 			  ExperimentData &experiment_data);
 
-void callHighsSolve(const int system_size, const int num_rhs, double *rhs,
+void callHighsSolve(std::vector<std::vector<double>> rhs,
+		    HFactor& highs_factor);
+
+void callHighsSolve(std::vector<double> rhs,
 		    HFactor& highs_factor);
 
 #endif

@@ -39,8 +39,8 @@ LIBS="-lboost_program_options -lhighs -lspral -lblas -llapack -lm -lstdc++ -lgfo
 # Define the compiler flags to use in C and C++.
 # 
 # When you're doing performance tests, use -O3
-#COMPILER_FLAGS="-g -fopenmp"
-COMPILER_FLAGS="-O3 -fopenmp -DNDEBUG"
+COMPILER_FLAGS="-g -fopenmp"
+#COMPILER_FLAGS="-O3 -fopenmp -DNDEBUG"
 
 # Possibly define the compiler preprocessor settings
 #COMPILER_PREPROCESS="-DHAVE_SPRAL  -DHAVE_QDLDL -DHAVE_CHOLMOD -DHAVE_MA86"

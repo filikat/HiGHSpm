@@ -209,7 +209,7 @@ int main(int argc, char** argv){
   matrix.product(rhs_y, x_star);
 
   const bool augmented_solve = true;
-  const bool newton_solve = !augmented_solve;
+  const bool newton_solve = false;//true;//!augmented_solve;
   assert(augmented_solve != newton_solve);
   std::vector<ExperimentData> experiment_data_list;
   if (newton_solve) {
