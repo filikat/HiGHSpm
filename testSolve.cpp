@@ -164,7 +164,7 @@ int main(int argc, char** argv){
   matrix.ensureColwise();
   HighsRandom random;
   const bool unit_solution = false;
-  double theta_random_mu = 0;//1e-3;   // 1e2;
+  double theta_random_mu = 1;//1e-3;   // 1e2;
   std::vector<double> theta;
   const bool synthetic_theta = false;
   if (synthetic_theta) {

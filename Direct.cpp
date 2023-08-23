@@ -18,6 +18,7 @@ void IpmInvert::clear() {
   } else if (decomposer_source == kDecomposerSourceCholmod){
     this->cholmod_data.clear();
   } else if (decomposer_source == kDecomposerSourceHighs){
+    this->highs_data.clear();
   } else {
     assert(111==333);
   }
@@ -44,6 +45,10 @@ void CholmodData::clear() {
   //cholmod_free_sparse(&L_sparse, &c);
   cholmod_finish(&c);  
 #endif
+}
+
+void HighsData::clear() {
+  this->basic_index.clear();
 }
 
 std::string decomposerSource(int decomposer_source) {
@@ -251,7 +256,7 @@ int augmentedInvert(const HighsSparseMatrix &highs_a,
       callQDLDLAugmentedFactor(highs_a, theta, invert.qdldl_data, experiment_data);
   } else if (decomposer_source == kDecomposerSourceHighs) {
     factor_status = 
-      callHighsAugmentedFactor(highs_a, theta, invert.highs_factor, experiment_data);
+      callHighsAugmentedFactor(highs_a, theta, invert.highs_data, experiment_data);
   }
   experiment_data.nla_time.total = getWallTime() - start_time0;
   if (factor_status) return factor_status;
@@ -291,7 +296,7 @@ void augmentedSolve(const HighsSparseMatrix &highs_a,
   } else if (decomposer_source == kDecomposerSourceQdldl) {
     callQDLDLSolve(system_size, 1, rhs.data(), invert.qdldl_data);
   } else if (decomposer_source == kDecomposerSourceHighs) {
-    callHighsSolve(rhs, invert.highs_factor);
+    callHighsSolve(rhs, invert.highs_data);
   }
   experiment_data.nla_time.solve = getWallTime() - start_time;
 
@@ -461,7 +466,7 @@ int newtonInvert(const HighsSparseMatrix &highs_a,
   MA86Data &ma86_data = invert.ma86_data;
   QDLDLData &qdldl_data = invert.qdldl_data;
   CholmodData &cholmod_data = invert.cholmod_data;
-  HFactor &highs_data = invert.highs_factor;
+  HighsData &highs_data = invert.highs_data;
   int factor_status;
   if (decomposer_source == kDecomposerSourceSsids){
     factor_status = callSsidsNewtonFactor(AAT, ssids_data, experiment_data);
@@ -558,7 +563,7 @@ int newtonSolve(const HighsSparseMatrix &highs_a,
   } else if (decomposer_source == kDecomposerSourceCholmod) {
     callCholmodSolve(system_size, 1, lhs.data(), invert.cholmod_data);
   } else if (decomposer_source == kDecomposerSourceHighs){
-    callHighsSolve(lhs, invert.highs_factor);
+    callHighsSolve(lhs, invert.highs_data);
   }
   if (use_num_dense_col) {
     std::vector<std::vector<double>> d_matrix = invert.d_matrix;
@@ -1539,7 +1544,7 @@ void callCholmodSolve(const int system_size, const int num_rhs, double *rhs,
 
 int callHighsAugmentedFactor(const HighsSparseMatrix &matrix,
                              const std::vector<double> &theta,
-                             HFactor& highs_factor,
+                             HighsData& highs_data,
                              ExperimentData &experiment_data) {
   experiment_data.nla_time.form = 0;
   double start_time = getWallTime();
@@ -1554,8 +1559,10 @@ int callHighsAugmentedFactor(const HighsSparseMatrix &matrix,
   std::vector<HighsInt>& start = augmented.start_;
   std::vector<HighsInt>& index = augmented.index_;
   std::vector<double>& value = augmented.value_;
-  std::vector<HighsInt> basic_index;
+  std::vector<HighsInt>& basic_index = highs_data.basic_index;
+  HFactor& factor = highs_data.factor;
   std::vector<HighsInt> AT_start(matrix.num_row_, 0);
+  assert(basic_index.size() == 0);
   for (int iCol = 0; iCol < matrix.num_col_; iCol++) {
     basic_index.push_back(iCol);
     const double theta_i = !theta.empty() ? theta[iCol] : 1;
@@ -1596,17 +1603,17 @@ int callHighsAugmentedFactor(const HighsSparseMatrix &matrix,
   augmented.num_row_ = system_size;
   assert(int(basic_index.size()) == system_size);
 
-  highs_factor.setup(augmented, basic_index);
+  factor.setup(augmented, basic_index);
   experiment_data.system_nnz = augmented_nnz;
   experiment_data.nla_time.setup = getWallTime() - start_time;
 
   experiment_data.nla_time.analysis = 0;
 
   start_time = getWallTime();
-  const HighsInt rank_deficiency = highs_factor.build();
+  const HighsInt rank_deficiency = factor.build();
   experiment_data.nla_time.factorization = getWallTime() - start_time;
 
-  experiment_data.nnz_L = highs_factor.invert_num_el;
+  experiment_data.nnz_L = factor.invert_num_el;
   experiment_data.fillIn_LL();
 
   int invert_status;
@@ -1619,20 +1626,23 @@ int callHighsAugmentedFactor(const HighsSparseMatrix &matrix,
 }
 
 int callHighsNewtonFactor(const HighsSparseMatrix &AThetaAT,
-			  HFactor& highs_factor,
+			  HighsData& highs_data,
 			  ExperimentData &experiment_data) {
   return kDecomposerStatusErrorFactorize;
 }
 
-void callHighsSolve(std::vector<std::vector<double>> rhs,
-		    HFactor& highs_factor) {
+void callHighsSolve(std::vector<std::vector<double>>& rhs,
+		    HighsData& highs_data) {
   const int num_rhs = rhs.size();
   for (int ix = 0; ix < num_rhs; ix++)
-    callHighsSolve(rhs[ix], highs_factor);
+    callHighsSolve(rhs[ix], highs_data);
 }
 
-void callHighsSolve(std::vector<double> rhs,
-		    HFactor& highs_factor) {
-  highs_factor.ftranCall(rhs);  
+void callHighsSolve(std::vector<double>& rhs,
+		    HighsData& highs_data) {
+  std::vector<double> sol = rhs;
+  highs_data.factor.ftranCall(sol);
+  for (int iCol = 0; iCol < int(rhs.size()); iCol++)
+    rhs[highs_data.basic_index[iCol]] = sol[iCol];
 }
 

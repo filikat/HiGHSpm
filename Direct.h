@@ -96,6 +96,12 @@ struct CholmodData{
   void clear();
 };
 
+struct HighsData {
+  std::vector<HighsInt> basic_index;
+  HFactor factor;
+  void clear();
+};
+
 struct IpmInvert {
   bool valid = false;
   int decomposer_source = 0;
@@ -109,7 +115,7 @@ struct IpmInvert {
   MA86Data ma86_data;
   QDLDLData qdldl_data;
   CholmodData cholmod_data;
-  HFactor highs_factor;
+  HighsData highs_data;
   void clear();
 };
 
@@ -230,17 +236,17 @@ void callCholmodSolve(const int system_size, const int num_rhs, double *rhs,
 
 int callHighsAugmentedFactor(const HighsSparseMatrix &matrix,
                              const std::vector<double> &theta,
-                             HFactor& highs_factor,
+                             HighsData& highs_data,
                              ExperimentData &experiment_data);
 
 int callHighsNewtonFactor(const HighsSparseMatrix &AThetaAT,
-			  HFactor& highs_factor,
+			  HighsData& highs_data,
 			  ExperimentData &experiment_data);
 
-void callHighsSolve(std::vector<std::vector<double>> rhs,
-		    HFactor& highs_factor);
+void callHighsSolve(std::vector<std::vector<double>>& rhs,
+		    HighsData& highs_data);
 
-void callHighsSolve(std::vector<double> rhs,
-		    HFactor& highs_factor);
+void callHighsSolve(std::vector<double>& rhs,
+		    HighsData& highs_data);
 
 #endif
