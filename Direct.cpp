@@ -1560,13 +1560,16 @@ int callHighsAugmentedFactor(const HighsSparseMatrix &matrix,
   std::vector<HighsInt>& index = augmented.index_;
   std::vector<double>& value = augmented.value_;
   std::vector<HighsInt>& basic_index = highs_data.basic_index;
+  std::vector<double> max_scaled_matrix_row_value(matrix.num_row_, 0);
   HFactor& factor = highs_data.factor;
   std::vector<HighsInt> AT_start(matrix.num_row_, 0);
   assert(basic_index.size() == 0);
   for (int iCol = 0; iCol < matrix.num_col_; iCol++) {
     basic_index.push_back(iCol);
     const double theta_i = !theta.empty() ? theta[iCol] : 1;
-    value.push_back(-1 / theta_i);
+    double diag = -1 / theta_i;
+    assert(diag<0);
+    value.push_back(diag);
     index.push_back(iCol);
     for (int iEl = matrix.start_[iCol]; iEl < matrix.start_[iCol + 1]; iEl++) {
       const int iRow = matrix.index_[iEl];

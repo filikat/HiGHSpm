@@ -1,6 +1,7 @@
 #include "Highs.h"
 #include "IPM_caller.h"
 #include "io/Filereader.h"
+#include "lp_data/HighsLpUtils.h"
 #include <cassert>
 #include <cstring> // For strchr
 #include <iostream>
@@ -51,7 +52,13 @@ int main(int argc, char **argv) {
     lp = highs.getLp();
     presolve_time = 0;
   }
+  // Scale the LP
+  HighsOptions options;
 
+  options.simplex_scale_strategy = kSimplexScaleStrategyMaxValue015;
+  const bool force_scaling = true;
+  scaleLp(options, lp, force_scaling);
+  
   // ===================================================================================
   // CHANGE FORMULATION
   // ===================================================================================

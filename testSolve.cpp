@@ -1,5 +1,6 @@
 #include "Direct.h"
 #include "Highs.h"
+#include "lp_data/HighsLpUtils.h"
 #include "util/HighsMatrixPic.h"
 #include "util/HighsUtils.h"
 #include <boost/program_options.hpp>
@@ -135,9 +136,20 @@ int main(int argc, char** argv){
 
   HighsLp lp = highs.getLp();
   HighsOptions options;
+
+  options.simplex_scale_strategy = kSimplexScaleStrategyMaxValue015;
+  const bool scale_lp = true;
+  if (scale_lp) {
+    // Possibly force scaling (attempt) for well-scaled LPs
+    const bool force_scaling = true;
+    scaleLp(options, lp, force_scaling);
+    if (lp.is_scaled_) {
+      analyseVectorValues(nullptr, "Column scale factors", lp.num_col_, lp.scale_.col);
+      analyseVectorValues(nullptr, "Row scale factors", lp.num_row_, lp.scale_.row);
+    }    
+  }
   //  writeLpMatrixPicToFile(options, "LpMatrix", lp);
   //  analyseMatrixSparsity(options.log_options, "Matrix", lp.a_matrix_.num_col_, lp.a_matrix_.num_row_, lp.a_matrix_.start_, lp.a_matrix_.index_);
-
   if (status == HighsStatus::kOk) {
     matrix = highs.getLp().a_matrix_;
     y_dim = matrix.num_row_;
@@ -163,16 +175,17 @@ int main(int argc, char** argv){
   }
   matrix.ensureColwise();
   HighsRandom random;
-  const bool unit_solution = false;
-  double theta_random_mu = 1;//1e-3;   // 1e2;
+  const bool unit_solution = true;
+  const double theta_base = 0.25;//1;//
+  const double theta_random_mu = 0;//1e-3;   // 1e2;
   std::vector<double> theta;
-  const bool synthetic_theta = false;
+  const bool synthetic_theta = false;//true;//
   if (synthetic_theta) {
     theta.resize(x_dim);
     syntheticTheta(theta);
   } else {
     for (int ix = 0; ix < x_dim; ix++) {
-      const double theta_value = 1.0 + theta_random_mu * random.fraction();
+      const double theta_value = theta_base + theta_random_mu * random.fraction();
       theta.push_back(theta_value);
     }
   }
