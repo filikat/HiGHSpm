@@ -4,9 +4,7 @@
 #include "lp_data/HighsLpUtils.h"
 #include "util/HighsMatrixPic.h"
 #include "util/HighsUtils.h"
-//#include <boost/program_options.hpp>
 #include <filesystem>
-//namespace po = boost::program_options;
 
 bool infNormDiffOk(const std::vector<double> x0, const std::vector<double> x1) {
   assert(x1.size() >= x0.size());
@@ -43,18 +41,23 @@ void callNewtonSolve(ExperimentData &experiment_data,
   std::vector<double> lhs(y_dim);
   IpmInvert invert;
   invert.decomposer_source = ipm_options.decomposer_source;
-  int newton_status = newtonInvert(highs_a, theta, invert, ipm_options.max_dense_col,
-                                   ipm_options.dense_col_tolerance, experiment_data, true, ipm_options.decomposer_source);
+  int newton_status = newtonInvert(highs_a, theta, invert,
+				   ipm_options.max_dense_col,
+                                   ipm_options.dense_col_tolerance,
+				   experiment_data, true,
+				   ipm_options.decomposer_source);
   if (!newton_status) {
     newton_status =
-      newtonSolve(highs_a, theta, rhs, lhs, invert, experiment_data, ipm_options.decomposer_source);
+      newtonSolve(highs_a, theta, rhs, lhs, invert, experiment_data,
+		  ipm_options.decomposer_source);
     experiment_data.nla_time.total += experiment_data.nla_time.solve;
     double solution_error = 0;
     for (int ix = 0; ix < y_dim; ix++)
       solution_error =
         std::max(std::fabs(exact_sol[ix] - lhs[ix]), solution_error);
     experiment_data.solution_error = solution_error;
-    experiment_data.condition = newtonCondition(highs_a, theta, invert, ipm_options.decomposer_source);
+    experiment_data.condition = newtonCondition(highs_a, theta, invert,
+						ipm_options.decomposer_source);
   }
   invert.clear();
 }
@@ -85,9 +88,27 @@ int main(int argc, char** argv){
   Highs highs;
   //highs.setOptionValue("output_flag", false);
   HighsStatus status = highs.readModel(model_file);
-
-  HighsLp lp = highs.getLp();
+  const bool presolve = ipm.options_.presolve == kHighsOnString;
+  HighsLp lp;
+  double presolve_time = -1;
+  double start_time;
+  if (presolve) {
+    start_time = getWallTime();
+    status = highs.presolve();
+    assert(status == HighsStatus::kOk);
+    lp = highs.getPresolvedLp();
+    presolve_time = getWallTime() - start_time;
+  } else {
+    lp = highs.getLp();
+    presolve_time = 0;
+  }
+  // Scale the LP
   HighsOptions highs_options;
+
+  highs_options.simplex_scale_strategy = kSimplexScaleStrategyMaxValue015;
+  const bool force_scaling = true;
+  scaleLp(highs_options, lp, force_scaling);
+
 
   highs_options.simplex_scale_strategy = kSimplexScaleStrategyMaxValue015;
   const bool scale_lp = true;
@@ -173,8 +194,12 @@ int main(int argc, char** argv){
   std::vector<double> rhs_y;
   matrix.product(rhs_y, x_star);
 
-  const bool augmented_solve = true;
-  const bool newton_solve = false;//true;//!augmented_solve;
+  const bool augmented_solve =
+    ipm_options.nla == kOptionNlaAugmented ||
+    ipm_options.nla == kOptionNlaAugmentedCg;
+  const bool newton_solve = !augmented_solve ||
+    ipm_options.nla == kOptionNlaCg;
+
   assert(augmented_solve != newton_solve);
   std::vector<ExperimentData> experiment_data_list;
   if (newton_solve) {
@@ -199,7 +224,7 @@ int main(int argc, char** argv){
     experiment_data_list.push_back(experiment_data);
   }
   
-  if (augmented_solve && ipm_options.decomposer_source != kDecomposerSourceCholmod) {
+  if (augmented_solve && ipm_options.decomposer_source != kOptionDecomposerSourceCholmod) {
     // Solve the augmented system
     std::vector<double> lhs_x;
     std::vector<double> lhs_y;

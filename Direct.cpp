@@ -11,15 +11,15 @@ void IpmInvert::clear() {
   this->hatA_d.clear();
   this->d_matrix.clear();
   const int decomposer_source = this->decomposer_source;
-  if (decomposer_source == kDecomposerSourceSsids){
+  if (decomposer_source == kOptionDecomposerSourceSsids){
     this->ssids_data.clear();
-  } else if (decomposer_source == kDecomposerSourceMa86){
+  } else if (decomposer_source == kOptionDecomposerSourceMa86){
     this->ma86_data.clear();
-  } else if (decomposer_source == kDecomposerSourceQdldl){
+  } else if (decomposer_source == kOptionDecomposerSourceQdldl){
     this->qdldl_data.clear();
-  } else if (decomposer_source == kDecomposerSourceCholmod){
+  } else if (decomposer_source == kOptionDecomposerSourceCholmod){
     this->cholmod_data.clear();
-  } else if (decomposer_source == kDecomposerSourceHighs){
+  } else if (decomposer_source == kOptionDecomposerSourceHighs){
     this->highs_data.clear();
   } else {
     if (was_valid) assert(111==333);
@@ -221,24 +221,24 @@ int augmentedInvert(const HighsSparseMatrix &highs_a,
   invert.decomposer_source = decomposer_source;
 
   double start_time0 = getWallTime();
-  assert(decomposer_source >= kDecomposerSourceMin &&
-	 decomposer_source <= kDecomposerSourceMax &&
-	 decomposer_source != kDecomposerSourceCholmod);
+  assert(decomposer_source >= kOptionDecomposerSourceMin &&
+	 decomposer_source <= kOptionDecomposerSourceMax &&
+	 decomposer_source != kOptionDecomposerSourceCholmod);
 
   int factor_status;
   experiment_data.system_type = kSystemTypeAugmented;
   experiment_data.system_size = highs_a.num_col_ + highs_a.num_row_;
   experiment_data.decomposer = decomposerSource(decomposer_source);
-  if (decomposer_source == kDecomposerSourceSsids) {
+  if (decomposer_source == kOptionDecomposerSourceSsids) {
     factor_status =
       callSsidsAugmentedFactor(highs_a, theta, invert.ssids_data, experiment_data);
-  } else if (decomposer_source == kDecomposerSourceMa86) {
+  } else if (decomposer_source == kOptionDecomposerSourceMa86) {
     factor_status = 
       callMA86AugmentedFactor(highs_a, theta, invert.ma86_data, experiment_data);
-  } else if (decomposer_source == kDecomposerSourceQdldl){
+  } else if (decomposer_source == kOptionDecomposerSourceQdldl){
     factor_status = 
       callQDLDLAugmentedFactor(highs_a, theta, invert.qdldl_data, experiment_data);
-  } else if (decomposer_source == kDecomposerSourceHighs) {
+  } else if (decomposer_source == kOptionDecomposerSourceHighs) {
     factor_status = 
       callHighsAugmentedFactor(highs_a, theta, invert.highs_data, experiment_data);
   }
@@ -273,13 +273,13 @@ void augmentedSolve(const HighsSparseMatrix &highs_a,
   int system_size = highs_a.num_col_ + highs_a.num_row_;
 
   assert(invert.decomposer_source == decomposer_source);
-  if (decomposer_source == kDecomposerSourceSsids) {
+  if (decomposer_source == kOptionDecomposerSourceSsids) {
     callSsidsSolve(system_size, 1, rhs.data(), ssids_data);
-  } else if (decomposer_source == kDecomposerSourceMa86) {
+  } else if (decomposer_source == kOptionDecomposerSourceMa86) {
     callMA86Solve(system_size, 1, rhs.data(), ma86_data);
-  } else if (decomposer_source == kDecomposerSourceQdldl) {
+  } else if (decomposer_source == kOptionDecomposerSourceQdldl) {
     callQDLDLSolve(system_size, 1, rhs.data(), invert.qdldl_data);
-  } else if (decomposer_source == kDecomposerSourceHighs) {
+  } else if (decomposer_source == kOptionDecomposerSourceHighs) {
     callHighsSolve(rhs, invert.highs_data);
   }
   experiment_data.nla_time.solve = getWallTime() - start_time;
@@ -399,8 +399,8 @@ int newtonInvert(const HighsSparseMatrix &highs_a,
   std::vector<double> &theta_d = invert.theta_d;
   std::vector<double> &hatA_d = invert.hatA_d;
 
-  assert(decomposer_source >= kDecomposerSourceMin &&
-	 decomposer_source <= kDecomposerSourceMax);
+  assert(decomposer_source >= kOptionDecomposerSourceMin &&
+	 decomposer_source <= kOptionDecomposerSourceMax);
   experiment_data.decomposer = decomposerSource(decomposer_source);
   experiment_data.system_type = kSystemTypeNewton;
   experiment_data.system_size = system_size;
@@ -452,15 +452,15 @@ int newtonInvert(const HighsSparseMatrix &highs_a,
   CholmodData &cholmod_data = invert.cholmod_data;
   HighsData &highs_data = invert.highs_data;
   int factor_status;
-  if (decomposer_source == kDecomposerSourceSsids){
+  if (decomposer_source == kOptionDecomposerSourceSsids){
     factor_status = callSsidsNewtonFactor(AAT, ssids_data, experiment_data);
-  } else if (decomposer_source == kDecomposerSourceMa86) {
+  } else if (decomposer_source == kOptionDecomposerSourceMa86) {
     factor_status = callMA86NewtonFactor(AAT, ma86_data, experiment_data);
-  } else if (decomposer_source == kDecomposerSourceQdldl) {
+  } else if (decomposer_source == kOptionDecomposerSourceQdldl) {
     factor_status = callQDLDLNewtonFactor(AAT, qdldl_data, experiment_data);
-  } else if (decomposer_source == kDecomposerSourceCholmod) {
+  } else if (decomposer_source == kOptionDecomposerSourceCholmod) {
     factor_status = callCholmodNewtonFactor(AAT, cholmod_data, experiment_data);
-  } else if (decomposer_source == kDecomposerSourceHighs) {
+  } else if (decomposer_source == kOptionDecomposerSourceHighs) {
     assert(111==222);
     //    factor_status = callHighsNewtonFactor(AAT, highs_data, experiment_data);
   }
@@ -482,15 +482,15 @@ int newtonInvert(const HighsSparseMatrix &highs_a,
         hatA_d[offset + highs_a.index_[iEl]] = highs_a.value_[iEl];
       offset += system_size;
     }
-    if (decomposer_source == kDecomposerSourceSsids){
+    if (decomposer_source == kOptionDecomposerSourceSsids){
       callSsidsSolve(system_size, use_num_dense_col, hatA_d.data(), ssids_data);
-    } else if (decomposer_source == kDecomposerSourceMa86) {
+    } else if (decomposer_source == kOptionDecomposerSourceMa86) {
       callMA86Solve(system_size, use_num_dense_col, hatA_d.data(), ma86_data);
-    } else if (decomposer_source == kDecomposerSourceQdldl){
+    } else if (decomposer_source == kOptionDecomposerSourceQdldl){
       callQDLDLSolve(system_size, use_num_dense_col, hatA_d.data(), qdldl_data);
-    } else if (decomposer_source == kDecomposerSourceCholmod) {
+    } else if (decomposer_source == kOptionDecomposerSourceCholmod) {
       callCholmodSolve(system_size, use_num_dense_col, hatA_d.data(), cholmod_data);
-    } else if (decomposer_source == kDecomposerSourceHighs){
+    } else if (decomposer_source == kOptionDecomposerSourceHighs){
       callHighsSolve(hatA_d, highs_data);
     }
     
@@ -538,15 +538,15 @@ int newtonSolve(const HighsSparseMatrix &highs_a,
   const std::vector<double> &hatA_d = invert.hatA_d;
   lhs = rhs;
   // Form \hat_b = \hat{A}_d^Tb (as d_rhs);
-  if (decomposer_source == kDecomposerSourceSsids){
+  if (decomposer_source == kOptionDecomposerSourceSsids){
     callSsidsSolve(system_size, 1, lhs.data(), invert.ssids_data);
-  } else if (decomposer_source == kDecomposerSourceMa86) {
+  } else if (decomposer_source == kOptionDecomposerSourceMa86) {
     callMA86Solve(system_size, 1, lhs.data(), invert.ma86_data);
-  } else if (decomposer_source == kDecomposerSourceQdldl){
+  } else if (decomposer_source == kOptionDecomposerSourceQdldl){
     callQDLDLSolve(system_size, 1, lhs.data(), invert.qdldl_data);
-  } else if (decomposer_source == kDecomposerSourceCholmod) {
+  } else if (decomposer_source == kOptionDecomposerSourceCholmod) {
     callCholmodSolve(system_size, 1, lhs.data(), invert.cholmod_data);
-  } else if (decomposer_source == kDecomposerSourceHighs){
+  } else if (decomposer_source == kOptionDecomposerSourceHighs){
     callHighsSolve(lhs, invert.highs_data);
   }
   if (use_num_dense_col) {

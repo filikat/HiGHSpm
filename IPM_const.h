@@ -2,7 +2,10 @@ enum OptionDecomposerSource {
   kOptionDecomposerSourceMin = 0,
   kOptionDecomposerSourceCg = kOptionDecomposerSourceMin,
   kOptionDecomposerSourceSsids,   // 1
-  kOptionDecomposerSourceHighs,      // 2
+  kOptionDecomposerSourceMa86,
+  kOptionDecomposerSourceQdldl,
+  kOptionDecomposerSourceCholmod,
+  kOptionDecomposerSourceHighs,      // 5
   kOptionDecomposerSourceMax = kOptionDecomposerSourceHighs,
   kOptionDecomposerSourceDefault = kOptionDecomposerSourceSsids
 };
@@ -22,16 +25,6 @@ enum OptionMaxDenseCol {
   kOptionMaxDenseColMin = 0,
   kOptionMaxDenseColMax = 100,
   kOptionMaxDenseColDefault = 1
-};
-
-enum DecomposerSource {
-  kDecomposerSourceMin = 1,
-  kDecomposerSourceSsids = kDecomposerSourceMin,
-  kDecomposerSourceMa86,
-  kDecomposerSourceQdldl,
-  kDecomposerSourceCholmod,
-  kDecomposerSourceHighs,
-  kDecomposerSourceMax = kDecomposerSourceHighs
 };
 
 enum DecomposerStatus {

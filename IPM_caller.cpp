@@ -422,7 +422,7 @@ bool IPM_caller::readOptionsOk(int argc, char** argv) {
     ("help", "produce help message")
     (kModelFileCommandString.c_str(), po::value<std::string>(), "model file") 
     (kPresolveCommandString.c_str(), po::value<std::string>(), "presolve option \"on\"/\"off\"")
-    (kDecomposerCommandString.c_str(), po::value<int>(), "decomposer source")
+    (kDecomposerCommandString.c_str(), po::value<int>(), "decomposer source 0 => CG; 1 => SSIDS; 2 => MA86; 3 => QDLDL; 4 => Cholmod; 5 => HiGHS")
     (kNlaCommandString.c_str(), po::value<int>(), "NLA type augmented/reduced 1/2")
     (kPredcorCommandString.c_str(), po::value<std::string>(), "predictor-corrector \"on\"/\"off\"")
     (kMaxDenseColCommandString.c_str(), po::value<int>(), "maximum number of columns to be treated as dense")
@@ -441,7 +441,8 @@ bool IPM_caller::readOptionsOk(int argc, char** argv) {
   IpmOptions& options = this->options_;
 
   if (vm.count(kModelFileCommandString)) {
-    options.model_file = vm[kModelFileCommandString].as<std::string>();
+    std::string value = vm[kModelFileCommandString].as<std::string>();
+    options.model_file = value;
   } else {
     std::cout << "Model was not set. Exiting...\n";
     return false;
@@ -449,10 +450,10 @@ bool IPM_caller::readOptionsOk(int argc, char** argv) {
 
   if (vm.count(kPresolveCommandString)) {
     std::string value = vm[kPresolveCommandString].as<std::string>();
-    if (value != kHighsOnString || value != kHighsOffString) {
+    if (value != kHighsOnString && value != kHighsOffString) {
       std::cerr <<
-	"Illegal value of " << value << " for " << kPresolveCommandString <<
-	" must be \"" << kHighsOnString << "\" or \"" << kHighsOffString << "\n";
+	"Illegal value of \"" << value << "\" for " << kPresolveCommandString <<
+	" must be \"" << kHighsOnString << "\" or \"" << kHighsOffString << "\"\n";
     return false;
     }
     options.presolve = value;
@@ -482,10 +483,10 @@ bool IPM_caller::readOptionsOk(int argc, char** argv) {
     
   if (vm.count(kPredcorCommandString)) {
     std::string value = vm[kPredcorCommandString].as<std::string>();
-    if (value != kHighsOnString || value != kHighsOffString) {
+    if (value != kHighsOnString && value != kHighsOffString) {
       std::cerr <<
-	"Illegal value of " << value << " for " << kPredcorCommandString <<
-	" must be \"" << kHighsOnString << "\" or \"" << kHighsOffString << "\n";
+	"Illegal value of \"" << value << "\" for " << kPredcorCommandString <<
+	" must be \"" << kHighsOnString << "\" or \"" << kHighsOffString << "\"\n";
     return false;
     }
     options.predcor = value;
@@ -526,14 +527,16 @@ void IPM_caller::reportOptions() {
   std::cout << "Decomposer:                  " << decomposerSource(options.decomposer_source) << "\n";
   std::cout << "NLA option:                  ";
   if (options.nla == kOptionNlaCg) {
-    std::cout << "Newton CG\n";
-  } else if (options.nla == kOptionNlaAugmented ||
-	     options.nla == kOptionNlaAugmentedCg) {
-    std::cout << "Augmented direct\n";
-  } else if (options.nla == kOptionNlaNewton ||
-	     options.nla == kOptionNlaNewtonCg) {
-    std::cout << "Newton direct\n";
-  }
+    std::cout << "CG\n";
+  } else if (options.nla == kOptionNlaAugmented) {
+    std::cout << "Augmented\n";
+  } else if (options.nla == kOptionNlaNewton) {
+    std::cout << "Newton\n";
+  } else if (options.nla == kOptionNlaAugmentedCg) {
+    std::cout << "Augmented + CG\n";
+  } else if (options.nla == kOptionNlaNewtonCg) {
+    std::cout << "Newton + CG\n";
+  } 
   std::cout << "Predictor-corrector:         " << options.predcor << "\n";
   std::cout << "Max number of dense columns: " << options.max_dense_col << "\n";
   std::cout << "Tolerance for dense columns: " << options.dense_col_tolerance << "\n";

@@ -61,17 +61,17 @@ bool NewtonDir::isNaN() const {
 }
 
 std::string decomposerSource(int decomposer_source) {
-  assert(decomposer_source >= kDecomposerSourceMin &&
-	 decomposer_source <= kDecomposerSourceMax);
-  if (decomposer_source == kDecomposerSourceSsids) {
+  assert(decomposer_source >= kOptionDecomposerSourceMin &&
+	 decomposer_source <= kOptionDecomposerSourceMax);
+  if (decomposer_source == kOptionDecomposerSourceSsids) {
     return "Ssids";
-  } else if (decomposer_source == kDecomposerSourceMa86) {
+  } else if (decomposer_source == kOptionDecomposerSourceMa86) {
     return "MA86";
-  } else if (decomposer_source == kDecomposerSourceQdldl) {
+  } else if (decomposer_source == kOptionDecomposerSourceQdldl) {
     return "QDLDL";
-  } else if (decomposer_source == kDecomposerSourceCholmod) {
+  } else if (decomposer_source == kOptionDecomposerSourceCholmod) {
     return "Cholmod";
-  } else if (decomposer_source == kDecomposerSourceHighs) {
+  } else if (decomposer_source == kOptionDecomposerSourceHighs) {
     return "HiGHS";
   } else  {
     return "Unknown";
