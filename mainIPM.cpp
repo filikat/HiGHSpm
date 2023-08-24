@@ -39,7 +39,7 @@ int main(int argc, char **argv) {
   HighsStatus status = highs.readModel(model_file);
   assert(status == HighsStatus::kOk);
   double read_time = getWallTime() - start_time;
-  const bool presolve = ipm.options_.presolve == kHighsOptionOn;
+  const bool presolve = ipm.options_.presolve == kHighsOnString;
   HighsLp lp;
   double presolve_time = -1;
   if (presolve) {
