@@ -64,8 +64,8 @@ int main(int argc, char** argv){
   po::options_description desc("Allowed options");
   desc.add_options()
     ("help", "produce help message")
-    ("solver,s", po::value<int>(), "set the solver type")
-    ("density,d", po::value<double>(), "set the density threshold")
+    ("decomposer,d", po::value<int>(), "set the solver type")
+    ("density,dse", po::value<double>(), "set the density threshold")
     ("model,m", po::value<std::string>(), "model name") 
     ("max_dense_col,mdc", po::value<int>(), "set the maximum number of dense columns")
   ;
@@ -81,11 +81,11 @@ int main(int argc, char** argv){
 
   int decomposer_source = kDecomposerSourceMa86;  // default value
   decomposer_source = kDecomposerSourceSsids; //JHmod
-  if (vm.count("solver")) {
-    decomposer_source = vm["solver"].as<int>();
-    std::cout << "Solver type was set to "; 
+  if (vm.count("decomposer")) {
+    decomposer_source = vm["decomposer"].as<int>();
+    std::cout << "Decomposer source was set to "; 
   } else {
-    std::cout << "Solver type was not set. Using default: ";
+    std::cout << "Decomposer source was not set. Using default: ";
   }
   std::cout << decomposer_source << " (" << decomposerSource(decomposer_source) << ")\n";
 

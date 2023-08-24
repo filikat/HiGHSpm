@@ -10,6 +10,18 @@
 #include "VectorOperations.h"
 #include "util/HighsSparseMatrix.h"
 
+struct IpmOptions {
+  std::string presolve = kHighsOnString;
+  int decomposer_source = kOptionDecomposerSourceDefault;
+  int nla = kOptionNlaDefault;
+  int predcor = kOptionPredCorDefault;
+  int max_dense_col = kOptionMaxDenseColDefault;
+  double dense_col_tolerance = kOptionDenseColToleranceDefault;
+  // Now the options set internally
+  int iteration_limit = 100;
+  double ipm_tolerance = 1e-6;
+};
+
 class IPM_caller {
 
   IPM_model model;
@@ -32,14 +44,7 @@ public:
   // Run-time options
   // ===================================================================================
   // Firstly the ones read from the command line
-  int option_decomposer_source = kOptionDecomposerSourceDefault;
-  int option_nla = kOptionNlaDefault;
-  int option_predcor = kOptionPredCorDefault;
-  int option_max_dense_col = kOptionMaxDenseColDefault;
-  // Now the options set internally
-  double option_dense_col_tolerance = kOptionDenseColToleranceDefault;
-  int option_iteration_limit = 100;
-  double option_ipm_tolerance = 1e-6;
+  IpmOptions options_;
 
   // Direct solver experiment data record
   std::vector<ExperimentData> experiment_data_record;

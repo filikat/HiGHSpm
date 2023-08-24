@@ -162,15 +162,15 @@ Output IPM_caller::Solve() {
   // ------------------------------------------
 
   printf("\n");
-  while (iter < option_iteration_limit) {
+  while (iter < options_.iteration_limit) {
 
     // Check that iterate is not NaN
     assert(!It.isNaN());
 
     // Stopping criterion
-    if (iter > 0 && mu < option_ipm_tolerance && // complementarity measure
-        primal_infeas < option_ipm_tolerance &&  // primal feasibility
-        dual_infeas < option_ipm_tolerance       // dual feasibility
+    if (iter > 0 && mu < options_.ipm_tolerance && // complementarity measure
+        primal_infeas < options_.ipm_tolerance &&  // primal feasibility
+        dual_infeas < options_.ipm_tolerance       // dual feasibility
     ) {
       printf("\n===== Optimal solution found =====\n\n");
       printf("Objective: %20.10e\n\n", DotProd(It.x, model.obj));
@@ -197,7 +197,7 @@ Output IPM_caller::Solve() {
     // Initialize Newton direction
     NewtonDir Delta(m, n);
 
-    if (option_predcor == 0) {
+    if (options_.predcor == 0) {
 
       bool isCorrector = false;
 
@@ -417,23 +417,23 @@ void IPM_caller::reportOptions() {
 
   std::cout << "Option settings\n";
   std::cout << "NLA option:                  ";
-  if (option_nla == kOptionNlaCg) {
+  if (options_.nla == kOptionNlaCg) {
     std::cout << "Newton CG\n";
-  } else if (option_nla == kOptionNlaAugmented || option_nla == kOptionNlaAugmentedCg) {
+  } else if (options_.nla == kOptionNlaAugmented || options_.nla == kOptionNlaAugmentedCg) {
     std::cout << "Augmented direct\n";
-  } else if (option_nla == kOptionNlaNewton || option_nla == kOptionNlaNewtonCg) {
+  } else if (options_.nla == kOptionNlaNewton || options_.nla == kOptionNlaNewtonCg) {
     std::cout << "Newton direct\n";
   }
   std::cout << "Predictor-corrector:         ";
-  if (this->option_predcor) {
+  if (this->options_.predcor) {
     std::cout << "On\n";
   } else {
     std::cout << "Off\n";
   }
-  std::cout << "Max number of dense columns: " << this->option_max_dense_col << "\n";
-  std::cout << "Tolerance for dense columns: " << this->option_dense_col_tolerance << "\n";
-  std::cout << "IPM iteration limit:         " << this->option_iteration_limit << "\n";
-  std::cout << "IPM tolerance:               " << this->option_ipm_tolerance << "\n";
+  std::cout << "Max number of dense columns: " << this->options_.max_dense_col << "\n";
+  std::cout << "Tolerance for dense columns: " << this->options_.dense_col_tolerance << "\n";
+  std::cout << "IPM iteration limit:         " << this->options_.iteration_limit << "\n";
+  std::cout << "IPM tolerance:               " << this->options_.ipm_tolerance << "\n";
 }
 
 std::vector<double> IPM_caller::ComputeResiduals_7(const Residuals &Res,
@@ -519,15 +519,15 @@ int IPM_caller::SolveNewtonSystem(const HighsSparseMatrix &highs_a,
   std::vector<double> res7{ComputeResiduals_7(Res, isCorrector)};
 
   // Identify whether CG should be used
-  const bool use_cg = option_nla == kOptionNlaCg ||
-                      option_nla == kOptionNlaAugmentedCg ||
-                      option_nla == kOptionNlaNewtonCg;
+  const bool use_cg = options_.nla == kOptionNlaCg ||
+                      options_.nla == kOptionNlaAugmentedCg ||
+                      options_.nla == kOptionNlaNewtonCg;
   // Identify whether the augmented system should be solved directly
   const bool use_direct_augmented =
-      option_nla == kOptionNlaAugmented || option_nla == kOptionNlaAugmentedCg;
+      options_.nla == kOptionNlaAugmented || options_.nla == kOptionNlaAugmentedCg;
   // Identify whether the Newton system should be solved directly
   const bool use_direct_newton =
-      option_nla == kOptionNlaNewton || option_nla == kOptionNlaNewtonCg;
+      options_.nla == kOptionNlaNewton || options_.nla == kOptionNlaNewtonCg;
   // Shouldn't be trying to solve both the augmented and Newton system!
   assert(!use_direct_augmented || !use_direct_newton);
 
@@ -537,7 +537,7 @@ int IPM_caller::SolveNewtonSystem(const HighsSparseMatrix &highs_a,
 
   // Identify whether the CG result should be used to check the result
   // obtained using the direct solver
-  const bool check_with_cg = use_cg && option_nla != kOptionNlaCg;
+  const bool check_with_cg = use_cg && options_.nla != kOptionNlaCg;
 
   // Augmented system is
   //
@@ -584,8 +584,8 @@ int IPM_caller::SolveNewtonSystem(const HighsSparseMatrix &highs_a,
       newton_delta_y.assign(m, 0);
       if (first_call_with_theta) {
         int newton_invert_status =
-            newtonInvert(highs_a, theta, invert, option_max_dense_col,
-                         option_dense_col_tolerance, experiment_data);
+            newtonInvert(highs_a, theta, invert, options_.max_dense_col,
+                         options_.dense_col_tolerance, experiment_data);
         if (newton_invert_status) return newton_invert_status;
       } else {
 	// Just set this to avoid assert when writing out
