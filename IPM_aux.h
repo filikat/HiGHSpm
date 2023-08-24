@@ -1,7 +1,26 @@
 #ifndef IPM_AUX_H
 #define IPM_AUX_H
 
+#include "lp_data/HConst.h"
+#include "IPM_const.h"
+
+#include <string>
 #include <vector>
+
+struct IpmOptions {
+  std::string model_file = "";
+  std::string presolve = kHighsOnString;
+  int decomposer_source = kOptionDecomposerSourceDefault;
+  int nla = kOptionNlaDefault;
+  int predcor = kOptionPredCorDefault;
+  int max_dense_col = kOptionMaxDenseColDefault;
+  double dense_col_tolerance = kOptionDenseColToleranceDefault;
+  // Now the options set internally
+  int iteration_limit = 100;
+  double ipm_tolerance = 1e-6;
+};
+
+std::string decomposerSource(int decomposer_source);
 
 // =======================================================================
 // RESIDUALS

@@ -19,28 +19,14 @@ enum ArgC {
 };
 
 int main(int argc, char **argv) {
-  po::options_description desc("Allowed options");
-  desc.add_options()
-    ("help", "produce help message")
-    ("presolve,p", po::value<std::string>(), "set the presolve option")
-    ("decomposer,d", po::value<int>(), "set the decomposer source type")
-    ("density,dse", po::value<double>(), "set the threshold for columns to be treated as dense")
-    ("max_dense_col,mdc", po::value<int>(), "set the maximum number of columns to be treated as dense")
-    ("model,m", po::value<std::string>(), "model name") 
-  ;
+  // create instance of IPM
+  IPM_caller ipm{};
 
-  po::variables_map vm;
-  po::store(po::parse_command_line(argc, argv, desc), vm);
-  po::notify(vm);    
+  if (!ipm.readOptionsOk(argc, argv)) return 1;
+  ipm.reportOptions();
 
-  if (vm.count("help")) {
-    std::cout << desc << "\n";
-    return 1;
-  }
-
-
-   double start_time0 = getWallTime();
-   double start_time = start_time0;
+  double start_time0 = getWallTime();
+  double start_time = start_time0;
   // ===================================================================================
   // READ PROBLEM
   // ===================================================================================
@@ -48,7 +34,7 @@ int main(int argc, char **argv) {
   // Read LP using Highs MPS read
   Highs highs;
   //  highs.setOptionValue("output_flag", false);
-  std::string model_file = argv[kModelFileArg];
+  std::string model_file = ipm.options_.model_file;
   std::string model = extractModelName(model_file);
   HighsStatus status = highs.readModel(model_file);
   assert(status == HighsStatus::kOk);
@@ -199,57 +185,6 @@ int main(int argc, char **argv) {
   // LOAD AND SOLVE THE PROBLEM
   // ===================================================================================
   start_time = getWallTime();
-
-  // create instance of IPM
-  IPM_caller ipm{};
-
-  // ===================================================================================
-  // Identify the option values and check their validity
-  // ===================================================================================
-  ipm.options_.nla =
-      argc > kOptionNlaArg ? atoi(argv[kOptionNlaArg]) : kOptionNlaDefault;
-  if (ipm.options_.nla < kOptionNlaMin || ipm.options_.nla > kOptionNlaMax) {
-    std::cerr << "Illegal value of " << ipm.options_.nla
-              << " for options_.nla: must be in [" << kOptionNlaMin << ", "
-              << kOptionNlaMax << "]\n";
-    return 1;
-  }
-
-  ipm.options_.predcor = argc > kOptionPredCorArg ? atoi(argv[kOptionPredCorArg])
-                                                : kOptionPredCorDefault;
-  if (ipm.options_.predcor < kOptionPredCorMin ||
-      ipm.options_.predcor > kOptionPredCorMax) {
-    std::cerr << "Illegal value of " << ipm.options_.predcor
-              << " for options_.predcor: must be in [" << kOptionPredCorMin
-              << ", " << kOptionPredCorMax << "]\n";
-    return 1;
-  }
-
-  ipm.options_.max_dense_col = argc > kOptionMaxDenseColArg
-                                 ? atoi(argv[kOptionMaxDenseColArg])
-                                 : kOptionMaxDenseColDefault;
-  if (ipm.options_.max_dense_col < kOptionMaxDenseColMin ||
-      ipm.options_.max_dense_col > kOptionMaxDenseColMax) {
-    std::cerr << "Illegal value of " << ipm.options_.max_dense_col
-              << " for options_.max_dense_col: must be in ["
-              << kOptionMaxDenseColMin << ", " << kOptionMaxDenseColMax
-              << "]\n";
-    return 1;
-  }
-
-  ipm.options_.dense_col_tolerance = argc > kOptionDenseColToleranceArg
-                                       ? atoi(argv[kOptionDenseColToleranceArg])
-                                       : kOptionDenseColToleranceDefault;
-  if (ipm.options_.dense_col_tolerance < kOptionDenseColToleranceMin ||
-      ipm.options_.dense_col_tolerance > kOptionDenseColToleranceMax) {
-    std::cerr << "Illegal value of " << ipm.options_.dense_col_tolerance
-              << " for options_.dense_col_tolerance: must be in ["
-              << kOptionDenseColToleranceMin << ", "
-              << kOptionDenseColToleranceMax << "]\n";
-    return 1;
-  }
-
-  ipm.reportOptions();
 
   // load the problem
   ipm.Load(n, m, obj.data(), rhs.data(), lower.data(), upper.data(),

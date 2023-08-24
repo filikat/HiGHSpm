@@ -1,6 +1,7 @@
 #include "IPM_aux.h"
 #include "VectorOperations.h"
 #include <iostream>
+#include <cassert>
 
 Residuals::Residuals(int m, int n)
     : res1(m, 0.0), res2(n, 0.0), res3(n, 0.0), res4(n, 0.0), res5(n, 0.0),
@@ -58,3 +59,22 @@ bool NewtonDir::isNaN() const {
     return true;
   return false;
 }
+
+std::string decomposerSource(int decomposer_source) {
+  assert(decomposer_source >= kDecomposerSourceMin &&
+	 decomposer_source <= kDecomposerSourceMax);
+  if (decomposer_source == kDecomposerSourceSsids) {
+    return "Ssids";
+  } else if (decomposer_source == kDecomposerSourceMa86) {
+    return "MA86";
+  } else if (decomposer_source == kDecomposerSourceQdldl) {
+    return "QDLDL";
+  } else if (decomposer_source == kDecomposerSourceCholmod) {
+    return "Cholmod";
+  } else if (decomposer_source == kDecomposerSourceHighs) {
+    return "HiGHS";
+  } else  {
+    return "Unknown";
+  } 
+}
+

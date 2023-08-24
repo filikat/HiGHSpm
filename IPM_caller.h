@@ -4,23 +4,10 @@
 #include "ConjugateGradient.h"
 #include "Direct.h"
 #include "IPM_aux.h"
-#include "IPM_const.h"
 #include "IPM_model.h"
 #include "NormalEquations.h"
 #include "VectorOperations.h"
 #include "util/HighsSparseMatrix.h"
-
-struct IpmOptions {
-  std::string presolve = kHighsOnString;
-  int decomposer_source = kOptionDecomposerSourceDefault;
-  int nla = kOptionNlaDefault;
-  int predcor = kOptionPredCorDefault;
-  int max_dense_col = kOptionMaxDenseColDefault;
-  double dense_col_tolerance = kOptionDenseColToleranceDefault;
-  // Now the options set internally
-  int iteration_limit = 100;
-  double ipm_tolerance = 1e-6;
-};
 
 class IPM_caller {
 
@@ -83,6 +70,7 @@ public:
   // ===================================================================================
   Output Solve();
 
+  bool readOptionsOk(int argc, char** argv);
   void reportOptions();
 
 private:

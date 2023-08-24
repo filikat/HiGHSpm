@@ -20,26 +20,6 @@ extern "C" {
 #endif
 }
 
-enum DecomposerSource {
-  kDecomposerSourceMin = 1,
-  kDecomposerSourceSsids = kDecomposerSourceMin,
-  kDecomposerSourceMa86,
-  kDecomposerSourceQdldl,
-  kDecomposerSourceCholmod,
-  kDecomposerSourceHighs,
-  kDecomposerSourceMax = kDecomposerSourceHighs
-};
-
-enum DecomposerStatus {
-  kDecomposerStatusMin = 0,
-  kDecomposerStatusOk = kDecomposerStatusMin,
-  kDecomposerStatusErrorOom,
-  kDecomposerStatusErrorFactorize,
-  kDecomposerStatusErrorSolve,
-  kDecomposerStatusErrorClear,
-  kDecomposerStatusMax = kDecomposerStatusErrorClear
-};
-
 const double ok_theta_relative_tolerance = 1e-3;
 
 struct SsidsData {
@@ -118,8 +98,6 @@ struct IpmInvert {
   HighsData highs_data;
   void clear();
 };
-
-std::string decomposerSource(int decomposer_source);
 
 void chooseDenseColumns(const HighsSparseMatrix &highs_a,
 			const std::vector<double> &theta, 

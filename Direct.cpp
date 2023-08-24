@@ -1,3 +1,4 @@
+#include "IPM_aux.h"
 #include "Direct.h"
 #include <cmath>
 void IpmInvert::clear() {
@@ -50,24 +51,6 @@ void CholmodData::clear() {
 
 void HighsData::clear() {
   this->basic_index.clear();
-}
-
-std::string decomposerSource(int decomposer_source) {
-  assert(decomposer_source >= kDecomposerSourceMin &&
-	 decomposer_source <= kDecomposerSourceMax);
-  if (decomposer_source == kDecomposerSourceSsids) {
-    return "Ssids";
-  } else if (decomposer_source == kDecomposerSourceMa86) {
-    return "MA86";
-  } else if (decomposer_source == kDecomposerSourceQdldl) {
-    return "QDLDL";
-  } else if (decomposer_source == kDecomposerSourceCholmod) {
-    return "Cholmod";
-  } else if (decomposer_source == kDecomposerSourceHighs) {
-    return "HiGHS";
-  } else  {
-    return "Unknown";
-  } 
 }
 
 void chooseDenseColumns(const HighsSparseMatrix &highs_a,

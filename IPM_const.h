@@ -32,6 +32,26 @@ enum OptionPredCor {
   kOptionPredCorDefault = kOptionPredCorAvoid
 };
 
+enum DecomposerSource {
+  kDecomposerSourceMin = 1,
+  kDecomposerSourceSsids = kDecomposerSourceMin,
+  kDecomposerSourceMa86,
+  kDecomposerSourceQdldl,
+  kDecomposerSourceCholmod,
+  kDecomposerSourceHighs,
+  kDecomposerSourceMax = kDecomposerSourceHighs
+};
+
+enum DecomposerStatus {
+  kDecomposerStatusMin = 0,
+  kDecomposerStatusOk = kDecomposerStatusMin,
+  kDecomposerStatusErrorOom,
+  kDecomposerStatusErrorFactorize,
+  kDecomposerStatusErrorSolve,
+  kDecomposerStatusErrorClear,
+  kDecomposerStatusMax = kDecomposerStatusErrorClear
+};
+
 const double kOptionDenseColToleranceMin = 0;
 const double kOptionDenseColToleranceDefault = 0.25;
 const double kOptionDenseColToleranceMax = 1.1;

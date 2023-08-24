@@ -3,6 +3,9 @@
 #include <cmath>
 #include <iostream>
 
+#include <boost/program_options.hpp>
+namespace po = boost::program_options;
+
 void scaling2theta(const std::vector<double> &scaling,
                    std::vector<double> &theta) {
   const int dim = scaling.size();
@@ -413,8 +416,106 @@ void IPM_caller::ComputeResiduals_56(const double sigmaMu,
   }
 }
 
-void IPM_caller::reportOptions() {
+bool IPM_caller::readOptionsOk(int argc, char** argv) {
+  po::options_description desc("Allowed options");
+  desc.add_options()
+    ("help", "produce help message")
+    ("model,m", po::value<std::string>(), "model name") 
+    ("presolve,p", po::value<std::string>(), "presolve option \"on\"/\"off\"")
+    ("predcor", po::value<int>(), "predcor")
+    ("decomposer,d", po::value<int>(), "decomposer source")
+    ("nla,n", po::value<int>(), "NLA type")
+    ("density", po::value<double>(), "threshold for columns to be treated as dense")
+    ("max_dense_col", po::value<int>(), "maximum number of columns to be treated as dense")
+  ;
 
+  po::variables_map vm;
+  po::store(po::parse_command_line(argc, argv, desc), vm);
+  po::notify(vm);    
+
+  if (vm.count("help")) {
+    std::cout << desc << "\n";
+    return false;
+  }
+
+  IpmOptions& options = this->options_;
+  std::string& model = options.model_file;
+  if (vm.count("model")) {
+    model = vm["model"].as<std::string>();
+  } else {
+    std::cout << "Model was not set. Exiting...\n";
+    return false;
+  }
+
+  if (options.nla < kOptionNlaMin || options.nla > kOptionNlaMax) {
+    std::cerr << "Illegal value of " << options.nla
+              << " for NLA: must be in [" << kOptionNlaMin << ", "
+              << kOptionNlaMax << "]\n";
+    return false;
+  }
+
+  if (options.predcor < kOptionPredCorMin ||
+      options.predcor > kOptionPredCorMax) {
+    std::cerr << "Illegal value of " << options.predcor
+              << " for options_.predcor: must be in [" << kOptionPredCorMin
+              << ", " << kOptionPredCorMax << "]\n";
+    return false;
+  }
+
+  int& decomposer_source = options.decomposer_source;
+  decomposer_source = kDecomposerSourceMa86;  // default value
+  decomposer_source = kDecomposerSourceSsids; //JHmod
+  if (vm.count("decomposer")) {
+    decomposer_source = vm["decomposer"].as<int>();
+    std::cout << "Decomposer source was set to "; 
+  } else {
+    std::cout << "Decomposer source was not set. Using default: ";
+  }
+  std::cout << decomposer_source << " (" << decomposerSource(decomposer_source) << ")\n";
+  if (options.dense_col_tolerance < kOptionDenseColToleranceMin ||
+      options.dense_col_tolerance > kOptionDenseColToleranceMax) {
+    std::cerr << "Illegal value of " << options.dense_col_tolerance
+              << " for options_.dense_col_tolerance: must be in ["
+              << kOptionDenseColToleranceMin << ", "
+              << kOptionDenseColToleranceMax << "]\n";
+    return 1;
+  }
+
+
+  double& dense_col_tolerance = options.dense_col_tolerance;
+  dense_col_tolerance = 0.5;  // default value
+  if (vm.count("density")) {
+    dense_col_tolerance = vm["density"].as<double>();
+    std::cout << "Density threshold was set to ";
+  } else {
+    std::cout << "Density threshold was not set. Using default: "; 
+  }
+  std::cout << dense_col_tolerance << "\n";
+
+  int& max_dense_col = options.max_dense_col;
+  if (options.max_dense_col < kOptionMaxDenseColMin ||
+      options.max_dense_col > kOptionMaxDenseColMax) {
+    std::cerr << "Illegal value of " << options.max_dense_col
+              << " for options_.max_dense_col: must be in ["
+              << kOptionMaxDenseColMin << ", " << kOptionMaxDenseColMax
+              << "]\n";
+    return 1;
+  }
+
+
+
+  max_dense_col = 5;  // default value
+  if (vm.count("max_dense_col")) {
+    max_dense_col = vm["max_dense_col"].as<int>();
+    std::cout << "Maximum number of dense columns was set to " << max_dense_col << "\n";
+  } else {
+    std::cout << "Maximum number of dense columns was not set. Using default: " << max_dense_col << ".\n";
+  }
+  return true;
+
+}
+
+void IPM_caller::reportOptions() {
   std::cout << "Option settings\n";
   std::cout << "NLA option:                  ";
   if (options_.nla == kOptionNlaCg) {
