@@ -74,8 +74,10 @@ std::ostream &operator<<(std::ostream &os, const ExperimentData &data) {
   os << std::left << std::setw(text_width) << "system size: " << std::right
      << std::setw(num_width) << data.system_size << "\n";
 
-  assert(data.invert_status >= 0);
-  if (data.invert_status) {
+  if (data.invert_status < 0) {
+    os << std::left << std::setw(text_width) << "CG only\n";
+    return os;
+  } else if (data.invert_status > 0) {
     os << std::left << std::setw(text_width) << "Failure: "
        << std::right << std::setw(num_width) << data.invert_status << "\n";
     return os;
@@ -206,8 +208,10 @@ void writeDataToCSV(const std::vector<ExperimentData> &data,
       outputFile << experimentData.theta_num_large - experimentData.system_size << ",";
     }
 
-    assert(experimentData.invert_status >= 0);
-    if (experimentData.invert_status) {
+    if (experimentData.invert_status < 0) {
+      outputFile << "CG only\n";
+      continue;
+    } else if (experimentData.invert_status > 0) {
       outputFile << "Failure," << experimentData.invert_status << "\n";
       continue;
     }

@@ -1,3 +1,12 @@
+enum OptionDecomposerSource {
+  kOptionDecomposerSourceMin = 0,
+  kOptionDecomposerSourceCg = kOptionDecomposerSourceMin,
+  kOptionDecomposerSourceSsids,   // 1
+  kOptionDecomposerSourceHighs,      // 2
+  kOptionDecomposerSourceMax = kOptionDecomposerSourceHighs,
+  kOptionDecomposerSourceDefault = kOptionDecomposerSourceSsids
+};
+
 enum OptionNla {
   kOptionNlaMin = 0,
   kOptionNlaCg = kOptionNlaMin,

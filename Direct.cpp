@@ -1,6 +1,7 @@
 #include "Direct.h"
 #include <cmath>
 void IpmInvert::clear() {
+  const bool was_valid = this->valid;
   this->valid = false;
   this->system_size = -1;
   this->use_num_dense_col = 0;
@@ -20,7 +21,7 @@ void IpmInvert::clear() {
   } else if (decomposer_source == kDecomposerSourceHighs){
     this->highs_data.clear();
   } else {
-    assert(111==333);
+    if (was_valid) assert(111==333);
   }
 }
 

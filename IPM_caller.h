@@ -32,6 +32,7 @@ public:
   // Run-time options
   // ===================================================================================
   // Firstly the ones read from the command line
+  int option_decomposer_source = kOptionDecomposerSourceDefault;
   int option_nla = kOptionNlaDefault;
   int option_predcor = kOptionPredCorDefault;
   int option_max_dense_col = kOptionMaxDenseColDefault;
