@@ -7,12 +7,20 @@
 #include <string>
 #include <vector>
 
+const std::string kModelFileCommandString = "model";
+const std::string kPresolveCommandString = "presolve";
+const std::string kDecomposerCommandString = "decomposer";
+const std::string kNlaCommandString = "nla";
+const std::string kPredcorCommandString = "predcor";
+const std::string kMaxDenseColCommandString = "max_dense_col";
+const std::string kDenseColToleranceCommandString = "density";
+
 struct IpmOptions {
   std::string model_file = "";
   std::string presolve = kHighsOnString;
   int decomposer_source = kOptionDecomposerSourceDefault;
   int nla = kOptionNlaDefault;
-  int predcor = kOptionPredCorDefault;
+  std::string predcor = kHighsOnString;
   int max_dense_col = kOptionMaxDenseColDefault;
   double dense_col_tolerance = kOptionDenseColToleranceDefault;
   // Now the options set internally

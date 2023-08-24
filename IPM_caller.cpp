@@ -200,7 +200,7 @@ Output IPM_caller::Solve() {
     // Initialize Newton direction
     NewtonDir Delta(m, n);
 
-    if (options_.predcor == 0) {
+    if (options_.predcor == kHighsOffString) {
 
       bool isCorrector = false;
 
@@ -420,13 +420,13 @@ bool IPM_caller::readOptionsOk(int argc, char** argv) {
   po::options_description desc("Allowed options");
   desc.add_options()
     ("help", "produce help message")
-    ("model,m", po::value<std::string>(), "model name") 
-    ("presolve,p", po::value<std::string>(), "presolve option \"on\"/\"off\"")
-    ("predcor", po::value<int>(), "predcor")
-    ("decomposer,d", po::value<int>(), "decomposer source")
-    ("nla,n", po::value<int>(), "NLA type")
-    ("density", po::value<double>(), "threshold for columns to be treated as dense")
-    ("max_dense_col", po::value<int>(), "maximum number of columns to be treated as dense")
+    (kModelFileCommandString.c_str(), po::value<std::string>(), "model file") 
+    (kPresolveCommandString.c_str(), po::value<std::string>(), "presolve option \"on\"/\"off\"")
+    (kDecomposerCommandString.c_str(), po::value<int>(), "decomposer source")
+    (kNlaCommandString.c_str(), po::value<int>(), "NLA type augmented/reduced 1/2")
+    (kPredcorCommandString.c_str(), po::value<std::string>(), "predictor-corrector \"on\"/\"off\"")
+    (kMaxDenseColCommandString.c_str(), po::value<int>(), "maximum number of columns to be treated as dense")
+    (kDenseColToleranceCommandString.c_str(), po::value<double>(), "threshold for columns to be treated as dense")
   ;
 
   po::variables_map vm;
@@ -439,102 +439,106 @@ bool IPM_caller::readOptionsOk(int argc, char** argv) {
   }
 
   IpmOptions& options = this->options_;
-  std::string& model = options.model_file;
-  if (vm.count("model")) {
-    model = vm["model"].as<std::string>();
+
+  if (vm.count(kModelFileCommandString)) {
+    options.model_file = vm[kModelFileCommandString].as<std::string>();
   } else {
     std::cout << "Model was not set. Exiting...\n";
     return false;
   }
 
-  if (options.nla < kOptionNlaMin || options.nla > kOptionNlaMax) {
-    std::cerr << "Illegal value of " << options.nla
-              << " for NLA: must be in [" << kOptionNlaMin << ", "
-              << kOptionNlaMax << "]\n";
+  if (vm.count(kPresolveCommandString)) {
+    std::string value = vm[kPresolveCommandString].as<std::string>();
+    if (value != kHighsOnString || value != kHighsOffString) {
+      std::cerr <<
+	"Illegal value of " << value << " for " << kPresolveCommandString <<
+	" must be \"" << kHighsOnString << "\" or \"" << kHighsOffString << "\n";
     return false;
+    }
+    options.presolve = value;
   }
 
-  if (options.predcor < kOptionPredCorMin ||
-      options.predcor > kOptionPredCorMax) {
-    std::cerr << "Illegal value of " << options.predcor
-              << " for options_.predcor: must be in [" << kOptionPredCorMin
-              << ", " << kOptionPredCorMax << "]\n";
+  if (vm.count(kDecomposerCommandString)) {
+    int value = vm[kDecomposerCommandString].as<int>();
+    if (value < kOptionDecomposerSourceMin || value > kOptionDecomposerSourceMax) {
+      std::cerr << "Illegal value of " << value
+		<< " for " << kDecomposerCommandString << ": must be in [" << kOptionDecomposerSourceMin << ", "
+		<< kOptionDecomposerSourceMax << "]\n";
+      return false;
+    }
+    options.decomposer_source = value;
+  }
+    
+  if (vm.count(kNlaCommandString)) {
+    int value = vm[kNlaCommandString].as<int>();
+    if (value < kOptionNlaMin || value > kOptionNlaMax) {
+      std::cerr << "Illegal value of " << value
+		<< " for " << kNlaCommandString << ": must be in [" << kOptionNlaMin << ", "
+		<< kOptionNlaMax << "]\n";
+      return false;
+    }
+    options.nla = value;
+  }
+    
+  if (vm.count(kPredcorCommandString)) {
+    std::string value = vm[kPredcorCommandString].as<std::string>();
+    if (value != kHighsOnString || value != kHighsOffString) {
+      std::cerr <<
+	"Illegal value of " << value << " for " << kPredcorCommandString <<
+	" must be \"" << kHighsOnString << "\" or \"" << kHighsOffString << "\n";
     return false;
+    }
+    options.predcor = value;
   }
 
-  int& decomposer_source = options.decomposer_source;
-  decomposer_source = kDecomposerSourceMa86;  // default value
-  decomposer_source = kDecomposerSourceSsids; //JHmod
-  if (vm.count("decomposer")) {
-    decomposer_source = vm["decomposer"].as<int>();
-    std::cout << "Decomposer source was set to "; 
-  } else {
-    std::cout << "Decomposer source was not set. Using default: ";
+  if (vm.count(kMaxDenseColCommandString)) {
+    int value = vm[kMaxDenseColCommandString].as<int>();
+    if (value < 0) {
+      std::cerr << "Illegal value of " << value
+		<< " for " << kMaxDenseColCommandString << ": must be > 0\n";
+      return false;
+    }
+    options.max_dense_col = value;
   }
-  std::cout << decomposer_source << " (" << decomposerSource(decomposer_source) << ")\n";
-  if (options.dense_col_tolerance < kOptionDenseColToleranceMin ||
-      options.dense_col_tolerance > kOptionDenseColToleranceMax) {
-    std::cerr << "Illegal value of " << options.dense_col_tolerance
-              << " for options_.dense_col_tolerance: must be in ["
-              << kOptionDenseColToleranceMin << ", "
-              << kOptionDenseColToleranceMax << "]\n";
-    return 1;
-  }
-
-
+    
   double& dense_col_tolerance = options.dense_col_tolerance;
   dense_col_tolerance = 0.5;  // default value
-  if (vm.count("density")) {
-    dense_col_tolerance = vm["density"].as<double>();
-    std::cout << "Density threshold was set to ";
-  } else {
-    std::cout << "Density threshold was not set. Using default: "; 
-  }
-  std::cout << dense_col_tolerance << "\n";
-
-  int& max_dense_col = options.max_dense_col;
-  if (options.max_dense_col < kOptionMaxDenseColMin ||
-      options.max_dense_col > kOptionMaxDenseColMax) {
-    std::cerr << "Illegal value of " << options.max_dense_col
-              << " for options_.max_dense_col: must be in ["
-              << kOptionMaxDenseColMin << ", " << kOptionMaxDenseColMax
-              << "]\n";
-    return 1;
-  }
-
-
-
-  max_dense_col = 5;  // default value
-  if (vm.count("max_dense_col")) {
-    max_dense_col = vm["max_dense_col"].as<int>();
-    std::cout << "Maximum number of dense columns was set to " << max_dense_col << "\n";
-  } else {
-    std::cout << "Maximum number of dense columns was not set. Using default: " << max_dense_col << ".\n";
+  if (vm.count(kDenseColToleranceCommandString)) {
+    double value = vm[kDenseColToleranceCommandString].as<double>();
+    if (value < kOptionDenseColToleranceMin ||
+	value > kOptionDenseColToleranceMax) {
+      std::cerr << "Illegal value of " << value
+		<< " for " << kDenseColToleranceCommandString << ": must be in ["
+		<< kOptionDenseColToleranceMin << ", "
+		<< kOptionDenseColToleranceMax << "]\n";
+      return false;
+    }
+    options.dense_col_tolerance = value;
   }
   return true;
-
 }
 
 void IPM_caller::reportOptions() {
+  IpmOptions& options = this->options_;
   std::cout << "Option settings\n";
+  std::cout << "Model file:                  " << options.model_file << "\n";
+  std::cout << "Presolve:                    " << options.presolve << "\n";
+  std::cout << "Decomposer:                  " << decomposerSource(options.decomposer_source) << "\n";
   std::cout << "NLA option:                  ";
-  if (options_.nla == kOptionNlaCg) {
+  if (options.nla == kOptionNlaCg) {
     std::cout << "Newton CG\n";
-  } else if (options_.nla == kOptionNlaAugmented || options_.nla == kOptionNlaAugmentedCg) {
+  } else if (options.nla == kOptionNlaAugmented ||
+	     options.nla == kOptionNlaAugmentedCg) {
     std::cout << "Augmented direct\n";
-  } else if (options_.nla == kOptionNlaNewton || options_.nla == kOptionNlaNewtonCg) {
+  } else if (options.nla == kOptionNlaNewton ||
+	     options.nla == kOptionNlaNewtonCg) {
     std::cout << "Newton direct\n";
   }
-  std::cout << "Predictor-corrector:         ";
-  if (this->options_.predcor) {
-    std::cout << "On\n";
-  } else {
-    std::cout << "Off\n";
-  }
-  std::cout << "Max number of dense columns: " << this->options_.max_dense_col << "\n";
-  std::cout << "Tolerance for dense columns: " << this->options_.dense_col_tolerance << "\n";
-  std::cout << "IPM iteration limit:         " << this->options_.iteration_limit << "\n";
-  std::cout << "IPM tolerance:               " << this->options_.ipm_tolerance << "\n";
+  std::cout << "Predictor-corrector:         " << options.predcor << "\n";
+  std::cout << "Max number of dense columns: " << options.max_dense_col << "\n";
+  std::cout << "Tolerance for dense columns: " << options.dense_col_tolerance << "\n";
+  std::cout << "IPM iteration limit:         " << options.iteration_limit << "\n";
+  std::cout << "IPM tolerance:               " << options.ipm_tolerance << "\n";
 }
 
 std::vector<double> IPM_caller::ComputeResiduals_7(const Residuals &Res,

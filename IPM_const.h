@@ -24,14 +24,6 @@ enum OptionMaxDenseCol {
   kOptionMaxDenseColDefault = 1
 };
 
-enum OptionPredCor {
-  kOptionPredCorMin = 0,
-  kOptionPredCorAvoid = kOptionPredCorMin,
-  kOptionPredCorUse = 1,
-  kOptionPredCorMax = kOptionPredCorUse,
-  kOptionPredCorDefault = kOptionPredCorAvoid
-};
-
 enum DecomposerSource {
   kDecomposerSourceMin = 1,
   kDecomposerSourceSsids = kDecomposerSourceMin,
