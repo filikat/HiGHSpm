@@ -37,7 +37,7 @@ public:
   // bool is_A_positive_definite;
   double system_max_dense_col;
   int system_nnz;
-  int nnz_L;
+  int nnz_decomposition;
   double solution_error;
   std::pair<double, double> residual_error;
   double fill_in_factor;
@@ -70,7 +70,7 @@ public:
     system_size = kDataNotSet;
     system_max_dense_col = kDataNotSet;
     system_nnz = kDataNotSet;
-    nnz_L = kDataNotSet;
+    nnz_decomposition = kDataNotSet;
     fill_in_factor = kDataNotSet;
     condition = kDataNotSet;
     solution_error = kDataNotSet;
@@ -88,6 +88,7 @@ public:
     invert_status = kDataNotSet;
   }
   void fillIn_LL();
+  void fillIn_LU();
   void fillIn_LDL();
   void analyseTheta(const std::vector<double> &theta, const bool quiet = true);
 };

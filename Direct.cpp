@@ -461,8 +461,7 @@ int newtonInvert(const HighsSparseMatrix &highs_a,
   } else if (decomposer_source == kOptionDecomposerSourceCholmod) {
     factor_status = callCholmodNewtonFactor(AAT, cholmod_data, experiment_data);
   } else if (decomposer_source == kOptionDecomposerSourceHighs) {
-    assert(111==222);
-    //    factor_status = callHighsNewtonFactor(AAT, highs_data, experiment_data);
+    factor_status = callHighsNewtonFactor(AAT, highs_data, experiment_data);
   }
   experiment_data.invert_status = factor_status;
 
@@ -993,7 +992,7 @@ int callSsidsAugmentedFactor(const HighsSparseMatrix &matrix,
     printf("SSIDS factorize: flag = %d\n", ssids_data.inform.flag);
     return kDecomposerStatusErrorFactorize;
   }
-  experiment_data.nnz_L = ssids_data.inform.num_factor;
+  experiment_data.nnz_decomposition = ssids_data.inform.num_factor;
   experiment_data.fillIn_LL();
   int invert_status = kDecomposerStatusOk;
 #else
@@ -1080,7 +1079,7 @@ int callSsidsNewtonFactor(const HighsSparseMatrix &AThetaAT,
                                   struct spral_ssids_inform *inform,
                                   double *d);
   */
-  experiment_data.nnz_L = ssids_data.inform.num_factor;
+  experiment_data.nnz_decomposition = ssids_data.inform.num_factor;
   experiment_data.fillIn_LL();
   int invert_status = kDecomposerStatusOk;
 #else
@@ -1157,7 +1156,7 @@ int callMA86AugmentedFactor(const HighsSparseMatrix& matrix,
                        &ma86_data.keep, &ma86_data.control, &ma86_data.info);
   if (ma86_data.info.flag < 0) return kDecomposerStatusErrorFactorize;
   experiment_data.factorization_time = getWallTime() - start_time;
-  experiment_data.nnz_L = ma86_data.info.num_factor;
+  experiment_data.nnz_decomposition = ma86_data.info.num_factor;
   experiment_data.fillIn_LL();
 
   return kDecomposerStatusOk;
@@ -1208,7 +1207,7 @@ int callMA86NewtonFactor(const HighsSparseMatrix& AThetaAT,
                        &ma86_data.keep, &ma86_data.control, &ma86_data.info);
   if (ma86_data.info.flag < 0) return kDecomposerStatusErrorFactorize;
   experiment_data.factorization_time = getWallTime() - start_time;
-  experiment_data.nnz_L = ma86_data.info.num_factor;
+  experiment_data.nnz_decomposition = ma86_data.info.num_factor;
   experiment_data.fillIn_LL();
 
   return kDecomposerStatusOk;
@@ -1285,7 +1284,7 @@ int callQDLDLNewtonFactor(const HighsSparseMatrix& AThetaAT,
   *---------------------------------*/
   start_time = getWallTime();
   //First allocate memory for Li and Lx
-  experiment_data.nnz_L = qdldl_data.sumLnz;
+  experiment_data.nnz_decomposition = qdldl_data.sumLnz;
   //std::cout << "sumLnz = " << sumLnz << std::endl;
   qdldl_data.Li    = (QDLDL_int*)malloc(sizeof(QDLDL_int)*qdldl_data.sumLnz);
   
@@ -1411,7 +1410,7 @@ int callQDLDLAugmentedFactor(const HighsSparseMatrix& matrix,
   *---------------------------------*/
   start_time = getWallTime();
   //First allocate memory for Li and Lx
-  experiment_data.nnz_L = qdldl_data.sumLnz;
+  experiment_data.nnz_decomposition = qdldl_data.sumLnz;
   std::cout << "sumLnz = " << qdldl_data.sumLnz << std::endl;
   qdldl_data.Li    = (QDLDL_int*)malloc(sizeof(QDLDL_int)*qdldl_data.sumLnz);
   
@@ -1501,7 +1500,7 @@ int callCholmodNewtonFactor(const HighsSparseMatrix &AThetaAT,
       //std::cout << "Number of nonzeros in L = " << nnz << std::endl;
   }
   experiment_data.factorization_time = getWallTime() - start_time;
-  experiment_data.nnz_L = nnz;
+  experiment_data.nnz_decomposition = nnz;
   experiment_data.fillIn_LL();
 
   return kDecomposerStatusOk;
@@ -1600,8 +1599,8 @@ int callHighsAugmentedFactor(const HighsSparseMatrix &matrix,
   const HighsInt rank_deficiency = factor.build();
   experiment_data.nla_time.factorization = getWallTime() - start_time;
 
-  experiment_data.nnz_L = factor.invert_num_el;
-  experiment_data.fillIn_LL();
+  experiment_data.nnz_decomposition = factor.invert_num_el;
+  experiment_data.fillIn_LU();
 
   int invert_status;
   if (rank_deficiency) {
@@ -1615,6 +1614,34 @@ int callHighsAugmentedFactor(const HighsSparseMatrix &matrix,
 int callHighsNewtonFactor(const HighsSparseMatrix &AThetaAT,
 			  HighsData& highs_data,
 			  ExperimentData &experiment_data) {
+
+  double start_time = getWallTime();
+  HFactor& factor = highs_data.factor;
+  std::vector<HighsInt>& basic_index = highs_data.basic_index;
+  for (int iCol = 0; iCol < AThetaAT.num_col_; iCol++)
+    basic_index.push_back(iCol);
+
+  factor.setup(AThetaAT, basic_index);
+  experiment_data.system_nnz = AThetaAT.index_.size();
+  experiment_data.nla_time.setup = getWallTime() - start_time;
+
+  experiment_data.nla_time.analysis = 0;
+
+  start_time = getWallTime();
+  const HighsInt rank_deficiency = factor.build();
+  experiment_data.nla_time.factorization = getWallTime() - start_time;
+
+  experiment_data.nnz_decomposition = factor.invert_num_el;
+  experiment_data.fillIn_LU();
+
+  int invert_status;
+  if (rank_deficiency) {
+    invert_status = kDecomposerStatusErrorFactorize;
+  } else {
+    invert_status = kDecomposerStatusOk;
+  }
+  return invert_status;
+ 
   return kDecomposerStatusErrorFactorize;
 }
 

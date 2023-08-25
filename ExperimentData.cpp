@@ -11,6 +11,26 @@ double getWallTime() {
 
 int roundDouble2Int(const double value) { return int(value + 0.5); }
 
+double systemDensity(const ExperimentData &data) {
+  if (data.system_size <= 0 || data.system_nnz < 0) return -1;
+  return 1e2 * double(data.system_nnz) / (double(data.system_size) * double(data.system_size));
+}
+
+double decompositionDensity(const ExperimentData &data) {
+  if (data.system_size <= 0 || data.nnz_decomposition < 0) return -1;
+  double density = -1;
+  double full_decomposition = -1;
+  if (data.decomposer == "HiGHS") {
+    full_decomposition =
+      double(data.system_size) * double(data.system_size);
+  } else {
+    full_decomposition = 
+      0.5 * double(data.system_size) * double(data.system_size + 1);
+  }
+  density = 1e2 * double(data.nnz_decomposition) / full_decomposition;
+  return density;
+}
+			    
 std::ostream &operator<<(std::ostream &os, const ExperimentData &data) {
   const int text_width = 30;
   const int num_width = 12;
@@ -21,14 +41,8 @@ std::ostream &operator<<(std::ostream &os, const ExperimentData &data) {
   double float_dim = double(data.system_size);
   assert(data.system_type != kDataNotSet);
 
-  const double system_density =
-      data.system_size ? 1e2 * double(data.system_nnz) / (float_dim * float_dim)
-                       : -1;
-  const double l_density =
-      data.system_size && data.nnz_L >= 0
-          ? 1e2 * double(data.nnz_L) /
-                (float_dim * double(data.system_size + 1) * 0.5)
-          : -1;
+  const double system_density = systemDensity(data);
+  const double decomposition_density = decompositionDensity(data);
   const double sum_time = data.nla_time.form + data.nla_time.setup +
                           data.nla_time.analysis + data.nla_time.factorization +
                           data.nla_time.solve;
@@ -96,9 +110,9 @@ std::ostream &operator<<(std::ostream &os, const ExperimentData &data) {
   os << std::right << std::setw(num_width) << data.system_nnz << " ("
      << std::right << std::fixed << system_density << "%)\n";
 
-  os << std::left << std::setw(text_width) << "L nnz: " << std::right
-     << std::setw(num_width) << data.nnz_L << " (" << std::right << std::fixed
-     << l_density << "%)\n";
+  os << std::left << std::setw(text_width) << "Decomposition nnz: " << std::right
+     << std::setw(num_width) << data.nnz_decomposition << " (" << std::right << std::fixed
+     << decomposition_density << "%)\n";
   os << std::fixed;
   os << std::left << std::setw(text_width) << "fill-in: " << std::right
      << std::setw(num_width) << data.fill_in_factor << "\n";
@@ -184,7 +198,7 @@ void writeDataToCSV(const std::vector<ExperimentData> &data,
   } else {
     outputFile << "System NNZ,(%),";
   }
-  outputFile << "NNZ L,(%),Fill factor,Condition,Solution Error,Abs residual "
+  outputFile << "Decomposition NNZ,(%),Fill factor,Condition,Solution Error,Abs residual "
                 "error,Rel residual error,";
   outputFile << "Time Taken, Form time, Setup time, Analyse time, "
                 "Factorization time, Solve time\n";
@@ -217,20 +231,9 @@ void writeDataToCSV(const std::vector<ExperimentData> &data,
     }
 
     outputFile << experimentData.system_nnz << ",";
-    const double system_density =
-        float_dim
-            ? 1e2 * double(experimentData.system_nnz) / (float_dim * float_dim)
-            : -1;
-    outputFile << system_density << ",";
-
-    outputFile << experimentData.nnz_L << ",";
-    const double l_density =
-        float_dim && experimentData.nnz_L >= 0
-            ? 1e2 * double(experimentData.nnz_L) /
-                  (double(float_dim) * double(experimentData.system_size + 1) *
-                   0.5)
-            : -1;
-    outputFile << l_density << ",";
+    outputFile << systemDensity(experimentData) << ",";
+    outputFile << experimentData.nnz_decomposition << ",";
+    outputFile << decompositionDensity(experimentData) << ",";
     outputFile << experimentData.fill_in_factor << ",";
     outputFile << experimentData.condition << ",";
     outputFile << experimentData.solution_error << ",";
@@ -302,13 +305,18 @@ void NlaTime::reset() {
 }
 
 void ExperimentData::fillIn_LL() {
-  this->fill_in_factor =
-      double(2 * this->nnz_L - this->system_size) / double(this->system_nnz);
+  this->fill_in_factor = this->system_nnz ?
+    double(2 * this->nnz_decomposition - this->system_size) / double(this->system_nnz) : -1;
+}
+
+void ExperimentData::fillIn_LU() {
+  this->fill_in_factor = this->system_nnz ?
+      double(this->nnz_decomposition) / double(this->system_nnz) : -1;
 }
 
 void ExperimentData::fillIn_LDL() {
-  this->fill_in_factor =
-      double(2 * this->nnz_L + this->system_size) / double(this->system_nnz);
+  this->fill_in_factor = this->system_nnz ?
+      double(2 * this->nnz_decomposition + this->system_size) / double(this->system_nnz) : -1;
 }
 
 void ExperimentData::analyseTheta(const std::vector<double> &theta, const bool quiet) {
