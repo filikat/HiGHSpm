@@ -1,70 +1,21 @@
 #include "Direct.h"
 #include "IPM_caller.h"
-#include "Highs.h"
-#include "lp_data/HighsLpUtils.h"
-#include "util/HighsMatrixPic.h"
-#include "util/HighsUtils.h"
+#include "lp_data/HighsLp.h"
 #include <filesystem>
 
-bool infNormDiffOk(const std::vector<double> x0, const std::vector<double> x1) {
-  assert(x1.size() >= x0.size());
-  double norm_diff = 0;
-  for (HighsInt ix = 0; ix < HighsInt(x0.size()); ix++)
-    norm_diff = std::max(std::fabs(x0[ix] - x1[ix]), norm_diff);
-  return norm_diff < 1e-12;
-}
-
-void syntheticTheta(std::vector<double> &theta) {
-  int dim = theta.size();
-  const double theta_log10_lo = -4;
-  const double theta_log10_hi = -theta_log10_lo;
-  const double theta_log10_dl = theta_log10_hi - theta_log10_lo;
-  HighsRandom random;
-  for (int i = 0; i < dim; i++) {
-    double theta_log10 = theta_log10_lo + random.fraction() * theta_log10_dl;
-    theta[i] = std::pow(10, theta_log10);
-  }  
-}
-
+bool infNormDiffOk(const std::vector<double> x0, const std::vector<double> x1);
+void syntheticTheta(std::vector<double> &theta);
 void callNewtonSolve(ExperimentData &experiment_data,
-                    const HighsSparseMatrix &highs_a,
-                    const std::vector<double> &theta,
-                    const std::vector<double> &rhs,
-                    const std::vector<double> &exact_sol,
-                    const IpmOptions& ipm_options
-                    ) {
-                
-  const int x_dim = highs_a.num_col_;
-  const int y_dim = highs_a.num_row_;
-  experiment_data.model_num_col = x_dim;
-  experiment_data.model_num_row = y_dim;
-  std::vector<double> lhs(y_dim);
-  IpmInvert invert;
-  invert.decomposer_source = ipm_options.decomposer_source;
-  int newton_status = newtonInvert(highs_a, theta, invert,
-				   ipm_options.max_dense_col,
-                                   ipm_options.dense_col_tolerance,
-				   experiment_data, true,
-				   ipm_options.decomposer_source);
-  if (!newton_status) {
-    newton_status =
-      newtonSolve(highs_a, theta, rhs, lhs, invert, experiment_data,
-		  ipm_options.decomposer_source);
-    experiment_data.nla_time.total += experiment_data.nla_time.solve;
-    double solution_error = 0;
-    for (int ix = 0; ix < y_dim; ix++)
-      solution_error =
-        std::max(std::fabs(exact_sol[ix] - lhs[ix]), solution_error);
-    experiment_data.solution_error = solution_error;
-    experiment_data.condition = newtonCondition(highs_a, theta, invert,
-						ipm_options.decomposer_source);
-  }
-  invert.clear();
-}
+		     const HighsSparseMatrix &highs_a,
+		     const std::vector<double> &theta,
+		     const std::vector<double> &rhs,
+		     const std::vector<double> &exact_sol,
+		     const IpmOptions& ipm_options);
 
 int main(int argc, char** argv){
   IPM_caller ipm{};
-  if (!ipm.readOptionsOk(argc, argv)) return 1;
+  HighsLp lp;
+  if (!ipm.readOptionsModelOk(argc, argv, lp)) return 1;
   ipm.reportOptions();
 
   IpmOptions& ipm_options = ipm.options_;
@@ -73,79 +24,20 @@ int main(int argc, char** argv){
   int y_dim;
   HighsSparseMatrix matrix;
 
-  // read A matrix from file
-  const std::string model_file = ipm_options.model_file;
-  std::filesystem::path p(model_file);
-  std::string stem = p.stem().string();
-
-  //  std::filesystem::path dir("../../result/");
-  std::filesystem::path dir("result/");
-  std::filesystem::path full_path = dir / stem;
-  std::string new_path = full_path.string() + std::to_string(ipm_options.decomposer_source) + ".csv";
-  std::cout << "\nExperimenting with file " << model_file << "\n";
+  std::cout << "\nExperimenting with model " << ipm_options.model_name << "\n";
   std::cout.flush();
 
-  Highs highs;
-  //highs.setOptionValue("output_flag", false);
-  HighsStatus status = highs.readModel(model_file);
-  const bool presolve = ipm.options_.presolve == kHighsOnString;
-  HighsLp lp;
-  double presolve_time = -1;
-  double start_time;
-  if (presolve) {
-    start_time = getWallTime();
-    status = highs.presolve();
-    assert(status == HighsStatus::kOk);
-    lp = highs.getPresolvedLp();
-    presolve_time = getWallTime() - start_time;
-  } else {
-    lp = highs.getLp();
-    presolve_time = 0;
+  matrix = lp.a_matrix_;
+  y_dim = matrix.num_row_;
+  int nnz = matrix.numNz();
+  for (int ix = 0; ix < y_dim; ix++) {
+    matrix.start_.push_back(++nnz);
+    matrix.index_.push_back(ix);
+    matrix.value_.push_back(1);
   }
-  // Scale the LP
-  HighsOptions highs_options;
+  matrix.num_col_ += y_dim;
+  x_dim = matrix.num_col_;
 
-  highs_options.simplex_scale_strategy = kSimplexScaleStrategyMaxValue015;
-  const bool force_scaling = true;
-  scaleLp(highs_options, lp, force_scaling);
-
-
-  highs_options.simplex_scale_strategy = kSimplexScaleStrategyMaxValue015;
-  const bool scale_lp = true;
-  if (scale_lp) {
-    // Possibly force scaling (attempt) for well-scaled LPs
-    const bool force_scaling = true;
-    scaleLp(highs_options, lp, force_scaling);
-    if (lp.is_scaled_) {
-      analyseVectorValues(nullptr, "Column scale factors", lp.num_col_, lp.scale_.col);
-      analyseVectorValues(nullptr, "Row scale factors", lp.num_row_, lp.scale_.row);
-    }    
-  }
-  //  writeLpMatrixPicToFile(highs_options, "LpMatrix", lp);
-  //  analyseMatrixSparsity(highs_options.log_options, "Matrix", lp.a_matrix_.num_col_, lp.a_matrix_.num_row_, lp.a_matrix_.start_, lp.a_matrix_.index_);
-  if (status == HighsStatus::kOk) {
-    matrix = highs.getLp().a_matrix_;
-    y_dim = matrix.num_row_;
-    int nnz = matrix.numNz();
-    for (int ix = 0; ix < y_dim; ix++) {
-      matrix.start_.push_back(++nnz);
-      matrix.index_.push_back(ix);
-      matrix.value_.push_back(1);
-    }
-    matrix.num_col_ += y_dim;
-    x_dim = matrix.num_col_;
-  } else {
-    printf("HiGHS fails to read %s\n", model_file.c_str());
-    // Use a test matrix if there's no ml.mps
-    x_dim = 4;
-    y_dim = 2;
-    matrix.num_row_ = y_dim;
-    matrix.num_col_ = x_dim;
-    matrix.format_ = MatrixFormat::kRowwise;
-    matrix.start_ = {0, 3, 6};
-    matrix.index_ = {0, 1, 2, 0, 1, 3};
-    matrix.value_ = {1, 1, 1, 1, -1, 1};
-  }
   matrix.ensureColwise();
   HighsRandom random;
   const bool unit_solution = true;
@@ -218,7 +110,7 @@ int main(int argc, char** argv){
 
     ExperimentData experiment_data;
     experiment_data.reset();
-    experiment_data.model_name = ipm_options.model_file;
+    experiment_data.model_name = ipm_options.model_name;
     callNewtonSolve(experiment_data, matrix, theta, rhs_newton, y_star, ipm_options);
     std::cout << experiment_data << "\n";
     experiment_data_list.push_back(experiment_data);
@@ -231,7 +123,7 @@ int main(int argc, char** argv){
 
     ExperimentData experiment_data;
     experiment_data.reset();
-    experiment_data.model_name = ipm_options.model_file;
+    experiment_data.model_name = ipm_options.model_name;
 
     experiment_data.model_num_col = x_dim;
     experiment_data.model_num_row = y_dim;
@@ -259,7 +151,69 @@ int main(int argc, char** argv){
     experiment_data_list.push_back(experiment_data);
   }
 
+  //  std::filesystem::path p(ipm_options.model_file);
+  //  std::string stem = p.stem().string();
+  //  std::filesystem::path dir("../../result/");
+  std::filesystem::path dir("result/");
+  std::filesystem::path csv_path = dir / ipm_options.model_name;
+  std::string csv_file = csv_path.string() + std::to_string(ipm_options.decomposer_source) + ".csv";
 
-  writeDataToCSV(experiment_data_list, new_path);
+  writeDataToCSV(experiment_data_list, csv_file);
   return 0;
 }
+
+bool infNormDiffOk(const std::vector<double> x0, const std::vector<double> x1) {
+  assert(x1.size() >= x0.size());
+  double norm_diff = 0;
+  for (HighsInt ix = 0; ix < HighsInt(x0.size()); ix++)
+    norm_diff = std::max(std::fabs(x0[ix] - x1[ix]), norm_diff);
+  return norm_diff < 1e-12;
+}
+
+void syntheticTheta(std::vector<double> &theta) {
+  int dim = theta.size();
+  const double theta_log10_lo = -4;
+  const double theta_log10_hi = -theta_log10_lo;
+  const double theta_log10_dl = theta_log10_hi - theta_log10_lo;
+  HighsRandom random;
+  for (int i = 0; i < dim; i++) {
+    double theta_log10 = theta_log10_lo + random.fraction() * theta_log10_dl;
+    theta[i] = std::pow(10, theta_log10);
+  }  
+}
+
+void callNewtonSolve(ExperimentData &experiment_data,
+                    const HighsSparseMatrix &highs_a,
+                    const std::vector<double> &theta,
+                    const std::vector<double> &rhs,
+                    const std::vector<double> &exact_sol,
+                    const IpmOptions& ipm_options) {
+                
+  const int x_dim = highs_a.num_col_;
+  const int y_dim = highs_a.num_row_;
+  experiment_data.model_num_col = x_dim;
+  experiment_data.model_num_row = y_dim;
+  std::vector<double> lhs(y_dim);
+  IpmInvert invert;
+  invert.decomposer_source = ipm_options.decomposer_source;
+  int newton_status = newtonInvert(highs_a, theta, invert,
+				   ipm_options.max_dense_col,
+                                   ipm_options.dense_col_tolerance,
+				   experiment_data, true,
+				   ipm_options.decomposer_source);
+  if (!newton_status) {
+    newton_status =
+      newtonSolve(highs_a, theta, rhs, lhs, invert, experiment_data,
+		  ipm_options.decomposer_source);
+    experiment_data.nla_time.total += experiment_data.nla_time.solve;
+    double solution_error = 0;
+    for (int ix = 0; ix < y_dim; ix++)
+      solution_error =
+        std::max(std::fabs(exact_sol[ix] - lhs[ix]), solution_error);
+    experiment_data.solution_error = solution_error;
+    experiment_data.condition = newtonCondition(highs_a, theta, invert,
+						ipm_options.decomposer_source);
+  }
+  invert.clear();
+}
+

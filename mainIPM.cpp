@@ -1,7 +1,5 @@
-#include "Highs.h"
+#include "lp_data/HighsLp.h"
 #include "IPM_caller.h"
-#include "io/Filereader.h"
-#include "lp_data/HighsLpUtils.h"
 #include <cassert>
 #include <cstring> // For strchr
 #include <iostream>
@@ -19,46 +17,16 @@ enum ArgC {
 };
 
 int main(int argc, char **argv) {
+  double start_time0 = getWallTime();
   // create instance of IPM
   IPM_caller ipm{};
-
-  if (!ipm.readOptionsOk(argc, argv)) return 1;
+  HighsLp lp;
+  // ===================================================================================
+  // READ OPTIONS AND PROBLEM 
+  // ===================================================================================
+  if (!ipm.readOptionsModelOk(argc, argv, lp)) return 1;
   ipm.reportOptions();
 
-  double start_time0 = getWallTime();
-  double start_time = start_time0;
-  // ===================================================================================
-  // READ PROBLEM
-  // ===================================================================================
-
-  // Read LP using Highs MPS read
-  Highs highs;
-  //  highs.setOptionValue("output_flag", false);
-  std::string model_file = ipm.options_.model_file;
-  std::string model = extractModelName(model_file);
-  HighsStatus status = highs.readModel(model_file);
-  assert(status == HighsStatus::kOk);
-  double read_time = getWallTime() - start_time;
-  const bool presolve = ipm.options_.presolve == kHighsOnString;
-  HighsLp lp;
-  double presolve_time = -1;
-  if (presolve) {
-    start_time = getWallTime();
-    status = highs.presolve();
-    assert(status == HighsStatus::kOk);
-    lp = highs.getPresolvedLp();
-    presolve_time = getWallTime() - start_time;
-  } else {
-    lp = highs.getLp();
-    presolve_time = 0;
-  }
-  // Scale the LP
-  HighsOptions options;
-
-  options.simplex_scale_strategy = kSimplexScaleStrategyMaxValue015;
-  const bool force_scaling = true;
-  scaleLp(options, lp, force_scaling);
-  
   // ===================================================================================
   // CHANGE FORMULATION
   // ===================================================================================
@@ -74,7 +42,7 @@ int main(int argc, char **argv) {
   // ===================================================================================
 
   // Make a local copy of LP data to be modified
-  start_time = getWallTime();
+  double start_time = getWallTime();
   int n = lp.num_col_;
   int m = lp.num_row_;
   std::vector<double> obj(lp.col_cost_);
@@ -105,9 +73,6 @@ int main(int argc, char **argv) {
       }
     }
   }
-  
-
-
   int num_slacks{};
 
   // Set up constraints and rhs based on row_lower_ and row_upper_ for each
@@ -216,17 +181,17 @@ int main(int argc, char **argv) {
 	printf("Total     %5.2f (%5.1f%% optimize)\n", sum_nla_time.total, 100*sum_nla_time.total/optimize_time);
       }
     }    
-    ipm.experiment_data_record[0].model_name = model;
+    ipm.experiment_data_record[0].model_name = ipm.options_.model_name;
     ipm.experiment_data_record[0].model_num_col = lp.num_col_;
     ipm.experiment_data_record[0].model_num_row = lp.num_row_;
-    std::string csv_file_name = model + "_direct.csv";
+    std::string csv_file_name = ipm.options_.model_name + "_direct.csv";
     writeDataToCSV(ipm.experiment_data_record, csv_file_name);
   }
   if (run_time > 1e-3) {
-    double sum_time = read_time + presolve_time + setup_time + load_time + optimize_time;
+    double sum_time = ipm.read_time + ipm.presolve_time + setup_time + load_time + optimize_time;
     printf("\nTime profile\n");
-    printf("Read      %5.2f (%5.1f%% sum)\n", read_time, 100*read_time/sum_time);
-    printf("Presolve  %5.2f (%5.1f%% sum)\n", presolve_time, 100*presolve_time/sum_time);
+    printf("Read      %5.2f (%5.1f%% sum)\n", ipm.read_time, 100*ipm.read_time/sum_time);
+    printf("Presolve  %5.2f (%5.1f%% sum)\n", ipm.presolve_time, 100*ipm.presolve_time/sum_time);
     printf("Setup     %5.2f (%5.1f%% sum)\n", setup_time, 100*setup_time/sum_time);
     printf("Load      %5.2f (%5.1f%% sum)\n", load_time, 100*load_time/sum_time);
     printf("Optimize  %5.2f (%5.1f%% sum)\n", optimize_time, 100*optimize_time/sum_time);

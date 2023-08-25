@@ -30,11 +30,16 @@ public:
   // ===================================================================================
   // Run-time options
   // ===================================================================================
-  // Firstly the ones read from the command line
+  bool readOptionsModelOk(int argc, char** argv, HighsLp& lp);
+  bool readOptionsOk(int argc, char** argv);
+  void reportOptions();
+
   IpmOptions options_;
 
   // Direct solver experiment data record
   std::vector<ExperimentData> experiment_data_record;
+  double read_time;
+  double presolve_time;
 
   // ===================================================================================
   // LOAD THE PROBLEM
@@ -69,9 +74,6 @@ public:
   // SOLVE THE LP
   // ===================================================================================
   Output Solve();
-
-  bool readOptionsOk(int argc, char** argv);
-  void reportOptions();
 
 private:
   // ===================================================================================

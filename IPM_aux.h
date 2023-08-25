@@ -17,6 +17,7 @@ const std::string kDenseColToleranceCommandString = "density";
 
 struct IpmOptions {
   std::string model_file = "";
+  std::string model_name = "";
   std::string presolve = kHighsOnString;
   int decomposer_source = kOptionDecomposerSourceDefault;
   int nla = kOptionNlaDefault;

@@ -46,13 +46,13 @@ COMPILER_FLAGS="-g -fopenmp"
 #COMPILER_PREPROCESS="-DHAVE_SPRAL  -DHAVE_QDLDL -DHAVE_CHOLMOD -DHAVE_MA86"
 COMPILER_PREPROCESS="-DHAVE_SPRAL"
 
-# Define source file - that might change
-MAIN_FILE=testSolve.cpp
-#MAIN_FILE=mainIPM.cpp
+OUTPUT_FILE=a.out
+
+MAIN_FILE=mainIPM.cpp; echo "Compiling ProtoIPM"
+#MAIN_FILE=testSolve.cpp; echo "Compiling testSolve"
 
 SOURCE_FILE="IPM_caller.cpp IPM_model.cpp NormalEquations.cpp ConjugateGradient.cpp Direct.cpp VectorOperations.cpp IPM_aux.cpp ExperimentData.cpp"
 
-OUTPUT_FILE=a.out
 rm $OUTPUT_FILE
 
 # Compile

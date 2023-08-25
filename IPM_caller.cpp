@@ -1,7 +1,11 @@
 #include "IPM_caller.h"
+#include "io/Filereader.h"
+#include "lp_data/HighsLpUtils.h"
+#include "util/HighsMatrixPic.h"
 #include <cassert>
 #include <cmath>
 #include <iostream>
+#include <filesystem>
 
 #include <boost/program_options.hpp>
 namespace po = boost::program_options;
@@ -416,6 +420,46 @@ void IPM_caller::ComputeResiduals_56(const double sigmaMu,
   }
 }
 
+bool IPM_caller::readOptionsModelOk(int argc, char** argv, HighsLp& lp) {
+  if (!readOptionsOk(argc, argv)) return false;
+  double start_time =  getWallTime();
+  // Read LP using Highs MPS read
+  Highs highs;
+  //  highs.setOptionValue("output_flag", false);
+  std::string model_file = this->options_.model_file;
+  std::string model = extractModelName(model_file);
+  if (highs.readModel(model_file) != HighsStatus::kOk) return false;
+  this->read_time = getWallTime() - start_time;
+  const bool presolve = this->options_.presolve == kHighsOnString;
+  this->presolve_time = -1;
+  if (presolve) {
+    start_time = getWallTime();
+    if (highs.presolve() != HighsStatus::kOk) return false;
+    lp = highs.getPresolvedLp();
+    if (lp.num_col_ == 0 || lp.num_row_ == 0) return true;
+    this->presolve_time = getWallTime() - start_time;
+  } else {
+    lp = highs.getLp();
+    this->presolve_time = 0;
+  }
+  // Scale the LP
+  HighsOptions highs_options;
+
+  highs_options.simplex_scale_strategy = kSimplexScaleStrategyMaxValue015;
+  const bool force_scaling = true;
+  scaleLp(highs_options, lp, force_scaling);
+  const bool analyse = false;
+  if (analyse) {
+    if (lp.is_scaled_) {
+      analyseVectorValues(nullptr, "Column scale factors", lp.num_col_, lp.scale_.col);
+      analyseVectorValues(nullptr, "Row scale factors", lp.num_row_, lp.scale_.row);
+    }    
+    writeLpMatrixPicToFile(highs_options, this->options_.model_name, lp);
+    analyseMatrixSparsity(highs_options.log_options, "Matrix", lp.a_matrix_.num_col_, lp.a_matrix_.num_row_, lp.a_matrix_.start_, lp.a_matrix_.index_);
+  }
+  return true;
+}
+
 bool IPM_caller::readOptionsOk(int argc, char** argv) {
   po::options_description desc("Allowed options");
   desc.add_options()
@@ -430,7 +474,12 @@ bool IPM_caller::readOptionsOk(int argc, char** argv) {
   ;
 
   po::variables_map vm;
-  po::store(po::parse_command_line(argc, argv, desc), vm);
+  try {
+    po::store(po::parse_command_line(argc, argv, desc), vm);
+  } catch (const boost::wrapexcept<boost::program_options::unknown_option>) {
+    std::cerr << "Unknown option in command line\n";
+    return false;
+  }
   po::notify(vm);    
 
   if (vm.count("help")) {
@@ -440,11 +489,20 @@ bool IPM_caller::readOptionsOk(int argc, char** argv) {
 
   IpmOptions& options = this->options_;
 
+  std::string model_file = "";
   if (vm.count(kModelFileCommandString)) {
-    std::string value = vm[kModelFileCommandString].as<std::string>();
-    options.model_file = value;
+    model_file = vm[kModelFileCommandString].as<std::string>();
+    if (model_file == "") {
+      std::cout << "Model file is empty. Exiting...\n";
+      return false;
+    }
+    std::filesystem::path p(model_file);
+    std::string stem = p.stem().string();
+    std::string model_name = stem.substr(0, stem.find_first_of("."));
+    options.model_file = model_file;
+    options.model_name = model_name;
   } else {
-    std::cout << "Model was not set. Exiting...\n";
+    std::cout << "Model file was not set. Exiting...\n";
     return false;
   }
 
@@ -523,6 +581,7 @@ void IPM_caller::reportOptions() {
   IpmOptions& options = this->options_;
   std::cout << "Option settings\n";
   std::cout << "Model file:                  " << options.model_file << "\n";
+  std::cout << "Model name:                  " << options.model_name << "\n";
   std::cout << "Presolve:                    " << options.presolve << "\n";
   std::cout << "Decomposer:                  " << decomposerSource(options.decomposer_source) << "\n";
   std::cout << "NLA option:                  ";
