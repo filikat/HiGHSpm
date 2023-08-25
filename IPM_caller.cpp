@@ -197,6 +197,7 @@ Output IPM_caller::Solve() {
 
     // Clear any existing INVERT now that scaling has changed
     invert.clear();
+    invert.decomposer_source = this->options_.decomposer_source;
 
     //    printf("grep %d & %3.1f & %3.1f & %5.1g & %5.1g & %5.1g & %5.1g\n",
     //	   iter, It.x[0],It.x[1],1/scaling[0],1/scaling[1],1/scaling[2],1/scaling[3]);
@@ -717,7 +718,7 @@ int IPM_caller::SolveNewtonSystem(const HighsSparseMatrix &highs_a,
   const bool first_call_with_theta = !invert.valid;
   ExperimentData experiment_data;
   experiment_data.reset();
-  if (first_call_with_theta) experiment_data.analyseTheta(theta, false);
+  if (first_call_with_theta) experiment_data.analyseTheta(theta);
   if (use_cg || use_direct_newton) {
     // Have to solve the Newton system
     //

@@ -1,3 +1,4 @@
+#include "IPM_aux.h"
 #include "ExperimentData.h"
 #include "Direct.h"
 #include <iomanip>
@@ -20,7 +21,7 @@ double decompositionDensity(const ExperimentData &data) {
   if (data.system_size <= 0 || data.nnz_decomposition < 0) return -1;
   double density = -1;
   double full_decomposition = -1;
-  if (data.decomposer == "HiGHS") {
+  if (data.decomposer_source == kOptionDecomposerSourceHighs) {
     full_decomposition =
       double(data.system_size) * double(data.system_size);
   } else {
@@ -70,7 +71,7 @@ std::ostream &operator<<(std::ostream &os, const ExperimentData &data) {
   } else {
     os << std::left << std::setw(text_width) << "Augmented system: ";
   }
-  os << std::right << std::setw(num_width) << data.decomposer << "\n";
+  os << std::right << std::setw(num_width) << decomposerSource(data.decomposer_source) << "\n";
 
   os << std::fixed << std::setprecision(two_dp);
   if (data.system_type == kSystemTypeNewton) {
@@ -209,7 +210,7 @@ void writeDataToCSV(const std::vector<ExperimentData> &data,
     record++;
     outputFile << "Grep,";
     outputFile << record << ",";
-    outputFile << experimentData.decomposer << ",";
+    outputFile << decomposerSource(data[0].decomposer_source) << ",";
     outputFile << data[0].model_name << ",";
     outputFile << data[0].system_size << ",";
     outputFile << experimentData.theta_min << ",";

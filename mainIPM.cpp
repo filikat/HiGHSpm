@@ -184,7 +184,8 @@ int main(int argc, char **argv) {
     ipm.experiment_data_record[0].model_name = ipm.options_.model_name;
     ipm.experiment_data_record[0].model_num_col = lp.num_col_;
     ipm.experiment_data_record[0].model_num_row = lp.num_row_;
-    std::string csv_file_name = ipm.options_.model_name + "_direct.csv";
+    std::string csv_file_name = "result/" +
+      ipm.options_.model_name + "_" + decomposerSource(ipm.options_.decomposer_source) + ".csv";
     writeDataToCSV(ipm.experiment_data_record, csv_file_name);
   }
   if (run_time > 1e-3) {

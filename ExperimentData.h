@@ -24,7 +24,7 @@ struct NlaTime {
 
 class ExperimentData {
 public: 
-  std::string decomposer;
+  int decomposer_source;
   std::string model_name;
   int model_num_col;
   int model_num_row;
@@ -59,7 +59,7 @@ public:
   int invert_status;
 
   void reset() {
-    decomposer = "na";
+    decomposer_source = kDataNotSet;
     model_num_col = kDataNotSet;
     model_num_row = kDataNotSet;
     model_num_dense_col = kDataNotSet;

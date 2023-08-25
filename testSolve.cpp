@@ -131,10 +131,10 @@ int main(int argc, char** argv){
     invert.decomposer_source = ipm_options.decomposer_source;
 
     int augmented_status =
-        augmentedInvert(matrix, theta, invert, experiment_data, ipm_options.decomposer_source);
+        augmentedInvert(matrix, theta, invert, experiment_data);
     if (!augmented_status) {
       augmentedSolve(matrix, theta, rhs_x, rhs_y, lhs_x, lhs_y, invert,
-		     experiment_data, ipm_options.decomposer_source);
+		     experiment_data);
       experiment_data.nla_time.total += experiment_data.nla_time.solve;
       double solution_error = 0;
       for (int ix = 0; ix < x_dim; ix++)
@@ -144,7 +144,7 @@ int main(int argc, char** argv){
 	solution_error =
           std::max(std::fabs(y_star[ix] - lhs_y[ix]), solution_error);
       experiment_data.solution_error = solution_error;
-      experiment_data.condition = augmentedCondition(matrix, theta, invert, ipm_options.decomposer_source);
+      experiment_data.condition = augmentedCondition(matrix, theta, invert);
     }
     invert.clear();
     std::cout << experiment_data << "\n";
@@ -199,8 +199,7 @@ void callNewtonSolve(ExperimentData &experiment_data,
   int newton_status = newtonInvert(highs_a, theta, invert,
 				   ipm_options.max_dense_col,
                                    ipm_options.dense_col_tolerance,
-				   experiment_data, true,
-				   ipm_options.decomposer_source);
+				   experiment_data, true);
   if (!newton_status) {
     newton_status =
       newtonSolve(highs_a, theta, rhs, lhs, invert, experiment_data,
@@ -211,8 +210,7 @@ void callNewtonSolve(ExperimentData &experiment_data,
       solution_error =
         std::max(std::fabs(exact_sol[ix] - lhs[ix]), solution_error);
     experiment_data.solution_error = solution_error;
-    experiment_data.condition = newtonCondition(highs_a, theta, invert,
-						ipm_options.decomposer_source);
+    experiment_data.condition = newtonCondition(highs_a, theta, invert);
   }
   invert.clear();
 }

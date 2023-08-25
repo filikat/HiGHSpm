@@ -109,20 +109,17 @@ void chooseDenseColumns(const HighsSparseMatrix &highs_a,
 
 int augmentedInvert(const HighsSparseMatrix &highs_a,
                     const std::vector<double> &theta, IpmInvert &invert,
-                    ExperimentData &experiment_data,
-		                const int solver_type = 1);
+                    ExperimentData &experiment_data);
 
 void augmentedSolve(const HighsSparseMatrix &highs_a,
                     const std::vector<double> &theta,
                     const std::vector<double> &rhs_x,
                     const std::vector<double> &rhs_y,
                     std::vector<double> &lhs_x, std::vector<double> &lhs_y,
-                    IpmInvert &invert, ExperimentData &experiment_data,
-                    const int solver_type = 1);
+                    IpmInvert &invert, ExperimentData &experiment_data);
 
 double augmentedCondition(const HighsSparseMatrix &matrix,
-                          const std::vector<double> &theta, IpmInvert &invert,
-                          const int solver_type = 1);
+                          const std::vector<double> &theta, IpmInvert &invert);
 
 int newtonInvert(const HighsSparseMatrix &highs_a,
 		 const std::vector<double> &theta,
@@ -130,18 +127,15 @@ int newtonInvert(const HighsSparseMatrix &highs_a,
 		 const int option_max_dense_col,
 		 const double option_dense_col_tolerance,
 		 ExperimentData& experiment_data,
-		 const bool quiet = true,
-		 const int solver_type = 1);
+		 const bool quiet = true);
 
 int newtonSolve(const HighsSparseMatrix &highs_a,
                 const std::vector<double> &theta,
                 const std::vector<double> &rhs, std::vector<double> &lhs,
-                IpmInvert &invert, ExperimentData &experiment_data,
-                const int &solver_type = 1);
+                IpmInvert &invert, ExperimentData &experiment_data);
 
 double newtonCondition(const HighsSparseMatrix &matrix,
-                       const std::vector<double> &theta, IpmInvert &invert, 
-                       const int &solver_type = 1);
+                       const std::vector<double> &theta, IpmInvert &invert);
 
 bool increasingIndex(const HighsSparseMatrix &matrix);
 void productAThetaAT(const HighsSparseMatrix &matrix,
