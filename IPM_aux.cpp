@@ -78,3 +78,12 @@ std::string decomposerSource(int decomposer_source) {
   } 
 }
 
+std::string systemSolved(int nla) {
+  assert(nla >= kOptionNlaMin &&
+	 nla <= kOptionNlaMax);
+  if (nla == kOptionNlaCg || nla == kOptionNlaNewton || nla == kOptionNlaNewtonCg) {
+    return "Newton";
+  } else {
+    return "Augmented";
+  }
+}

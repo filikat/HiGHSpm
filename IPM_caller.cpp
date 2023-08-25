@@ -587,15 +587,15 @@ void IPM_caller::reportOptions() {
   std::cout << "Decomposer:                  " << decomposerSource(options.decomposer_source) << "\n";
   std::cout << "NLA option:                  ";
   if (options.nla == kOptionNlaCg) {
-    std::cout << "CG\n";
+    std::cout << "Newton: CG\n";
   } else if (options.nla == kOptionNlaAugmented) {
-    std::cout << "Augmented\n";
+    std::cout << "Augmented: direct\n";
   } else if (options.nla == kOptionNlaNewton) {
-    std::cout << "Newton\n";
+    std::cout << "Newton: direct\n";
   } else if (options.nla == kOptionNlaAugmentedCg) {
-    std::cout << "Augmented + CG\n";
+    std::cout << "Augmented: direct + CG\n";
   } else if (options.nla == kOptionNlaNewtonCg) {
-    std::cout << "Newton + CG\n";
+    std::cout << "Newton: direct + CG\n";
   } 
   std::cout << "Predictor-corrector:         " << options.predcor << "\n";
   std::cout << "Max number of dense columns: " << options.max_dense_col << "\n";

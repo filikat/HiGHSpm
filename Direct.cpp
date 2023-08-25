@@ -111,7 +111,7 @@ void chooseDenseColumns(const HighsSparseMatrix &highs_a,
     if (is_dense[iCol]) continue;
     max_sparse_theta = std::max(theta[iCol], max_sparse_theta);
   }
-  const bool check_num_ok_sparse_theta = false;//true;//
+  const bool check_num_ok_sparse_theta = true;//false;//
   if (check_num_ok_sparse_theta) {
     double ok_sparse_theta = max_sparse_theta * ok_theta_relative_tolerance;
     for (;;) {
@@ -139,7 +139,6 @@ void chooseDenseColumns(const HighsSparseMatrix &highs_a,
 	  int col_nz = highs_a.start_[iCol + 1] - highs_a.start_[iCol];
 	  double density_value = double(col_nz) / double(system_size);
 	  max_sparse_col_density = std::max(density_value, max_sparse_col_density);
-	  printf("Eliminate dense column %d of density %g\n", iCol, density_value);
 	} else {
 	  new_dense_col.push_back(iCol);
 	}
@@ -680,7 +679,6 @@ void productAThetaAT(const HighsSparseMatrix &matrix,
 int computeAThetaAT(const HighsSparseMatrix &matrix,
 		    const std::vector<double> &theta,
 		    HighsSparseMatrix& AAT,
-		    const int method,
 		    const int max_num_nz) {
   // Create a row-wise copy of the matrix
   HighsSparseMatrix AT = matrix;
@@ -700,102 +698,49 @@ int computeAThetaAT(const HighsSparseMatrix &matrix,
 
   // First pass to calculate the number of non-zero elements in each column
   //
-  if (method == 0) {
-    std::vector<double> matrix_row(matrix.num_col_, 0);
-    for (int iRow = 0; iRow < AAT_dim; iRow++) {
-      for (int iEl = AT.start_[iRow]; iEl < AT.start_[iRow + 1]; iEl++)
-        matrix_row[AT.index_[iEl]] = AT.value_[iEl];
-      for (int iCol = iRow; iCol < AAT_dim; iCol++) {
-        double dot = 0.0;
-        for (int iEl = AT.start_[iCol]; iEl < AT.start_[iCol + 1]; iEl++) {
-          const int ix = AT.index_[iEl];
-          const double theta_i = !theta.empty() ? theta[ix] : 1;
-          dot += theta_i * matrix_row[ix] * AT.value_[iEl];
-        }
-        if (dot != 0.0) {
-          non_zero_values.emplace_back(iRow, iCol, dot);
-          AAT.start_[iRow + 1]++;
-          if (iRow != iCol)
-            AAT.start_[iCol + 1]++;
-        }
-      }
-      for (int iEl = AT.start_[iRow]; iEl < AT.start_[iRow + 1]; iEl++)
-        matrix_row[AT.index_[iEl]] = 0;
-      for (int ix = 0; ix < matrix.num_col_; ix++)
-        assert(!matrix_row[ix]);
-    }
-  } else if (method == 1) {
-    int AAT_num_nz = 0;
-    std::vector<double> AAT_col_value(AAT_dim, 0);
-    std::vector<int> AAT_col_index(AAT_dim);
-    std::vector<bool> AAT_col_in_index(AAT_dim, false);
-    for (int iRow = 0; iRow < AAT_dim; iRow++) {
-      // Go along the row of A, and then down the columns corresponding
-      // to its nonzeros
-      int num_col_el = 0;
-      for (int iRowEl = AT.start_[iRow]; iRowEl < AT.start_[iRow + 1]; iRowEl++) {
-	int iCol = AT.index_[iRowEl];
-	const double theta_value = !theta.empty() ? theta[iCol] : 1;
-	if (!theta_value) continue;
-	const double row_value = theta_value * AT.value_[iRowEl];
-	for (int iColEl = matrix.start_[iCol]; iColEl < matrix.start_[iCol + 1]; iColEl++) {
-	  int iRow1 = matrix.index_[iColEl];
-	  if (iRow1 < iRow) continue;
-	  double term = row_value * matrix.value_[iColEl];
-	  if (!AAT_col_in_index[iRow1]) {
-	    // This entry is not yet in the list of possible nonzeros
-	    AAT_col_in_index[iRow1] = true;
-	    AAT_col_index[num_col_el++] = iRow1;
-	    AAT_col_value[iRow1] = term;
-	  } else {
-	    // This entry is in the list of possible nonzeros
-	    AAT_col_value[iRow1] += term;
-	  }
+  int AAT_num_nz = 0;
+  std::vector<double> AAT_col_value(AAT_dim, 0);
+  std::vector<int> AAT_col_index(AAT_dim);
+  std::vector<bool> AAT_col_in_index(AAT_dim, false);
+  for (int iRow = 0; iRow < AAT_dim; iRow++) {
+    // Go along the row of A, and then down the columns corresponding
+    // to its nonzeros
+    int num_col_el = 0;
+    for (int iRowEl = AT.start_[iRow]; iRowEl < AT.start_[iRow + 1]; iRowEl++) {
+      int iCol = AT.index_[iRowEl];
+      const double theta_value = !theta.empty() ? theta[iCol] : 1;
+      if (!theta_value) continue;
+      const double row_value = theta_value * AT.value_[iRowEl];
+      for (int iColEl = matrix.start_[iCol]; iColEl < matrix.start_[iCol + 1]; iColEl++) {
+	int iRow1 = matrix.index_[iColEl];
+	if (iRow1 < iRow) continue;
+	double term = row_value * matrix.value_[iColEl];
+	if (!AAT_col_in_index[iRow1]) {
+	  // This entry is not yet in the list of possible nonzeros
+	  AAT_col_in_index[iRow1] = true;
+	  AAT_col_index[num_col_el++] = iRow1;
+	  AAT_col_value[iRow1] = term;
+	} else {
+	  // This entry is in the list of possible nonzeros
+	  AAT_col_value[iRow1] += term;
 	}
       }
-      for (int iEl = 0; iEl < num_col_el; iEl++) {
-	int iCol = AAT_col_index[iEl];
-	assert(iCol >= iRow);
-	const double value = AAT_col_value[iCol];
-	if (std::abs(value) > 1e-10) {
-	  non_zero_values.emplace_back(iRow, iCol, value);
-	  const int num_new_nz = iRow != iCol ? 2 : 1;
-	  if (AAT_num_nz + num_new_nz >= max_num_nz) return kDecomposerStatusErrorOom;
-	  AAT.start_[iRow + 1]++;
-	  if (iRow != iCol)
-	    AAT.start_[iCol + 1]++;
-	  AAT_num_nz += num_new_nz;
-	}
-	AAT_col_value[iCol] = 0; // Not strictly necessary, but simplifies debugging
-	AAT_col_in_index[iCol] = false;
-      }
     }
-  } else {
-    assert(increasingIndex(AT));
-    for (int i = 0; i < AAT_dim; ++i) {
-      for (int j = i; j < AAT_dim; ++j) {
-        double dot = 0.0;
-        int k = AT.start_[i];
-        int l = AT.start_[j];
-        while (k < AT.start_[i + 1] && l < AT.start_[j + 1]) {
-          if (AT.index_[k] < AT.index_[l]) {
-            ++k;
-          } else if (AT.index_[k] > AT.index_[l]) {
-            ++l;
-          } else {
-            const double theta_i = !theta.empty() ? theta[AT.index_[k]] : 1;
-            dot += theta_i * AT.value_[k] * AT.value_[l];
-            ++k;
-            ++l;
-          }
-        }
-        if (dot != 0.0) {
-          non_zero_values.emplace_back(i, j, dot);
-          AAT.start_[i + 1]++;
-          if (i != j)
-            AAT.start_[j + 1]++;
-        }
+    for (int iEl = 0; iEl < num_col_el; iEl++) {
+      int iCol = AAT_col_index[iEl];
+      assert(iCol >= iRow);
+      const double value = AAT_col_value[iCol];
+      if (std::abs(value) > 1e-10) {
+	non_zero_values.emplace_back(iRow, iCol, value);
+	const int num_new_nz = iRow != iCol ? 2 : 1;
+	if (AAT_num_nz + num_new_nz >= max_num_nz) return kDecomposerStatusErrorOom;
+	AAT.start_[iRow + 1]++;
+	if (iRow != iCol)
+	  AAT.start_[iCol + 1]++;
+	AAT_num_nz += num_new_nz;
       }
+      AAT_col_value[iCol] = 0; // Not strictly necessary, but simplifies debugging
+      AAT_col_in_index[iCol] = false;
     }
   }
 

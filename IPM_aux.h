@@ -30,6 +30,7 @@ struct IpmOptions {
 };
 
 std::string decomposerSource(int decomposer_source);
+std::string systemSolved(int nla);
 
 // =======================================================================
 // RESIDUALS

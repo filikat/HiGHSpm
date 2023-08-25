@@ -3,6 +3,7 @@
 #include <cassert>
 #include <cstring> // For strchr
 #include <iostream>
+//#include <fstream>
 #include <boost/program_options.hpp>
 namespace po = boost::program_options;
 
@@ -162,21 +163,22 @@ int main(int argc, char **argv) {
   double optimize_time = getWallTime() - start_time;
 
   double run_time = getWallTime() - start_time0;
+  double sum_time = ipm.read_time + ipm.presolve_time + setup_time + load_time + optimize_time;
 
   if (!ipm.experiment_data_record.empty()) {
     NlaTime sum_nla_time = sumNlaTime(ipm.experiment_data_record);
+    double sum_sum_nla_time =
+      sum_nla_time.form + sum_nla_time.setup +
+      sum_nla_time.analysis + sum_nla_time.factorization +
+      sum_nla_time.solve;
     if (sum_nla_time.total > 1e-3) {
-      double sum_time =
-	sum_nla_time.form + sum_nla_time.setup +
-	sum_nla_time.analysis + sum_nla_time.factorization +
-	sum_nla_time.solve;
-      assert(sum_time>0);
-      if (sum_time>0) {
+      assert(sum_sum_nla_time>0);
+      if (sum_sum_nla_time>0) {
 	printf("NLA time profile\n");
-	printf("Form      %5.2f (%5.1f%% sum)\n", sum_nla_time.form, 100*sum_nla_time.form/sum_time);
-	printf("Setup     %5.2f (%5.1f%% sum)\n", sum_nla_time.setup, 100*sum_nla_time.setup/sum_time);
-	printf("Analyse   %5.2f (%5.1f%% sum)\n", sum_nla_time.analysis, 100*sum_nla_time.analysis/sum_time);
-	printf("Factorize %5.2f (%5.1f%% sum)\n", sum_nla_time.factorization, 100*sum_nla_time.factorization/sum_time);
+	printf("Form      %5.2f (%5.1f%% sum)\n", sum_nla_time.form, 100*sum_nla_time.form/sum_sum_nla_time);
+	printf("Setup     %5.2f (%5.1f%% sum)\n", sum_nla_time.setup, 100*sum_nla_time.setup/sum_sum_nla_time);
+	printf("Analyse   %5.2f (%5.1f%% sum)\n", sum_nla_time.analysis, 100*sum_nla_time.analysis/sum_sum_nla_time);
+	printf("Factorize %5.2f (%5.1f%% sum)\n", sum_nla_time.factorization, 100*sum_nla_time.factorization/sum_sum_nla_time);
 	printf("Solve     %5.2f (%5.1f%% sum)\n", sum_nla_time.solve, 100*sum_nla_time.solve/sum_nla_time.total);
 	printf("Total     %5.2f (%5.1f%% optimize)\n", sum_nla_time.total, 100*sum_nla_time.total/optimize_time);
       }
@@ -184,12 +186,37 @@ int main(int argc, char **argv) {
     ipm.experiment_data_record[0].model_name = ipm.options_.model_name;
     ipm.experiment_data_record[0].model_num_col = lp.num_col_;
     ipm.experiment_data_record[0].model_num_row = lp.num_row_;
-    std::string csv_file_name = "result/" +
-      ipm.options_.model_name + "_" + decomposerSource(ipm.options_.decomposer_source) + ".csv";
+    std::string csv_file_name = "result/" + ipm.options_.model_name +
+      "_" + decomposerSource(ipm.options_.decomposer_source) +
+      "_" + systemSolved(ipm.options_.nla) +
+      ".csv";
     writeDataToCSV(ipm.experiment_data_record, csv_file_name);
+    std::ofstream outputFile;
+    outputFile.open(csv_file_name, std::ios_base::app);
+    if (sum_nla_time.total > 1e-3) {
+      assert(sum_sum_nla_time>0);
+      if (sum_sum_nla_time>0) {
+	outputFile << "NLA time,Time,%\n";
+	outputFile << "Form      ," << sum_nla_time.form << "," << 100*sum_nla_time.form/sum_sum_nla_time << "\n";
+	outputFile << "Setup     ," << sum_nla_time.setup << "," << 100*sum_nla_time.setup/sum_sum_nla_time << "\n";
+	outputFile << "Analyse   ," << sum_nla_time.analysis << "," << 100*sum_nla_time.analysis/sum_sum_nla_time << "\n";
+	outputFile << "Factorize ," << sum_nla_time.factorization << "," << 100*sum_nla_time.factorization/sum_sum_nla_time << "\n";
+	outputFile << "Solve     ," << sum_nla_time.solve << "," << 100*sum_nla_time.solve/sum_nla_time.total << "\n";
+	outputFile << "Total     ," << sum_nla_time.total << "," << 100*sum_nla_time.total/optimize_time << "\n";
+      }
+    }    
+    if (run_time > 1e-3) {
+      outputFile << "\nRun time,Time,%\n";
+      outputFile << "Read      ," << ipm.read_time << "," << 100*ipm.read_time/sum_time << "\n";
+      outputFile << "Presolve  ," << ipm.presolve_time << "," << 100*ipm.presolve_time/sum_time << "\n";
+      outputFile << "Setup     ," << setup_time << "," << 100*setup_time/sum_time << "\n";
+      outputFile << "Load      ," << load_time << "," << 100*load_time/sum_time << "\n";
+      outputFile << "Optimize  ," << optimize_time << "," << 100*optimize_time/sum_time << "\n";
+      outputFile << "Sum       ," << sum_time << "," << 100*sum_time/run_time << "\n";
+      outputFile << "Run       ," << run_time << "\n";
+    }
   }
   if (run_time > 1e-3) {
-    double sum_time = ipm.read_time + ipm.presolve_time + setup_time + load_time + optimize_time;
     printf("\nTime profile\n");
     printf("Read      %5.2f (%5.1f%% sum)\n", ipm.read_time, 100*ipm.read_time/sum_time);
     printf("Presolve  %5.2f (%5.1f%% sum)\n", ipm.presolve_time, 100*ipm.presolve_time/sum_time);

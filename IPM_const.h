@@ -18,7 +18,7 @@ enum OptionNla {
   kOptionNlaAugmentedCg, // 3
   kOptionNlaNewtonCg,    // 4
   kOptionNlaMax = kOptionNlaNewtonCg,
-  kOptionNlaDefault = kOptionNlaCg
+  kOptionNlaDefault = kOptionNlaAugmented
 };
 
 enum OptionMaxDenseCol {
