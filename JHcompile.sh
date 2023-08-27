@@ -48,8 +48,8 @@ COMPILER_PREPROCESS="-DHAVE_SPRAL"
 
 OUTPUT_FILE=a.out
 
-#MAIN_FILE=mainIPM.cpp; echo "Compiling ProtoIPM"
-MAIN_FILE=testSolve.cpp; echo "Compiling testSolve"
+MAIN_FILE=mainIPM.cpp; echo "Compiling ProtoIPM"
+#MAIN_FILE=testSolve.cpp; echo "Compiling testSolve"
 
 SOURCE_FILE="IPM_caller.cpp IPM_model.cpp NormalEquations.cpp ConjugateGradient.cpp Direct.cpp VectorOperations.cpp IPM_aux.cpp ExperimentData.cpp"
 

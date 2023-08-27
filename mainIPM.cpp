@@ -167,8 +167,10 @@ ipm.Load(n, m, obj.data(), rhs.data(), lower.data(), upper.data(),
 
   std::string csv_file_name = "result/" + ipm.options_.model_name +
     "_" + decomposerSource(ipm.options_.decomposer_source) +
-    "_" + systemSolved(ipm.options_.nla) +
-    ".csv";
+    "_" + systemSolved(ipm.options_.nla);
+  if (ipm.options_.nla == kOptionNlaNewton)
+    csv_file_name += ("_" + std::to_string(ipm.options_.max_dense_col));
+  csv_file_name += ".csv";
   std::ofstream output_stream;
 
   output_stream.open(csv_file_name);
