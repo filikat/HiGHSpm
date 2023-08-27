@@ -97,8 +97,10 @@ double getWallTime();
 
 std::ostream &operator<<(std::ostream &os, const ExperimentData &data);
 NlaTime sumNlaTime(const std::vector<ExperimentData> &experiment_data);
-void writeDataToCSV(const std::vector<ExperimentData> &data,
-                    const std::string &filename);
+void writeModelDataToCsv(const ExperimentData &data,
+			 std::ofstream& output_stream);
+void writeNlaDataToCsv(const std::vector<ExperimentData> &data,
+		       std::ofstream& output_stream);
 std::pair<double, double> residualErrorAugmented(
     const HighsSparseMatrix &A, const std::vector<double> &theta,
     const std::vector<double> &rhs_x, const std::vector<double> &rhs_y,

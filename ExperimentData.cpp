@@ -171,84 +171,77 @@ NlaTime sumNlaTime(const std::vector<ExperimentData> &experiment_data) {
   return sum_nla_time; 
 }
 
-void writeDataToCSV(const std::vector<ExperimentData> &data,
-                    const std::string &filename) {
+void writeModelDataToCsv(const ExperimentData &data,
+			 std::ofstream& output_stream) {
+  output_stream << "Model," << data.model_name << "\n";
+  output_stream << "Num col," << data.model_num_col << "\n";
+  output_stream << "Num row," << data.model_num_row << "\n";
+  output_stream << "Max dense col," << data.model_max_dense_col << "\n";
+  output_stream << "Num dense col," << data.model_num_dense_col << "\n";
+}
+
+void writeNlaDataToCsv(const std::vector<ExperimentData> &data,
+		       std::ofstream& output_stream) {
   if (data.empty())
     return;
 
-  std::ofstream outputFile;
-
-  outputFile.open(filename);
-  if (!outputFile)
-  throw std::runtime_error("Cannot open file " + filename);
-
-  const int system_type = data[0].system_type;
-  outputFile << "Model," << data[0].model_name << "\n";
-  outputFile << "Num col," << data[0].model_num_col << "\n";
-  outputFile << "Num row," << data[0].model_num_row << "\n";
-  if (system_type == kSystemTypeNewton) {
-    outputFile << "max dense col," << data[0].model_max_dense_col << "\n";
-    outputFile << "num dense col," << data[0].model_num_dense_col << "\n";
-    outputFile << "dense col tolerance," << data[0].dense_col_tolerance << "\n";
-  }
+  int system_type = data[0].system_type;
 
   // Write header
-  outputFile << "Grep,Record,Decomposer,Model,System size,Min Theta,Max Theta,";
+  output_stream << "Grep,Record,Decomposer,Model,System size,Min Theta,Max Theta,";
   if (system_type == kSystemTypeNewton) {
-    outputFile << "Num dense col,System max dense col,Surplus large Theta,AAT NNZ,(%),";
+    output_stream << "Num dense col,System max dense col,Surplus large Theta,AAT NNZ,(%),";
   } else {
-    outputFile << "System NNZ,(%),";
+    output_stream << "System NNZ,(%),";
   }
-  outputFile << "Decomposition NNZ,(%),Fill factor,Condition,Solution Error,Abs residual "
+  output_stream << "Decomposition NNZ,(%),Fill factor,Condition,Solution Error,Abs residual "
                 "error,Rel residual error,";
-  outputFile << "Time Taken, Form time, Setup time, Analyse time, "
+  output_stream << "Time Taken, Form time, Setup time, Analyse time, "
                 "Factorization time, Solve time\n";
 
   // Write data
   int record=0;
   for (const auto &experimentData : data) {
     record++;
-    outputFile << "Grep,";
-    outputFile << record << ",";
-    outputFile << decomposerSource(data[0].decomposer_source) << ",";
-    outputFile << data[0].model_name << ",";
-    outputFile << data[0].system_size << ",";
-    outputFile << experimentData.theta_min << ",";
-    outputFile << experimentData.theta_max << ",";
+    output_stream << "Grep,";
+    output_stream << record << ",";
+    output_stream << decomposerSource(data[0].decomposer_source) << ",";
+    output_stream << data[0].model_name << ",";
+    output_stream << data[0].system_size << ",";
+    output_stream << experimentData.theta_min << ",";
+    output_stream << experimentData.theta_max << ",";
     if (experimentData.system_type != system_type) break;
     double float_dim = double(experimentData.system_size);
     if (system_type == kSystemTypeNewton) {
-      outputFile << experimentData.use_num_dense_col << ",";
-      outputFile << experimentData.system_max_dense_col << ",";
-      outputFile << experimentData.theta_num_large - experimentData.system_size << ",";
+      output_stream << experimentData.use_num_dense_col << ",";
+      output_stream << experimentData.system_max_dense_col << ",";
+      output_stream << experimentData.theta_num_large - experimentData.system_size << ",";
     }
 
     if (experimentData.invert_status < 0) {
-      outputFile << "CG only\n";
+      output_stream << "CG only\n";
       continue;
     } else if (experimentData.invert_status > 0) {
-      outputFile << "Failure," << experimentData.invert_status << "\n";
+      output_stream << "Failure," << experimentData.invert_status << "\n";
       continue;
     }
 
-    outputFile << experimentData.system_nnz << ",";
-    outputFile << systemDensity(experimentData) << ",";
-    outputFile << experimentData.nnz_decomposition << ",";
-    outputFile << decompositionDensity(experimentData) << ",";
-    outputFile << experimentData.fill_in_factor << ",";
-    outputFile << experimentData.condition << ",";
-    outputFile << experimentData.solution_error << ",";
-    outputFile << experimentData.residual_error.first << ",";
-    outputFile << experimentData.residual_error.second << ",";
-    outputFile << experimentData.nla_time.total << ",";
-    outputFile << experimentData.nla_time.form << ",";
-    outputFile << experimentData.nla_time.setup << ",";
-    outputFile << experimentData.nla_time.analysis << ",";
-    outputFile << experimentData.nla_time.factorization << ",";
-    outputFile << experimentData.nla_time.solve << "\n";
+    output_stream << experimentData.system_nnz << ",";
+    output_stream << systemDensity(experimentData) << ",";
+    output_stream << experimentData.nnz_decomposition << ",";
+    output_stream << decompositionDensity(experimentData) << ",";
+    output_stream << experimentData.fill_in_factor << ",";
+    output_stream << experimentData.condition << ",";
+    output_stream << experimentData.solution_error << ",";
+    output_stream << experimentData.residual_error.first << ",";
+    output_stream << experimentData.residual_error.second << ",";
+    output_stream << experimentData.nla_time.total << ",";
+    output_stream << experimentData.nla_time.form << ",";
+    output_stream << experimentData.nla_time.setup << ",";
+    output_stream << experimentData.nla_time.analysis << ",";
+    output_stream << experimentData.nla_time.factorization << ",";
+    output_stream << experimentData.nla_time.solve << "\n";
   }
-
-  outputFile.close();
 }
 
 std::pair<double, double> residualErrorAugmented(

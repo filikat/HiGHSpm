@@ -911,7 +911,7 @@ int callSsidsAugmentedFactor(const HighsSparseMatrix &matrix,
   ssids_data.fkeep = nullptr;
   // Need to set to 1 if using Fortran 1-based indexing
   ssids_data.options.array_base = array_base;
-  ssids_data.options.scaling = 1;
+  //  ssids_data.options.scaling = 1;
   //  ssids_data.options.print_level = 2;
 
   experiment_data.system_nnz = matrix.num_col_ + 2 * matrix.numNz() + matrix.num_row_;

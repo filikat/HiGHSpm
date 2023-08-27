@@ -30,12 +30,18 @@ int main(int argc, char** argv){
   matrix = lp.a_matrix_;
   y_dim = matrix.num_row_;
   int nnz = matrix.numNz();
-  for (int ix = 0; ix < y_dim; ix++) {
+  const bool slacks_for_equalities = true;
+  int num_slacks = 0;
+  for (int iRow = 0; iRow < matrix.num_row_; iRow++) {
+    if (!slacks_for_equalities && lp.row_lower_[iRow] == lp.row_upper_[iRow]) continue;
     matrix.start_.push_back(++nnz);
-    matrix.index_.push_back(ix);
+    matrix.index_.push_back(iRow);
     matrix.value_.push_back(1);
+    num_slacks++;
   }
-  matrix.num_col_ += y_dim;
+  if (num_slacks < matrix.num_row_)
+    printf("Added only %d / %d possible slacks\n", int(num_slacks), int(matrix.num_row_));
+  matrix.num_col_ += num_slacks;
   x_dim = matrix.num_col_;
 
   matrix.ensureColwise();
@@ -150,15 +156,26 @@ int main(int argc, char** argv){
     std::cout << experiment_data << "\n";
     experiment_data_list.push_back(experiment_data);
   }
+  if (experiment_data_list.empty()) return 1;
 
   //  std::filesystem::path p(ipm_options.model_file);
   //  std::string stem = p.stem().string();
   //  std::filesystem::path dir("../../result/");
   std::filesystem::path dir("result/");
   std::filesystem::path csv_path = dir / ipm_options.model_name;
-  std::string csv_file = csv_path.string() + std::to_string(ipm_options.decomposer_source) + ".csv";
+  std::string csv_file = csv_path.string() + "_Test" + 
+    "_" + decomposerSource(ipm.options_.decomposer_source) +
+    "_" + systemSolved(ipm.options_.nla) +
+    ".csv";
 
-  writeDataToCSV(experiment_data_list, csv_file);
+  std::ofstream output_stream;
+  output_stream.open(csv_file);
+  if (!output_stream)
+    throw std::runtime_error("Cannot open file " + csv_file);
+
+  writeModelDataToCsv(experiment_data_list[0], output_stream);
+  writeNlaDataToCsv(experiment_data_list, output_stream);
+  output_stream.close();
   return 0;
 }
 
@@ -201,9 +218,7 @@ void callNewtonSolve(ExperimentData &experiment_data,
                                    ipm_options.dense_col_tolerance,
 				   experiment_data, true);
   if (!newton_status) {
-    newton_status =
-      newtonSolve(highs_a, theta, rhs, lhs, invert, experiment_data,
-		  ipm_options.decomposer_source);
+    newton_status = newtonSolve(highs_a, theta, rhs, lhs, invert, experiment_data);
     experiment_data.nla_time.total += experiment_data.nla_time.solve;
     double solution_error = 0;
     for (int ix = 0; ix < y_dim; ix++)
