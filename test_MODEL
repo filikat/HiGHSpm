@@ -1,11 +1,23 @@
 echo ">>>>" >> test.ou
-time ./a.out --model $HOME/mps_da/$1.mps.gz --decomposer 1 --nla 2 --density 0.25 --max_dense_col 0 >> test.ou
+EXE="time ./a.out --model $HOME/mps_da/$1.mps.gz --decomposer 1 --nla 2 --density 0.25 --max_dense_col 0 >> test.ou"
+echo $EXE
+$EXE
+
 echo ">>>>" >> test.ou
-time ./a.out --model $HOME/mps_da/$1.mps.gz --decomposer 1 --nla 2 --density 0.25 --max_dense_col 1 >> test.ou
+EXE="time ./a.out --model $HOME/mps_da/$1.mps.gz --decomposer 1 --nla 2 --density 0.25 --max_dense_col 1 >> test.ou"
+echo $EXE
+$EXE
+
 echo ">>>>" >> test.ou
-time ./a.out --model $HOME/mps_da/$1.mps.gz --decomposer 1 --nla 1 >> test.ou
+EXE="time ./a.out --model $HOME/mps_da/$1.mps.gz --decomposer 1 --nla 1 >> test.ou"
+echo $EXE
+$EXE
+
 echo ">>>>" >> test.ou
-time ./a.out --model $HOME/mps_da/$1.mps.gz --decomposer 5 --nla 1 >> test.ou
+EXE="time ./a.out --model $HOME/mps_da/$1.mps.gz --decomposer 5 --nla 1 >> test.ou"
+echo $EXE
+$EXE
+
 
 
 
