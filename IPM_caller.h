@@ -9,9 +9,9 @@
 #include "NormalEquations.h"
 #include "VectorOperations.h"
 #include "util/HighsSparseMatrix.h"
+#include "Metis_caller.h"
 
 class IPM_caller {
-
   IPM_model model;
   int m{};
   int n{};
@@ -27,7 +27,7 @@ class IPM_caller {
   // IPM iterate
   Iterate It{};
 
-public:
+ public:
   // ===================================================================================
   // Run-time options
   // ===================================================================================
@@ -55,19 +55,19 @@ public:
   //  >= : add slack -inf <= s_i <=    0
   //
   // ===================================================================================
-  void Load(               // - - - - - - - - - - - - - - -  length
-                           // INPUT
-      const int num_var,   // number of variables
-      const int num_con,   // number of constraints
-      const double *obj,   // objective function c           num_var
-      const double *rhs,   // rhs vector b                   num_con
-      const double *lower, // lower bound vector             num_var
-      const double *upper, // upper bound vector             num_var
-      const int *A_colptr, // column pointers of A           num_var + 1
-      const int *A_rowind, // row indices of A               A_colptr[num_var]
-      const double *A_values, // values of A A_colptr[num_var]
-      const int *constraints  // type of constraints            num_con
-                              // 1: >=, 0: =, -1: <=
+  void Load(                // - - - - - - - - - - - - - - -  length
+                            // INPUT
+      const int num_var,    // number of variables
+      const int num_con,    // number of constraints
+      const double* obj,    // objective function c           num_var
+      const double* rhs,    // rhs vector b                   num_con
+      const double* lower,  // lower bound vector             num_var
+      const double* upper,  // upper bound vector             num_var
+      const int* A_colptr,  // column pointers of A           num_var + 1
+      const int* A_rowind,  // row indices of A               A_colptr[num_var]
+      const double* A_values,  // values of A A_colptr[num_var]
+      const int* constraints   // type of constraints            num_con
+                               // 1: >=, 0: =, -1: <=
   );
 
   // ===================================================================================
@@ -75,7 +75,7 @@ public:
   // ===================================================================================
   Output Solve();
 
-private:
+ private:
   // ===================================================================================
   // COMPUTE MU
   // ===================================================================================
@@ -105,7 +105,7 @@ private:
   // ===================================================================================
   void ComputeResiduals_1234(
       // OUTPUT
-      Residuals &Res // residuals
+      Residuals& Res  // residuals
   );
 
   // ===================================================================================
@@ -127,11 +127,11 @@ private:
   // ===================================================================================
   void ComputeResiduals_56(
       // INPUT
-      const double sigmaMu,      // sigma * mu
-      const NewtonDir &DeltaAff, // affine scaling direction (if corrector)
-      bool isCorrector,          // true if corrector, false if predictor
+      const double sigmaMu,       // sigma * mu
+      const NewtonDir& DeltaAff,  // affine scaling direction (if corrector)
+      bool isCorrector,           // true if corrector, false if predictor
       // OUTPUT
-      Residuals &Res // residuals
+      Residuals& Res  // residuals
   );
 
   // ===================================================================================
@@ -151,8 +151,8 @@ private:
   // ===================================================================================
   std::vector<double> ComputeResiduals_7(
       // INPUT
-      const Residuals &Res,    // residuals
-      bool isCorrector = false // true if corrector, false is predictor
+      const Residuals& Res,     // residuals
+      bool isCorrector = false  // true if corrector, false is predictor
   );
 
   // ===================================================================================
@@ -169,11 +169,11 @@ private:
   // ===================================================================================
   std::vector<double> ComputeResiduals_8(
       // INPUT
-      const HighsSparseMatrix &highs_a,   // constraint matrix
-      const std::vector<double> &scaling, // scaling vector
-      const Residuals &Res,               // residuals
-      const std::vector<double> &res7,    // residual 7
-      bool isCorrector = false // true if corrector, false is predictor
+      const HighsSparseMatrix& highs_a,    // constraint matrix
+      const std::vector<double>& scaling,  // scaling vector
+      const Residuals& Res,                // residuals
+      const std::vector<double>& res7,     // residual 7
+      bool isCorrector = false  // true if corrector, false is predictor
   );
 
   // ===================================================================================
@@ -189,7 +189,7 @@ private:
   // ===================================================================================
   void ComputeScaling(
       // OUTPUT
-      std::vector<double> &scaling // diagonal scaling, length n
+      std::vector<double>& scaling  // diagonal scaling, length n
   );
 
   // ===================================================================================
@@ -227,12 +227,12 @@ private:
   // ===================================================================================
   int SolveNewtonSystem(
       // INPUT
-      const HighsSparseMatrix &highs_a,   // constraint matrix
-      const std::vector<double> &scaling, // diagonal scaling, length n
-      const Residuals &Res,               // current residuals
-      bool isCorrector, // true if corrector, false if predictor
+      const HighsSparseMatrix& highs_a,    // constraint matrix
+      const std::vector<double>& scaling,  // diagonal scaling, length n
+      const Residuals& Res,                // current residuals
+      bool isCorrector,  // true if corrector, false if predictor
       // OUTPUT
-      NewtonDir &Delta // Newton direction
+      NewtonDir& Delta  // Newton direction
   );
 
   // ===================================================================================
@@ -248,10 +248,10 @@ private:
   // ===================================================================================
   void RecoverDirection(
       // INPUT
-      const Residuals &Res, // current residuals
-      bool isCorrector,     // true if corrector, false if predictor
+      const Residuals& Res,  // current residuals
+      bool isCorrector,      // true if corrector, false if predictor
       // OUTPUT
-      NewtonDir &Delta // Newton directions
+      NewtonDir& Delta  // Newton directions
   );
 
   // ===================================================================================
@@ -275,10 +275,10 @@ private:
   // ===================================================================================
   void ComputeStepSizes(
       // INPUT
-      const NewtonDir &Delta, // Newton direction
+      const NewtonDir& Delta,  // Newton direction
       // OUTPUT
-      double &alpha_primal, // primal step-size
-      double &alpha_dual    // dual step-size
+      double& alpha_primal,  // primal step-size
+      double& alpha_dual     // dual step-size
   );
 
   // ===================================================================================
@@ -307,8 +307,8 @@ private:
 
   double ComputeSigmaCorrector(
       // INPUT
-      const NewtonDir &DeltaAff, // Predictor Newton direction
-      double mu                  // mu of previous iteration
+      const NewtonDir& DeltaAff,  // Predictor Newton direction
+      double mu                   // mu of previous iteration
   );
 };
 

@@ -10,3 +10,6 @@ ml.mps
 ipm
 a.out
 ipm.dSYM
+*.txt
+*.o
+.clang-format

@@ -3,23 +3,21 @@
 #include <cmath>
 #include <iostream>
 
-void scaling2theta(const std::vector<double> &scaling,
-                   std::vector<double> &theta) {
+void scaling2theta(const std::vector<double>& scaling,
+                   std::vector<double>& theta) {
   const int dim = scaling.size();
   theta.resize(dim);
-  for (int i = 0; i < dim; i++)
-    theta[i] = 1 / scaling[i];
+  for (int i = 0; i < dim; i++) theta[i] = 1 / scaling[i];
 }
 
 // =======================================================================
 // LOAD THE PROBLEM
 // =======================================================================
-void IPM_caller::Load(const int num_var, const int num_con, const double *obj,
-                      const double *rhs, const double *lower,
-                      const double *upper, const int *A_colptr,
-                      const int *A_rowind, const double *A_values,
-                      const int *constraints) {
-
+void IPM_caller::Load(const int num_var, const int num_con, const double* obj,
+                      const double* rhs, const double* lower,
+                      const double* upper, const int* A_colptr,
+                      const int* A_rowind, const double* A_values,
+                      const int* constraints) {
   if (!obj || !rhs || !lower || !upper || !A_colptr || !A_rowind || !A_values ||
       !constraints)
     return;
@@ -28,7 +26,6 @@ void IPM_caller::Load(const int num_var, const int num_con, const double *obj,
   int num_slacks{};
   for (int i = 0; i < num_con; ++i) {
     if (constraints[i] != kConstraintTypeEqual) {
-
       ++num_slacks;
 
       if (constraints[i] != kConstraintTypeLower &&
@@ -48,7 +45,6 @@ void IPM_caller::Load(const int num_var, const int num_con, const double *obj,
   std::vector<double> temp_values(A_colptr[num_var] + num_slacks, 0.0);
 
   for (int i = 0; i < num_var; ++i) {
-
     // copy vector c
     model.obj[i] = obj[i];
 
@@ -67,7 +63,6 @@ void IPM_caller::Load(const int num_var, const int num_con, const double *obj,
   int A_nnz{A_colptr[num_var]};
 
   for (int i = 0; i < A_nnz; ++i) {
-
     // copy original row indices
     temp_rowind[i] = A_rowind[i];
 
@@ -79,13 +74,11 @@ void IPM_caller::Load(const int num_var, const int num_con, const double *obj,
   int slack_ind{num_var};
 
   for (int i = 0; i < num_con; ++i) {
-
     // copy vector b
     model.rhs[i] = rhs[i];
 
     // if constraint is inequality, add a slack variable
     if (constraints[i] != kConstraintTypeEqual) {
-
       // lower/upper bound for new slack
       if (constraints[i] == kConstraintTypeLower) {
         model.lower[slack_ind] = -INF;
@@ -123,10 +116,8 @@ void IPM_caller::Load(const int num_var, const int num_con, const double *obj,
 // SOLVE THE LP
 // =======================================================================
 Output IPM_caller::Solve() {
-
   // solve only if model is loaded
-  if (!model_ready)
-    return Output{};
+  if (!model_ready) return Output{};
 
   //  assert(equalMatrix("Entering Solve()"));
 
@@ -157,20 +148,25 @@ Output IPM_caller::Solve() {
   double mu = ComputeMu();
   double objective_value{};
 
+  // call Metis to obtain permutation of the matrix
+  std::vector<int> Metis_perm;
+  int Metis_numparts = 2;
+  getMetisPermutation(model.highs_a, kMetisAugmented, Metis_numparts,
+                      Metis_perm);
+
   // ------------------------------------------
   // ---- MAIN LOOP ---------------------------
   // ------------------------------------------
 
   printf("\n");
   while (iter < option_iteration_limit) {
-
     // Check that iterate is not NaN
     assert(!It.isNaN());
 
     // Stopping criterion
-    if (iter > 0 && mu < option_ipm_tolerance && // complementarity measure
-        primal_infeas < option_ipm_tolerance &&  // primal feasibility
-        dual_infeas < option_ipm_tolerance       // dual feasibility
+    if (iter > 0 && mu < option_ipm_tolerance &&  // complementarity measure
+        primal_infeas < option_ipm_tolerance &&   // primal feasibility
+        dual_infeas < option_ipm_tolerance        // dual feasibility
     ) {
       printf("\n===== Optimal solution found =====\n\n");
       printf("Objective: %20.10e\n\n", DotProd(It.x, model.obj));
@@ -179,8 +175,9 @@ Output IPM_caller::Solve() {
 
     // Possibly print header
     if (iter % 20 == 0)
-      printf(" iter            obj_v       pinf       dinf         mu        "
-             "alpha_p    alpha_d\n");
+      printf(
+          " iter            obj_v       pinf       dinf         mu        "
+          "alpha_p    alpha_d\n");
 
     ++iter;
 
@@ -192,13 +189,13 @@ Output IPM_caller::Solve() {
     invert.clear();
 
     //    printf("grep %d & %3.1f & %3.1f & %5.1g & %5.1g & %5.1g & %5.1g\n",
-    //	   iter, It.x[0],It.x[1],1/scaling[0],1/scaling[1],1/scaling[2],1/scaling[3]);
+    //	   iter,
+    // It.x[0],It.x[1],1/scaling[0],1/scaling[1],1/scaling[2],1/scaling[3]);
 
     // Initialize Newton direction
     NewtonDir Delta(m, n);
 
     if (option_predcor == 0) {
-
       bool isCorrector = false;
 
       // Heuristic to choose sigma
@@ -221,7 +218,6 @@ Output IPM_caller::Solve() {
       RecoverDirection(Res, isCorrector, Delta);
 
     } else {
-
       // *********************************************************************
       // PREDICTOR
       // *********************************************************************
@@ -329,8 +325,7 @@ double IPM_caller::ComputeMu() {
 // =======================================================================
 // COMPUTE RESIDUALS
 // =======================================================================
-void IPM_caller::ComputeResiduals_1234(Residuals &Res) {
-
+void IPM_caller::ComputeResiduals_1234(Residuals& Res) {
   // res1
   Res.res1 = model.rhs;
   model.highs_a.alphaProductPlusY(-1.0, It.x, Res.res1);
@@ -370,13 +365,10 @@ void IPM_caller::ComputeResiduals_1234(Residuals &Res) {
 }
 
 void IPM_caller::ComputeResiduals_56(const double sigmaMu,
-                                     const NewtonDir &DeltaAff,
-                                     bool isCorrector, Residuals &Res) {
-
+                                     const NewtonDir& DeltaAff,
+                                     bool isCorrector, Residuals& Res) {
   if (!isCorrector) {
-
     for (int i = 0; i < n; ++i) {
-
       // res5
       if (model.has_lb(i)) {
         Res.res5[i] = sigmaMu - It.xl[i] * It.zl[i];
@@ -393,9 +385,7 @@ void IPM_caller::ComputeResiduals_56(const double sigmaMu,
     }
 
   } else {
-
     for (int i = 0; i < n; ++i) {
-
       // res5
       if (model.has_lb(i)) {
         Res.res5[i] = sigmaMu - DeltaAff.xl[i] * DeltaAff.zl[i];
@@ -413,13 +403,11 @@ void IPM_caller::ComputeResiduals_56(const double sigmaMu,
   }
 }
 
-std::vector<double> IPM_caller::ComputeResiduals_7(const Residuals &Res,
+std::vector<double> IPM_caller::ComputeResiduals_7(const Residuals& Res,
                                                    bool isCorrector) {
-
   std::vector<double> res7;
 
   if (!isCorrector) {
-
     res7 = Res.res4;
     for (int i = 0; i < n; ++i) {
       if (model.has_lb(i)) {
@@ -431,7 +419,6 @@ std::vector<double> IPM_caller::ComputeResiduals_7(const Residuals &Res,
     }
 
   } else {
-
     res7.resize(n, 0.0);
     for (int i = 0; i < n; ++i) {
       if (model.has_lb(i)) {
@@ -447,9 +434,8 @@ std::vector<double> IPM_caller::ComputeResiduals_7(const Residuals &Res,
 }
 
 std::vector<double> IPM_caller::ComputeResiduals_8(
-    const HighsSparseMatrix &highs_a, const std::vector<double> &scaling,
-    const Residuals &Res, const std::vector<double> &res7, bool isCorrector) {
-
+    const HighsSparseMatrix& highs_a, const std::vector<double>& scaling,
+    const Residuals& Res, const std::vector<double>& res7, bool isCorrector) {
   std::vector<double> res8;
 
   if (isCorrector) {
@@ -472,8 +458,7 @@ std::vector<double> IPM_caller::ComputeResiduals_8(
 // =======================================================================
 // COMPUTE SCALING
 // =======================================================================
-void IPM_caller::ComputeScaling(std::vector<double> &scaling) {
-
+void IPM_caller::ComputeScaling(std::vector<double>& scaling) {
   for (int i = 0; i < n; ++i) {
     if (model.has_lb(i)) {
       scaling[i] += It.zl[i] / It.xl[i];
@@ -481,17 +466,19 @@ void IPM_caller::ComputeScaling(std::vector<double> &scaling) {
     if (model.has_ub(i)) {
       scaling[i] += It.zu[i] / It.xu[i];
     }
+
+    // add primal regularization
+    scaling[i] += kPrimalRegularization;
   }
 }
 
 // =======================================================================
 // SOLVE NEWTON SYSTEM
 // =======================================================================
-int IPM_caller::SolveNewtonSystem(const HighsSparseMatrix &highs_a,
-                                   const std::vector<double> &scaling,
-                                   const Residuals &Res, bool isCorrector,
-                                   NewtonDir &Delta) {
-
+int IPM_caller::SolveNewtonSystem(const HighsSparseMatrix& highs_a,
+                                  const std::vector<double>& scaling,
+                                  const Residuals& Res, bool isCorrector,
+                                  NewtonDir& Delta) {
   // Compute residual 7
   std::vector<double> res7{ComputeResiduals_7(Res, isCorrector)};
 
@@ -564,9 +551,9 @@ int IPM_caller::SolveNewtonSystem(const HighsSparseMatrix &highs_a,
                          option_dense_col_tolerance, experiment_data);
         if (newton_invert_status) return newton_invert_status;
       } else {
-	// Just set this to avoid assert when writing out
-	// experiment_data in the event of a solution error
-	experiment_data.system_type = kSystemTypeNewton;
+        // Just set this to avoid assert when writing out
+        // experiment_data in the event of a solution error
+        experiment_data.system_type = kSystemTypeNewton;
       }
       int newton_solve_status = newtonSolve(
           highs_a, theta, res8, newton_delta_y, invert, experiment_data);
@@ -659,9 +646,8 @@ int IPM_caller::SolveNewtonSystem(const HighsSparseMatrix &highs_a,
 // =======================================================================
 // FULL NEWTON DIRECTION
 // =======================================================================
-void IPM_caller::RecoverDirection(const Residuals &Res, bool isCorrector,
-                                  NewtonDir &Delta) {
-
+void IPM_caller::RecoverDirection(const Residuals& Res, bool isCorrector,
+                                  NewtonDir& Delta) {
   if (!isCorrector) {
     // Deltaxl
     Delta.xl = Delta.x;
@@ -696,9 +682,8 @@ void IPM_caller::RecoverDirection(const Residuals &Res, bool isCorrector,
 // =======================================================================
 // COMPUTE STEP-SIZES
 // =======================================================================
-void IPM_caller::ComputeStepSizes(const NewtonDir &Delta, double &alpha_primal,
-                                  double &alpha_dual) {
-
+void IPM_caller::ComputeStepSizes(const NewtonDir& Delta, double& alpha_primal,
+                                  double& alpha_dual) {
   alpha_primal = 1.0;
   for (int i = 0; i < n; ++i) {
     if (Delta.xl[i] < 0 && model.has_lb(i)) {
@@ -729,7 +714,6 @@ void IPM_caller::ComputeStepSizes(const NewtonDir &Delta, double &alpha_primal,
 // COMPUTE STARTING POINT
 // ===================================================================================
 void IPM_caller::ComputeStartingPoint() {
-
   // *********************************************************************
   // x starting point
   // *********************************************************************
@@ -868,8 +852,7 @@ void IPM_caller::ComputeStartingPoint() {
   // *********************************************************************
 }
 
-double IPM_caller::ComputeSigmaCorrector(const NewtonDir &DeltaAff, double mu) {
-
+double IPM_caller::ComputeSigmaCorrector(const NewtonDir& DeltaAff, double mu) {
   // stepsizes of predictor direction
   double alpha_p{};
   double alpha_d{};

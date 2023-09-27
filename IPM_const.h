@@ -1,10 +1,13 @@
+#ifndef IPM_CONST_H
+#define IPM_CONST_H
+
 enum OptionNla {
   kOptionNlaMin = 0,
   kOptionNlaCg = kOptionNlaMin,
-  kOptionNlaAugmented,   // 1
-  kOptionNlaNewton,      // 2
-  kOptionNlaAugmentedCg, // 3
-  kOptionNlaNewtonCg,    // 4
+  kOptionNlaAugmented,    // 1
+  kOptionNlaNewton,       // 2
+  kOptionNlaAugmentedCg,  // 3
+  kOptionNlaNewtonCg,     // 4
   kOptionNlaMax = kOptionNlaNewtonCg,
   kOptionNlaDefault = kOptionNlaCg
 };
@@ -32,3 +35,7 @@ const double kSolutionDiffTolerance = 1e-6;
 const double kCgTolerance = 1e-12;
 const int kCgIterationLimit = 10000;
 
+const double kPrimalRegularization = 1e-8;
+const double kDualRegularization = 1e-8;
+
+#endif
