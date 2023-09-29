@@ -6,10 +6,10 @@
 #include "IPM_aux.h"
 #include "IPM_const.h"
 #include "IPM_model.h"
+#include "Metis_caller.h"
 #include "NormalEquations.h"
 #include "VectorOperations.h"
 #include "util/HighsSparseMatrix.h"
-#include "Metis_caller.h"
 
 class IPM_caller {
   IPM_model model;
@@ -304,7 +304,6 @@ class IPM_caller {
   //    sigma = ( mu_aff / mu )^3
   //
   // ===================================================================================
-
   double ComputeSigmaCorrector(
       // INPUT
       const NewtonDir& DeltaAff,  // Predictor Newton direction

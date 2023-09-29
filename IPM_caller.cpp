@@ -1,4 +1,5 @@
 #include "IPM_caller.h"
+
 #include <cassert>
 #include <cmath>
 #include <iostream>
@@ -150,9 +151,10 @@ Output IPM_caller::Solve() {
 
   // call Metis to obtain permutation of the matrix
   std::vector<int> Metis_perm;
+  std::vector<int> Metis_block_size;
   int Metis_numparts = 2;
   getMetisPermutation(model.highs_a, kMetisAugmented, Metis_numparts,
-                      Metis_perm);
+                      Metis_perm, Metis_block_size);
 
   // ------------------------------------------
   // ---- MAIN LOOP ---------------------------
