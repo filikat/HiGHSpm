@@ -24,6 +24,9 @@ c_sources = hsl_ma86_wrapper.c
 # binary file name
 binary_name = ipm
 
+# object files directory
+OBJDIR = obj
+
 # compilers
 CC=clang
 CPP=clang++
@@ -44,11 +47,11 @@ libs_path = -L$(HIGHS_PATH)/build/lib -L$(CHOLMOD_PATH)/lib -L$(QDLDL_PATH)/buil
 libs = -lhighs -lcholmod -lqdldl -lmetis -lhsl_ma86 -lfakemetis -lGKlib
 
 # name of objects
-cpp_objects = $(cpp_sources:.cpp=.o)
-c_objects = $(c_sources:.c=.o)
+cpp_objects = $(cpp_sources:%.cpp=$(OBJDIR)/%.o)
+c_objects = $(c_sources:%.c=$(OBJDIR)/%.o)
 
 # dependency files
-dep = $(cpp_objects:%.o=%.d)
+dep = $(cpp_objects:%.o=$(OBJDIR)/%.d)
 
 
 
@@ -62,23 +65,21 @@ $(binary_name): $(cpp_objects) $(c_objects)
 -include $(dep)
 
 # compile cpp
-$(cpp_objects): %.o: %.cpp
+$(cpp_objects): $(OBJDIR)/%.o: %.cpp
 	@echo Compiling $<
+	@mkdir -p $(@D)
 	@$(CPP) -MMD -c $(CPPFLAGS) $(includes) $< -o $@
 
 # compile c
-$(c_objects): %.o: %.c
+$(c_objects): $(OBJDIR)/%.o: %.c
 	@echo Compiling $<
+	@mkdir -p $(@D)
 	@$(CC) -MMD -c $(CFLAGS) $(includes) $< -o $@
 
 
 .PHONY : clean
 clean: 
-	rm *.o
+	rm $(OBJDIR)/*.o
 	rm $(binary_name)
-	rm *.d
-
-
-
-
+	rm $(OBJDIR)/*.d
 

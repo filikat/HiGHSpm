@@ -190,6 +190,12 @@ void getBlocks(const std::vector<int>& permutation,
   int threshold = M.num_col_ - blockSize.back();
   int nparts = blockSize.size() - 1;
 
+  assert(Blocks.size() == 2 * nparts + 1);
+
+  // get number of nonzeros in blocks for preallocation
+  std::vector<int> nzCount(2 * nparts + 2);
+  getNonzeros(M, perminv, blockSize, nzCount);
+
   int colStart = 0;
 
   std::ofstream out_file;
@@ -204,17 +210,17 @@ void getBlocks(const std::vector<int>& permutation,
     int current_nz_block{};
     int current_nz_link{};
 
-    Blocks[diagBlockIndex].start_.resize(blockSize[blockId] + 1);
-    Blocks[linkBlockIndex].start_.resize(blockSize[blockId] + 1);
-
-    // TO DO preallocate index_ and value_  of Blocks in some way
+    // allocate space for blocks
+    Blocks[diagBlockIndex].start_.reserve(blockSize[blockId] + 1);
+    Blocks[linkBlockIndex].start_.reserve(blockSize[blockId] + 1);
+    Blocks[diagBlockIndex].index_.reserve(nzCount[2 * blockId]);
+    Blocks[linkBlockIndex].index_.reserve(nzCount[2 * blockId + 1]);
+    Blocks[diagBlockIndex].value_.reserve(nzCount[2 * blockId]);
+    Blocks[linkBlockIndex].value_.reserve(nzCount[2 * blockId + 1]);
 
     // go through the columns in the order of permutation
     for (int i = colStart; i < colStart + blockSize[blockId]; ++i) {
       int col = permutation[i];
-
-      Blocks[diagBlockIndex].start_[i - colStart] = (current_nz_block);
-      Blocks[linkBlockIndex].start_[i - colStart] = (current_nz_link);
 
       if (type == kMetisAugmented) {
         // diagonal is not included in augmented system
@@ -241,9 +247,14 @@ void getBlocks(const std::vector<int>& permutation,
           ++current_nz_link;
         }
       }
+
+      // save col pointer of current column
+      Blocks[diagBlockIndex].start_.push_back(current_nz_block);
+      Blocks[linkBlockIndex].start_.push_back(current_nz_link);
     }
-    Blocks[diagBlockIndex].start_.back() = (current_nz_block);
-    Blocks[linkBlockIndex].start_.back() = (current_nz_link);
+
+    assert(current_nz_block == nzCount[2 * blockId]);
+    assert(current_nz_link == nzCount[2 * blockId + 1]);
 
     Blocks[diagBlockIndex].num_row_ = blockSize[blockId];
     Blocks[diagBlockIndex].num_col_ = blockSize[blockId];
@@ -289,12 +300,16 @@ void getBlocks(const std::vector<int>& permutation,
 
   // build final "Schur complement" block
   int blockIndex = 2 * nparts;
-  Blocks[blockIndex].start_.resize(blockSize.back() + 1);
+
+  // allocate space for block
+  Blocks[blockIndex].start_.reserve(blockSize.back() + 1);
+  Blocks[blockIndex].index_.reserve(nzCount[2 * nparts + 1]);
+  Blocks[blockIndex].value_.reserve(nzCount[2 * nparts + 1]);
 
   int current_nz_schur{};
   for (int i = colStart; i < colStart + blockSize.back(); ++i) {
     int col = permutation[i];
-    Blocks[blockIndex].start_[i - colStart] = (current_nz_schur);
+
     if (type == kMetisAugmented) {
       // diagonal is not included in augmented system
       Blocks[blockIndex].index_.push_back(i - colStart);
@@ -314,8 +329,12 @@ void getBlocks(const std::vector<int>& permutation,
         ++current_nz_schur;
       }
     }
+
+    // save col pointer of current column
+    Blocks[blockIndex].start_.push_back(current_nz_schur);
   }
-  Blocks[blockIndex].start_.back() = (current_nz_schur);
+
+  assert(current_nz_schur == nzCount[2 * nparts]);
 
   Blocks[blockIndex].num_row_ = blockSize.back();
   Blocks[blockIndex].num_col_ = blockSize.back();
@@ -339,4 +358,64 @@ void getBlocks(const std::vector<int>& permutation,
   }
   out_file.close();
   // -----------------------------------------------------------
+}
+
+void getNonzeros(const HighsSparseMatrix& M, const std::vector<int>& perminv,
+                 const std::vector<int>& blockSize, std::vector<int>& nzCount) {
+  // There are nparts diagonal blocks, nparts linking blocks and 1 Schur block.
+  // nzCount has 2 * (nparts + 1) entries.
+  // For 0 <= i < nparts:
+  // - nzCount[2 * i] is the number of nonzeros in diagonal block i
+  // - nzCount[2 * i + 1] is the number of nonzeros in linking block i
+  // - nzCount[2 * nparts] is the number of nonzeros in the Schur
+  //    block.
+  // - nzCount[2 * nparts + 1] does non represent any real block, it is
+  //    used as a sum check at the end.
+
+  assert(nzCount.size() == blockSize.size() * 2);
+
+  // get cumulative sum of blockSize
+  std::vector<int> thresholds(blockSize);
+  for (int i = 1; i < thresholds.size(); ++i) {
+    thresholds[i] += thresholds[i - 1];
+  }
+
+  // get partition
+  std::vector<int> partition(perminv.size(), -1);
+  for (int i = 0; i < perminv.size(); ++i) {
+    for (int partId = 0; partId < blockSize.size(); ++partId) {
+      if (perminv[i] < thresholds[partId]) {
+        partition[i] = partId;
+        break;
+      }
+    }
+  }
+
+  // go through the nodes
+  for (int node = 0; node < M.num_row_; ++node) {
+    int partNode = partition[node];
+
+    // go through the neighbours
+    for (int j = M.start_[node]; j < M.start_[node + 1]; ++j) {
+      int neigh = M.index_[j];
+
+      // skip self loops (diagonal nonzeros)
+      if (neigh == node) continue;
+
+      // count one nonzero in the right position
+      if (partNode == partition[neigh]) {
+        ++nzCount[2 * partNode];
+      } else {
+        ++nzCount[2 * partNode + 1];
+      }
+    }
+  }
+
+  // add diagonal nonzeros & check
+  int check{};
+  for (int i = 0; i < blockSize.size(); ++i) {
+    nzCount[2 * i] += blockSize[i];
+    check += nzCount[2 * i + 1];
+  }
+  assert(check == 2 * nzCount.back());
 }
