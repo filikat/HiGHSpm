@@ -149,12 +149,11 @@ Output IPM_caller::Solve() {
   double mu = ComputeMu();
   double objective_value{};
 
-  // call Metis to obtain permutation of the matrix
-  std::vector<int> Metis_perm;
-  std::vector<int> Metis_block_size;
-  int Metis_numparts = 2;
-  getMetisPermutation(model.highs_a, kMetisAugmented, Metis_numparts,
-                      Metis_perm, Metis_block_size);
+  // Metis stuff
+  Metis_caller Metis_data(model.highs_a, kMetisAugmented, 4);
+  Metis_data.getMetisPartition();
+  Metis_data.getMetisPermutation();
+  Metis_data.getBlocks();
 
   // ------------------------------------------
   // ---- MAIN LOOP ---------------------------

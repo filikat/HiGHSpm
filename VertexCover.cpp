@@ -47,7 +47,8 @@ void vertexCoverMM(int nvertex, int nedges, int nparts,
   int bestNodeCoverSize{INT_MAX};
 
   // perform multiple maximal matching and choose the best
-  for (int iter = 0; iter < 10; ++iter) {
+  int maxIterations = 10;
+  for (int iter = 0; iter < maxIterations; ++iter) {
     // random order in which to visit the vertices
     std::vector<int> index(nvertex);
     for (int i = 0; i < nvertex; ++i) {
@@ -121,7 +122,7 @@ void vertexCoverMM(int nvertex, int nedges, int nparts,
   blockSize[nparts] = bestNodeCover.size();
 }
 
-void vertexCoverN(int nvertex, int nedges, int nparts,
+void vertexCoverG(int nvertex, int nedges, int nparts,
                   const std::vector<int> part, const std::vector<int> adj_ptr,
                   const std::vector<int> adj_lst, std::vector<int>& permutation,
                   std::vector<int>& blockSize) {
@@ -152,11 +153,10 @@ void vertexCoverN(int nvertex, int nedges, int nparts,
       }
 
       // if neither node or neighbour have been removed
-      if (!nodes_removed[node]) {
-        if (!nodes_removed[neigh]) {
-          nodes_removed[node] = true;
-          linking.insert(node);
-        }
+      if (!nodes_removed[node] && !nodes_removed[neigh]) {
+        nodes_removed[node] = true;
+        linking.insert(node);
+        break;
       }
     }
 

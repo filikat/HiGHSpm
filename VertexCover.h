@@ -12,7 +12,7 @@ void vertexCoverMM(int nvertex, int nedges, int nparts,
                    const std::vector<int> adj_lst,
                    std::vector<int>& permutation, std::vector<int>& blockSize);
 
-void vertexCoverN(int nvertex, int nedges, int nparts,
+void vertexCoverG(int nvertex, int nedges, int nparts,
                   const std::vector<int> part, const std::vector<int> adj_ptr,
                   const std::vector<int> adj_lst, std::vector<int>& permutation,
                   std::vector<int>& blockSize);

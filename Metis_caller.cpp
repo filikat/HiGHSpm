@@ -1,7 +1,5 @@
 #include "Metis_caller.h"
 
-#include <fstream>
-
 // extern "C" {
 void setOptions(idx_t* options) { METIS_SetDefaultOptions(options); }
 void callMetis(idx_t nvertex, idx_t nconstraints, idx_t* adj_ptr,
@@ -15,13 +13,10 @@ void callMetis(idx_t nvertex, idx_t nconstraints, idx_t* adj_ptr,
 }
 //}
 
-void getMetisPermutation(const HighsSparseMatrix& A, MetisPartitionType type,
-                         int nparts, std::vector<int>& permutation,
-                         std::vector<int>& blockSize) {
-  idx_t nvertex{};
-  idx_t nedges{};
-
-  HighsSparseMatrix M;
+Metis_caller::Metis_caller(const HighsSparseMatrix& A,
+                           MetisPartitionType input_type, int input_nparts) {
+  nparts = input_nparts;
+  type = input_type;
 
   // -----------------------------------------------------------
   // set up the augmented system
@@ -31,9 +26,11 @@ void getMetisPermutation(const HighsSparseMatrix& A, MetisPartitionType type,
     nedges = A.numNz() * 2;
 
     // allocate space for augmented matrix
-    std::vector<idx_t> adj_ptr(nvertex + 1);
-    std::vector<idx_t> adj_lst(nedges);
-    std::vector<double> adj_val(nedges);
+    M.num_col_ = nvertex;
+    M.num_row_ = nvertex;
+    M.start_.resize(nvertex + 1);
+    M.index_.resize(nedges);
+    M.value_.resize(nedges);
 
     // temporary A transpose
     HighsSparseMatrix A_t = A;
@@ -41,30 +38,24 @@ void getMetisPermutation(const HighsSparseMatrix& A, MetisPartitionType type,
 
     // create pointers of augmented matrix
     for (int i = 0; i < A.num_col_ + 1; ++i) {
-      adj_ptr[i] = A.start_[i];
+      M.start_[i] = A.start_[i];
     }
     int shift = A.num_col_;
     int ptr_shift = A.numNz();
     for (int i = 1; i < A.num_row_ + 1; ++i) {
-      adj_ptr[i + shift] = A_t.start_[i] + ptr_shift;
+      M.start_[i + shift] = A_t.start_[i] + ptr_shift;
     }
 
     // create adjacency list of augmented matrix
     for (int i = 0; i < A.numNz(); ++i) {
-      adj_lst[i] = A.index_[i] + A.num_col_;
-      adj_val[i] = A.value_[i];
+      M.index_[i] = A.index_[i] + A.num_col_;
+      M.value_[i] = A.value_[i];
     }
     int adj_shift = A.numNz();
     for (int i = 0; i < A.numNz(); ++i) {
-      adj_lst[i + adj_shift] = A_t.index_[i];
-      adj_val[i + adj_shift] = A_t.value_[i];
+      M.index_[i + adj_shift] = A_t.index_[i];
+      M.value_[i + adj_shift] = A_t.value_[i];
     }
-
-    M.num_col_ = nvertex;
-    M.num_row_ = nvertex;
-    M.start_ = adj_ptr;
-    M.index_ = adj_lst;
-    M.value_ = adj_val;
   }
   // -----------------------------------------------------------
   // set up the normal equations
@@ -80,125 +71,89 @@ void getMetisPermutation(const HighsSparseMatrix& A, MetisPartitionType type,
   }
 
   // -----------------------------------------------------------
-  // set up and call metis
+  // allocate space for later
   // -----------------------------------------------------------
+  partition.resize(nvertex);
+  perminv.resize(nvertex);
+  Blocks.resize(2 * nparts + 1);
+  nzCount.resize(2 * nparts + 2);
+
+  // -----------------------------------------------------------
+  // print for debug
+  // -----------------------------------------------------------
+  if (debug) {
+    debug_print(A.start_, "debug_data/A_ptr.txt");
+    debug_print(A.index_, "debug_data/A_adj.txt");
+    debug_print(A.value_, "debug_data/A_val.txt");
+  }
+}
+
+void Metis_caller::getMetisPartition() {
   // create space for outputs
   idx_t objval{};
-  std::vector<idx_t> partition(nvertex);
 
   // initialize metis options
   idx_t options[METIS_NOPTIONS];
   setOptions(options);
 
+  // call Metis to get the partition
   callMetis(nvertex, 1, M.start_.data(), M.index_.data(), nparts, options,
             &objval, partition.data());
-  // -----------------------------------------------------------
+}
 
-  // -----------------------------------------------------------
-  // find permutations based on partition
-  // -----------------------------------------------------------
+void Metis_caller::getMetisPermutation() {
+  // compute permutation with maximal matching
   std::vector<int> permutationMM(nvertex);
   std::vector<int> blockSizeMM(nparts + 1);
   vertexCoverMM(nvertex, nedges, nparts, partition, M.start_, M.index_,
                 permutationMM, blockSizeMM);
 
-  std::vector<int> permutationN(nvertex);
-  std::vector<int> blockSizeN(nparts + 1);
-  vertexCoverN(nvertex, nedges, nparts, partition, M.start_, M.index_,
-               permutationN, blockSizeN);
+  // compute permutation with greedy heuristic
+  std::vector<int> permutationG(nvertex);
+  std::vector<int> blockSizeG(nparts + 1);
+  vertexCoverG(nvertex, nedges, nparts, partition, M.start_, M.index_,
+               permutationG, blockSizeG);
+
+  // print for debug
+  if (debug) {
+    debug_print(partition, "debug_data/partition.txt");
+    debug_print(permutationMM, "debug_data/permMM.txt");
+    debug_print(permutationG, "debug_data/permG.txt");
+    debug_print(blockSizeMM, "debug_data/blockSizeMM.txt");
+    debug_print(blockSizeG, "debug_data/blockSizeG.txt");
+  }
 
   // select permutation with smallest Schur complement
-  if (blockSizeMM.back() > blockSizeN.back()) {
-    permutation = permutationN;
-    blockSize = blockSizeN;
+  if (blockSizeMM.back() > blockSizeG.back()) {
+    permutation = std::move(permutationG);
+    blockSize = std::move(blockSizeG);
   } else {
-    permutation = permutationMM;
-    blockSize = blockSizeMM;
+    permutation = std::move(permutationMM);
+    blockSize = std::move(blockSizeMM);
   }
-  // -----------------------------------------------------------
 
-  std::vector<HighsSparseMatrix> Blocks(2 * nparts + 1);
-  getBlocks(permutation, blockSize, type, M, Blocks);
-
-  // -----------------------------------------------------------
-  // save to file for debugging
-  // -----------------------------------------------------------
-  if (true) {
-    std::ofstream out_file;
-
-    out_file.open("debug_data/partition.txt");
-    for (int i : partition) {
-      out_file << i << '\n';
-    }
-    out_file.close();
-
-    out_file.open("debug_data/permMM.txt");
-    for (int i : permutationMM) {
-      out_file << i << '\n';
-    }
-    out_file.close();
-
-    out_file.open("debug_data/permN.txt");
-    for (int i : permutationN) {
-      out_file << i << '\n';
-    }
-    out_file.close();
-
-    out_file.open("debug_data/blockSizeMM.txt");
-    for (int i : blockSizeMM) {
-      out_file << i << '\n';
-    }
-    out_file.close();
-
-    out_file.open("debug_data/blockSizeN.txt");
-    for (int i : blockSizeN) {
-      out_file << i << '\n';
-    }
-    out_file.close();
-
-    out_file.open("debug_data/A_ptr.txt");
-    for (int i : A.start_) {
-      out_file << i << '\n';
-    }
-    out_file.close();
-
-    out_file.open("debug_data/A_adj.txt");
-    for (int i : A.index_) {
-      out_file << i << '\n';
-    }
-    out_file.close();
-
-    out_file.open("debug_data/A_val.txt");
-    for (double i : A.value_) {
-      out_file << i << '\n';
-    }
-    out_file.close();
+  // update partition so that if node i is linking, partition[i] = nparts
+  for (int i = 0; i < blockSize.back(); ++i) {
+    partition[permutation[nvertex - 1 - i]] = nparts;
   }
-  // -----------------------------------------------------------
 }
 
-void getBlocks(const std::vector<int>& permutation,
-               const std::vector<int>& blockSize, MetisPartitionType type,
-               const HighsSparseMatrix& M,
-               std::vector<HighsSparseMatrix>& Blocks) {
+void Metis_caller::getBlocks() {
   // get inverse permutation
-  std::vector<int> perminv(permutation.size());
   for (int i = 0; i < perminv.size(); ++i) {
     perminv[permutation[i]] = i;
   }
 
   int threshold = M.num_col_ - blockSize.back();
-  int nparts = blockSize.size() - 1;
-
-  assert(Blocks.size() == 2 * nparts + 1);
 
   // get number of nonzeros in blocks for preallocation
-  std::vector<int> nzCount(2 * nparts + 2);
-  getNonzeros(M, perminv, blockSize, nzCount);
+  getNonzeros();
 
-  int colStart = 0;
-
+  // file to write blocks
   std::ofstream out_file;
+
+  // index of column to consider
+  int colStart = 0;
 
   // go through the blocks
   for (int blockId = 0; blockId < nparts; ++blockId) {
@@ -261,39 +216,14 @@ void getBlocks(const std::vector<int>& permutation,
     Blocks[linkBlockIndex].num_row_ = blockSize.back();
     Blocks[linkBlockIndex].num_col_ = blockSize[blockId];
 
-    // -----------------------------------------------------------
-    // Print blocks for debugging
-    // -----------------------------------------------------------
-    char str[50];
-
-    snprintf(str, 50, "debug_data/block%d.txt", diagBlockIndex);
-    out_file.open(str);
-    out_file << Blocks[diagBlockIndex].start_.size() - 1 << '\n';
-    for (int i : Blocks[diagBlockIndex].start_) {
-      out_file << i << '\n';
+    // print blocks for debugging
+    if (debug) {
+      char str[50];
+      snprintf(str, 50, "debug_data/block%d.txt", diagBlockIndex);
+      debug_print(Blocks[diagBlockIndex], str);
+      snprintf(str, 50, "debug_data/block%d.txt", linkBlockIndex);
+      debug_print(Blocks[linkBlockIndex], str);
     }
-    for (int i : Blocks[diagBlockIndex].index_) {
-      out_file << i << '\n';
-    }
-    for (double i : Blocks[diagBlockIndex].value_) {
-      out_file << i << '\n';
-    }
-    out_file.close();
-
-    snprintf(str, 50, "debug_data/block%d.txt", linkBlockIndex);
-    out_file.open(str);
-    out_file << Blocks[linkBlockIndex].start_.size() - 1 << '\n';
-    for (int i : Blocks[linkBlockIndex].start_) {
-      out_file << i << '\n';
-    }
-    for (int i : Blocks[linkBlockIndex].index_) {
-      out_file << i << '\n';
-    }
-    for (double i : Blocks[linkBlockIndex].value_) {
-      out_file << i << '\n';
-    }
-    out_file.close();
-    // -----------------------------------------------------------
 
     colStart += blockSize[blockId];
   }
@@ -339,29 +269,15 @@ void getBlocks(const std::vector<int>& permutation,
   Blocks[blockIndex].num_row_ = blockSize.back();
   Blocks[blockIndex].num_col_ = blockSize.back();
 
-  // -----------------------------------------------------------
-  // Print block for debugging
-  // -----------------------------------------------------------
-  char str[50];
-
-  snprintf(str, 50, "debug_data/block%d.txt", blockIndex);
-  out_file.open(str);
-  out_file << Blocks[blockIndex].start_.size() - 1 << '\n';
-  for (int i : Blocks[blockIndex].start_) {
-    out_file << i << '\n';
+  // print block for debugging
+  if (debug) {
+    char str[50];
+    snprintf(str, 50, "debug_data/block%d.txt", blockIndex);
+    debug_print(Blocks[blockIndex], str);
   }
-  for (int i : Blocks[blockIndex].index_) {
-    out_file << i << '\n';
-  }
-  for (double i : Blocks[blockIndex].value_) {
-    out_file << i << '\n';
-  }
-  out_file.close();
-  // -----------------------------------------------------------
 }
 
-void getNonzeros(const HighsSparseMatrix& M, const std::vector<int>& perminv,
-                 const std::vector<int>& blockSize, std::vector<int>& nzCount) {
+void Metis_caller::getNonzeros() {
   // There are nparts diagonal blocks, nparts linking blocks and 1 Schur block.
   // nzCount has 2 * (nparts + 1) entries.
   // For 0 <= i < nparts:
@@ -378,17 +294,6 @@ void getNonzeros(const HighsSparseMatrix& M, const std::vector<int>& perminv,
   std::vector<int> thresholds(blockSize);
   for (int i = 1; i < thresholds.size(); ++i) {
     thresholds[i] += thresholds[i - 1];
-  }
-
-  // get partition
-  std::vector<int> partition(perminv.size(), -1);
-  for (int i = 0; i < perminv.size(); ++i) {
-    for (int partId = 0; partId < blockSize.size(); ++partId) {
-      if (perminv[i] < thresholds[partId]) {
-        partition[i] = partId;
-        break;
-      }
-    }
   }
 
   // go through the nodes
@@ -418,4 +323,20 @@ void getNonzeros(const HighsSparseMatrix& M, const std::vector<int>& perminv,
     check += nzCount[2 * i + 1];
   }
   assert(check == 2 * nzCount.back());
+}
+
+void Metis_caller::debug_print(const HighsSparseMatrix& mat,
+                               const std::string& filename) {
+  out_file.open(filename);
+  out_file << mat.start_.size() - 1 << '\n';
+  for (int i : mat.start_) {
+    out_file << i << '\n';
+  }
+  for (int i : mat.index_) {
+    out_file << i << '\n';
+  }
+  for (double i : mat.value_) {
+    out_file << i << '\n';
+  }
+  out_file.close();
 }
