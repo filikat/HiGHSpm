@@ -16,6 +16,9 @@ class Metis_caller {
   // adjacency matrix of the graph
   HighsSparseMatrix M;
 
+  // constraint matrix
+  const HighsSparseMatrix* A;
+
   // type of M (augmented or normal equations)
   MetisPartitionType type;
 
@@ -57,18 +60,18 @@ class Metis_caller {
   std::vector<int> nzCount;
 
   // if debug is true, print out multiple files for debug, using out_file
-  bool debug = true;
+  bool debug = false;
   std::ofstream out_file;
 
  public:
   // Constructor
   // Set up matrix M with either augmented system or normal equations, depending
   // on the value of type.
-  Metis_caller(const HighsSparseMatrix& A, MetisPartitionType input_type,
+  Metis_caller(const HighsSparseMatrix& input_A, MetisPartitionType input_type,
                int input_nparts);
 
   // Call Metis and produce the partition of the graph
-  void getMetisPartition();
+  void getPartition();
 
   // From the partition, obtain the permutation to use for matrix M.
   // Two approached are tried to obtain a vertex cover of the edge cut:
@@ -76,13 +79,26 @@ class Metis_caller {
   // - "greedy" heuristic: for each edge in the cut, include in the vertex cover
   //    the node with highest original numbering (when possible)
   // The one which yields the smallest Schur complement is used.
-  void getMetisPermutation();
+  void getPermutation();
 
   // Extracts the diagonal and linking blocks of matrix M permuted.
-  void getBlocks();
+  // For augm system, diag1 and diag2 are the diagonals of 1,1 and 2,2 blocks.
+  // For normal equations, diag1 is theta, diag2 is ignored.
+  // At the first call, Blocks are computed. At subsequent calls:
+  // - Blocks are recomputed entirely for normal equations
+  // - only diagonal elements are updated for augm system
+  void getBlocks(const std::vector<double>& diag1,
+                 const std::vector<double>& diag2);
 
   // Computes the number of nonzeros of each of the diagonal and linking blocks.
   void getNonzeros();
+
+  void setDebug() { debug = true; }
+
+ private:
+  // Update diagonal elements of the augmented system blocks
+  void updateDiag(const std::vector<double>& diag1,
+                  const std::vector<double>& diag2);
 
   // print for debug
   template <typename T>

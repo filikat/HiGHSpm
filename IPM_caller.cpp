@@ -150,10 +150,23 @@ Output IPM_caller::Solve() {
   double objective_value{};
 
   // Metis stuff
+  auto metis_start = std::chrono::high_resolution_clock::now();
   Metis_caller Metis_data(model.highs_a, kMetisAugmented, 4);
-  Metis_data.getMetisPartition();
-  Metis_data.getMetisPermutation();
-  Metis_data.getBlocks();
+  Metis_data.setDebug();
+  Metis_data.getPartition();
+  Metis_data.getPermutation();
+  auto metis_stop = std::chrono::high_resolution_clock::now();
+  std::chrono::duration<double> metis_time = metis_stop - metis_start;
+  std::cout << "Metis time: " << metis_time.count() << '\n';
+
+  // test metis update
+  std::vector<double> diag1(n, 10.0);
+  std::vector<double> diag2(m, 4.0);
+  Metis_data.getBlocks(diag1, diag2);
+
+  diag1.assign(n, -3.5);
+  diag2.assign(m, 6.0);
+  Metis_data.getBlocks(diag1, diag2);
 
   // ------------------------------------------
   // ---- MAIN LOOP ---------------------------

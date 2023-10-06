@@ -13,17 +13,18 @@ void callMetis(idx_t nvertex, idx_t nconstraints, idx_t* adj_ptr,
 }
 //}
 
-Metis_caller::Metis_caller(const HighsSparseMatrix& A,
+Metis_caller::Metis_caller(const HighsSparseMatrix& input_A,
                            MetisPartitionType input_type, int input_nparts) {
   nparts = input_nparts;
   type = input_type;
+  A = &input_A;
 
   // -----------------------------------------------------------
   // set up the augmented system
   // -----------------------------------------------------------
   if (type == kMetisAugmented) {
-    nvertex = A.num_row_ + A.num_col_;
-    nedges = A.numNz() * 2;
+    nvertex = A->num_row_ + A->num_col_;
+    nedges = A->numNz() * 2;
 
     // allocate space for augmented matrix
     M.num_col_ = nvertex;
@@ -33,26 +34,26 @@ Metis_caller::Metis_caller(const HighsSparseMatrix& A,
     M.value_.resize(nedges);
 
     // temporary A transpose
-    HighsSparseMatrix A_t = A;
+    HighsSparseMatrix A_t = *A;
     A_t.ensureRowwise();
 
     // create pointers of augmented matrix
-    for (int i = 0; i < A.num_col_ + 1; ++i) {
-      M.start_[i] = A.start_[i];
+    for (int i = 0; i < A->num_col_ + 1; ++i) {
+      M.start_[i] = A->start_[i];
     }
-    int shift = A.num_col_;
-    int ptr_shift = A.numNz();
-    for (int i = 1; i < A.num_row_ + 1; ++i) {
+    int shift = A->num_col_;
+    int ptr_shift = A->numNz();
+    for (int i = 1; i < A->num_row_ + 1; ++i) {
       M.start_[i + shift] = A_t.start_[i] + ptr_shift;
     }
 
     // create adjacency list of augmented matrix
-    for (int i = 0; i < A.numNz(); ++i) {
-      M.index_[i] = A.index_[i] + A.num_col_;
-      M.value_[i] = A.value_[i];
+    for (int i = 0; i < A->numNz(); ++i) {
+      M.index_[i] = A->index_[i] + A->num_col_;
+      M.value_[i] = A->value_[i];
     }
-    int adj_shift = A.numNz();
-    for (int i = 0; i < A.numNz(); ++i) {
+    int adj_shift = A->numNz();
+    for (int i = 0; i < A->numNz(); ++i) {
       M.index_[i + adj_shift] = A_t.index_[i];
       M.value_[i + adj_shift] = A_t.value_[i];
     }
@@ -61,36 +62,20 @@ Metis_caller::Metis_caller(const HighsSparseMatrix& A,
   // set up the normal equations
   // -----------------------------------------------------------
   else if (type == kMetisNormalEq) {
-    std::vector<double> theta(A.num_col_, 1.0);
-    computeAThetaAT(A, theta, M);
-    nvertex = A.num_row_;
+    std::vector<double> theta(A->num_col_, 1.0);
+    computeAThetaAT(*A, theta, M);
+    nvertex = A->num_row_;
     nedges = M.numNz();
   } else {
     std::cerr << "Wront type of matrix for Metis parition\n";
     return;
   }
-
-  // -----------------------------------------------------------
-  // allocate space for later
-  // -----------------------------------------------------------
-  partition.resize(nvertex);
-  perminv.resize(nvertex);
-  Blocks.resize(2 * nparts + 1);
-  nzCount.resize(2 * nparts + 2);
-
-  // -----------------------------------------------------------
-  // print for debug
-  // -----------------------------------------------------------
-  if (debug) {
-    debug_print(A.start_, "debug_data/A_ptr.txt");
-    debug_print(A.index_, "debug_data/A_adj.txt");
-    debug_print(A.value_, "debug_data/A_val.txt");
-  }
 }
 
-void Metis_caller::getMetisPartition() {
+void Metis_caller::getPartition() {
   // create space for outputs
   idx_t objval{};
+  partition.resize(nvertex);
 
   // initialize metis options
   idx_t options[METIS_NOPTIONS];
@@ -101,7 +86,7 @@ void Metis_caller::getMetisPartition() {
             &objval, partition.data());
 }
 
-void Metis_caller::getMetisPermutation() {
+void Metis_caller::getPermutation() {
   // compute permutation with maximal matching
   std::vector<int> permutationMM(nvertex);
   std::vector<int> blockSizeMM(nparts + 1);
@@ -116,6 +101,9 @@ void Metis_caller::getMetisPermutation() {
 
   // print for debug
   if (debug) {
+    debug_print(A->start_, "debug_data/A_ptr.txt");
+    debug_print(A->index_, "debug_data/A_adj.txt");
+    debug_print(A->value_, "debug_data/A_val.txt");
     debug_print(partition, "debug_data/partition.txt");
     debug_print(permutationMM, "debug_data/permMM.txt");
     debug_print(permutationG, "debug_data/permG.txt");
@@ -136,21 +124,37 @@ void Metis_caller::getMetisPermutation() {
   for (int i = 0; i < blockSize.back(); ++i) {
     partition[permutation[nvertex - 1 - i]] = nparts;
   }
-}
 
-void Metis_caller::getBlocks() {
   // get inverse permutation
+  perminv.resize(nvertex);
   for (int i = 0; i < perminv.size(); ++i) {
     perminv[permutation[i]] = i;
+  }
+}
+
+void Metis_caller::getBlocks(const std::vector<double>& diag1,
+                             const std::vector<double>& diag2) {
+  // normal equations has to be recomputed with correct diagonal
+  // (cannot be easily updated)
+  if (type == kMetisNormalEq) {
+    M.clear();
+    computeAThetaAT(*A, diag1, M);
+  }
+
+  // if Blocks were already computed, aug system can be easily updated
+  if (!Blocks.empty() && type == kMetisAugmented) {
+    updateDiag(diag1, diag2);
+    return;
   }
 
   int threshold = M.num_col_ - blockSize.back();
 
   // get number of nonzeros in blocks for preallocation
-  getNonzeros();
+  // (just the first time)
+  if (nzCount.empty()) getNonzeros();
 
-  // file to write blocks
-  std::ofstream out_file;
+  // allocate/clear space for blocks
+  Blocks.assign(2 * nparts + 1, HighsSparseMatrix());
 
   // index of column to consider
   int colStart = 0;
@@ -180,7 +184,11 @@ void Metis_caller::getBlocks() {
       if (type == kMetisAugmented) {
         // diagonal is not included in augmented system
         Blocks[diagBlockIndex].index_.push_back(i - colStart);
-        Blocks[diagBlockIndex].value_.push_back(1.0);
+
+        // extract diagonal element from diag1 or diag2
+        double diagEl =
+            col < diag1.size() ? diag1[col] : diag2[col - diag1.size()];
+        Blocks[diagBlockIndex].value_.push_back(diagEl);
         ++current_nz_block;
       }
 
@@ -243,7 +251,10 @@ void Metis_caller::getBlocks() {
     if (type == kMetisAugmented) {
       // diagonal is not included in augmented system
       Blocks[blockIndex].index_.push_back(i - colStart);
-      Blocks[blockIndex].value_.push_back(1.0);
+      // extract diagonal element from diag1 or diag2
+      double diagEl =
+          col < diag1.size() ? diag1[col] : diag2[col - diag1.size()];
+      Blocks[blockIndex].value_.push_back(diagEl);
       ++current_nz_schur;
     }
 
@@ -288,13 +299,7 @@ void Metis_caller::getNonzeros() {
   // - nzCount[2 * nparts + 1] does non represent any real block, it is
   //    used as a sum check at the end.
 
-  assert(nzCount.size() == blockSize.size() * 2);
-
-  // get cumulative sum of blockSize
-  std::vector<int> thresholds(blockSize);
-  for (int i = 1; i < thresholds.size(); ++i) {
-    thresholds[i] += thresholds[i - 1];
-  }
+  nzCount.resize(2 * nparts + 2);
 
   // go through the nodes
   for (int node = 0; node < M.num_row_; ++node) {
@@ -323,6 +328,46 @@ void Metis_caller::getNonzeros() {
     check += nzCount[2 * i + 1];
   }
   assert(check == 2 * nzCount.back());
+}
+
+void Metis_caller::updateDiag(const std::vector<double>& diag1,
+                              const std::vector<double>& diag2) {
+  assert(type == kMetisAugmented);
+
+  // index to access permutation
+  int permIndex{};
+
+  // go through the diagonal blocks
+  for (int partId = 0; partId <= nparts; ++partId) {
+    HighsSparseMatrix* curBlock = &Blocks[2 * partId];
+
+    // go through the columns
+    for (int col = 0; col < curBlock->num_col_; ++col) {
+      int firstEl = curBlock->start_[col];
+
+      // first element of the column is diagonal element
+      assert(curBlock->index_[firstEl] == col);
+
+      // which element of the original diagonal corresponds to the current
+      // column
+      int diagIndex = permutation[permIndex];
+
+      // extract the correct diagonal element
+      double newDiagEl = diagIndex < diag1.size()
+                             ? diag1[diagIndex]
+                             : diag2[diagIndex - diag1.size()];
+
+      curBlock->value_[firstEl] = newDiagEl;
+
+      ++permIndex;
+    }
+
+    if (debug) {
+      char str[50];
+      snprintf(str, 50, "debug_data/block%d.txt", 2 * partId);
+      debug_print(*curBlock, str);
+    }
+  }
 }
 
 void Metis_caller::debug_print(const HighsSparseMatrix& mat,
