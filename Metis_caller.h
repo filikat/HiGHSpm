@@ -12,6 +12,19 @@ enum MetisPartitionType {
   kMetisNormalEq,
 };
 
+// [ * *         + + ]
+// [ * *         + + ]
+// [     * *     & & ]
+// [     * *     & & ]
+// [         * * + + ]
+// [         * * + + ]
+// [ + + & & + + % % ]
+// [ + + & & + + % % ]
+//
+// *    : diagonal blocks
+// +, & : linking blocks
+// %    : schur block (it will become the Schur complement)
+
 class Metis_caller {
   // adjacency matrix of the graph
   HighsSparseMatrix M;
@@ -63,6 +76,10 @@ class Metis_caller {
   bool debug = false;
   std::ofstream out_file;
 
+  // store the factorization and data of the diagonal blocks
+  std::vector<IpmInvert> invertData;
+  std::vector<ExperimentData> expData;
+
  public:
   // Constructor
   // Set up matrix M with either augmented system or normal equations, depending
@@ -75,7 +92,7 @@ class Metis_caller {
 
   // From the partition, obtain the permutation to use for matrix M.
   // Two approached are tried to obtain a vertex cover of the edge cut:
-  // - find a maximal matching of the edge cut
+  // - find a maximal matching of the edge cut (10 times)
   // - "greedy" heuristic: for each edge in the cut, include in the vertex cover
   //    the node with highest original numbering (when possible)
   // The one which yields the smallest Schur complement is used.
@@ -90,12 +107,18 @@ class Metis_caller {
   void getBlocks(const std::vector<double>& diag1,
                  const std::vector<double>& diag2);
 
+  // factorize and solve with the diagonal blocks
+  // (temporary stuff for testing, schur complement still missing)
+  void factor(); 
+  void solve();
+
+  void setDebug(bool db = true) { debug = db; }
+  const HighsSparseMatrix& accessBlock(int i) const { return Blocks[i]; }
+
+ private:
   // Computes the number of nonzeros of each of the diagonal and linking blocks.
   void getNonzeros();
 
-  void setDebug() { debug = true; }
-
- private:
   // Update diagonal elements of the augmented system blocks
   void updateDiag(const std::vector<double>& diag1,
                   const std::vector<double>& diag2);

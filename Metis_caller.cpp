@@ -1,10 +1,15 @@
 #include "Metis_caller.h"
 
+// -----------------------------------------------------------
+// Metis wrapper
+// -----------------------------------------------------------
 // extern "C" {
-void setOptions(idx_t* options) { METIS_SetDefaultOptions(options); }
-void callMetis(idx_t nvertex, idx_t nconstraints, idx_t* adj_ptr,
-               idx_t* adj_lst, idx_t nparts, idx_t* options, idx_t* objval,
-               idx_t* part) {
+void metis_wrapper_set_options(idx_t* options) {
+  METIS_SetDefaultOptions(options);
+}
+void metis_wrapper_call_metis(idx_t nvertex, idx_t nconstraints, idx_t* adj_ptr,
+                              idx_t* adj_lst, idx_t nparts, idx_t* options,
+                              idx_t* objval, idx_t* part) {
   idx_t status =
       METIS_PartGraphKway(&nvertex, &nconstraints, adj_ptr, adj_lst, NULL, NULL,
                           NULL, &nparts, NULL, NULL, options, objval, part);
@@ -12,6 +17,7 @@ void callMetis(idx_t nvertex, idx_t nconstraints, idx_t* adj_ptr,
   assert(status == METIS_OK);
 }
 //}
+// -----------------------------------------------------------
 
 Metis_caller::Metis_caller(const HighsSparseMatrix& input_A,
                            MetisPartitionType input_type, int input_nparts) {
@@ -79,11 +85,11 @@ void Metis_caller::getPartition() {
 
   // initialize metis options
   idx_t options[METIS_NOPTIONS];
-  setOptions(options);
+  metis_wrapper_set_options(options);
 
   // call Metis to get the partition
-  callMetis(nvertex, 1, M.start_.data(), M.index_.data(), nparts, options,
-            &objval, partition.data());
+  metis_wrapper_call_metis(nvertex, 1, M.start_.data(), M.index_.data(), nparts,
+                           options, &objval, partition.data());
 }
 
 void Metis_caller::getPermutation() {
@@ -384,4 +390,34 @@ void Metis_caller::debug_print(const HighsSparseMatrix& mat,
     out_file << i << '\n';
   }
   out_file.close();
+}
+
+void Metis_caller::factor() {
+  // allocate space for factorizations of diagonal blocks
+  invertData.resize(nparts);
+  expData.resize(nparts);
+
+  // factorize the diagonal blocks
+  for (int i = 0; i < nparts; ++i) {
+    expData[i].reset();
+    blockInvert(Blocks[2 * i], invertData[i], expData[i]);
+  }
+}
+
+void Metis_caller::solve() {
+  // solve for each diagonal block
+  for (int i = 0; i < nparts; ++i) {
+    std::vector<double> rhs(Blocks[2 * i].num_row_);
+    HighsRandom random;
+    for (double& d : rhs) {
+      d = random.fraction();
+    }
+    std::vector<double> lhs;
+    blockSolve(rhs, lhs, invertData[i], expData[i]);
+    char filename[50];
+    snprintf(filename, 50, "metis_rhs_%d.txt", i);
+    debug_print(rhs, filename);
+    snprintf(filename, 50, "metis_lhs_%d.txt", i);
+    debug_print(lhs, filename);
+  }
 }

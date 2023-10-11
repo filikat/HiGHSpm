@@ -13,6 +13,7 @@
 
 class IPM_caller {
   IPM_model model;
+
   int m{};
   int n{};
   bool model_ready{false};

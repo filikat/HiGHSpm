@@ -150,23 +150,20 @@ Output IPM_caller::Solve() {
   double objective_value{};
 
   // Metis stuff
-  auto metis_start = std::chrono::high_resolution_clock::now();
+  auto metis_start = getWallTime();
   Metis_caller Metis_data(model.highs_a, kMetisAugmented, 4);
   Metis_data.setDebug();
   Metis_data.getPartition();
   Metis_data.getPermutation();
-  auto metis_stop = std::chrono::high_resolution_clock::now();
-  std::chrono::duration<double> metis_time = metis_stop - metis_start;
-  std::cout << "Metis time: " << metis_time.count() << '\n';
+  std::cout << "Metis time: " << getWallTime() - metis_start << '\n';
 
   // test metis update
   std::vector<double> diag1(n, 10.0);
   std::vector<double> diag2(m, 4.0);
   Metis_data.getBlocks(diag1, diag2);
+  Metis_data.factor();
+  Metis_data.solve();
 
-  diag1.assign(n, -3.5);
-  diag2.assign(m, 6.0);
-  Metis_data.getBlocks(diag1, diag2);
 
   // ------------------------------------------
   // ---- MAIN LOOP ---------------------------
@@ -539,10 +536,6 @@ int IPM_caller::SolveNewtonSystem(const HighsSparseMatrix& highs_a,
         ComputeResiduals_8(highs_a, scaling, Res, res7, isCorrector)};
 
     // Solve normal equations
-    //
-    // Currently this is done using Conjugate Gradient. The solution for
-    // Delta.y can be substituted with a positive definite factorization.
-    //
     if (use_cg) {
       NormalEquations N(highs_a, scaling);
       CG_solve(N, res8, kCgTolerance, kCgIterationLimit, Delta.y, nullptr);

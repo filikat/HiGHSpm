@@ -51,7 +51,7 @@ cpp_objects = $(cpp_sources:%.cpp=$(OBJDIR)/%.o)
 c_objects = $(c_sources:%.c=$(OBJDIR)/%.o)
 
 # dependency files
-dep = $(cpp_objects:%.o=$(OBJDIR)/%.d)
+dep = $(cpp_sources:%.cpp=$(OBJDIR)/%.d)
 
 
 

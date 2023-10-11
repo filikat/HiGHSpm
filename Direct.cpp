@@ -1,4 +1,5 @@
 #include "Direct.h"
+
 #include <cmath>
 void IpmInvert::clear(const int solver_type) {
   this->valid = false;
@@ -1042,10 +1043,10 @@ int callMA86AugmentedFactor(const HighsSparseMatrix& matrix,
     }
   }
 
-  //const double diagonal = 1e-20;  // 1e-20;
+  // const double diagonal = 1e-20;  // 1e-20;
   const double diagonal = kDualRegularization;
   for (int iRow = 0; iRow < matrix.num_row_; iRow++) {
-    //std::cout << "val.size" << val.size() << std::endl;
+    // std::cout << "val.size" << val.size() << std::endl;
     ptr.push_back(val.size());
     if (diagonal) {
       val.push_back(diagonal);
@@ -1104,14 +1105,14 @@ int callMA86NewtonFactor(const HighsSparseMatrix& AThetaAT, MA86Data& ma86_data,
     }
   }
 
-  //std::cout << std::endl;
+  // std::cout << std::endl;
 
   // Add the last pointer
   ptr.push_back(val.size());
 
   // print ptr
   for (int i = 0; i < ptr.size(); i++) {
-    //std::cout << ptr[i] << " ";
+    // std::cout << ptr[i] << " ";
   }
   ma86_data.order.resize(AThetaAT.num_row_);
   for (int i = 0; i < n; i++) ma86_data.order[i] = i;
@@ -1280,7 +1281,7 @@ int callQDLDLAugmentedFactor(const HighsSparseMatrix& matrix,
     Ai.push_back(iCol + array_base);
   }
 
-  //const double diagonal = 0;  // 1e-20
+  // const double diagonal = 0;  // 1e-20
   const double diagonal = kPrimalRegularization;
   for (int iRow = 0; iRow < matrix.num_row_; iRow++) {
     Ap.push_back(Ax.size());
@@ -1455,4 +1456,82 @@ void callCholmodSolve(const int system_size, const int num_rhs, double* rhs,
 
   cholmod_free_dense(&rhs_dense, &(cholmod_data.c));
 #endif
+}
+
+int blockInvert(const HighsSparseMatrix& block, IpmInvert& invert,
+                ExperimentData& experiment_data, const int solver_type) {
+  const bool first_call_with_theta = !invert.valid;
+  assert(first_call_with_theta);
+
+  double start_time0 = getWallTime();
+  double start_time = start_time0;
+
+  int system_size = block.num_row_;
+
+  experiment_data.reset();
+  experiment_data.system_type = kSystemTypeNewton;
+  experiment_data.system_size = system_size;
+
+  if (solver_type == 1) {
+    experiment_data.decomposer = "ssids";
+  } else if (solver_type == 2) {
+    experiment_data.decomposer = "ma86";
+  } else if (solver_type == 3) {
+    experiment_data.decomposer = "qdldl";
+  } else if (solver_type == 4) {
+    experiment_data.decomposer = "cholmod";
+  }
+
+  experiment_data.system_nnz = block.numNz();
+
+  experiment_data.nla_time.form = getWallTime() - start_time;
+  SsidsData& ssids_data = invert.ssids_data;
+  MA86Data& ma86_data = invert.ma86_data;
+  QDLDLData& qdldl_data = invert.qdldl_data;
+  CholmodData& cholmod_data = invert.cholmod_data;
+  int factor_status;
+  if (solver_type == 1) {
+    factor_status = callSsidsNewtonFactor(block, ssids_data, experiment_data);
+  } else if (solver_type == 2) {
+    factor_status = callMA86NewtonFactor(block, ma86_data, experiment_data);
+  } else if (solver_type == 3) {
+    factor_status = callQDLDLNewtonFactor(block, qdldl_data, experiment_data);
+  } else if (solver_type == 4) {
+    factor_status =
+        callCholmodNewtonFactor(block, cholmod_data, experiment_data);
+  }
+
+  if (factor_status) return factor_status;
+
+  invert.system_size = system_size;
+  invert.use_num_dense_col = 0;
+  experiment_data.nla_time.total = getWallTime() - start_time0;
+  invert.valid = true;
+  return kDecomposerStatusOk;
+}
+
+int blockSolve(const std::vector<double>& rhs, std::vector<double>& lhs,
+               IpmInvert& invert, ExperimentData& experiment_data,
+               const int& solver_type) {
+  assert(invert.valid);
+
+  double start_time = getWallTime();
+
+  const int system_size = invert.system_size;
+
+  lhs = rhs;
+  // Form \hat_b = \hat{A}_d^Tb (as d_rhs);
+  if (solver_type == 1) {
+    callSsidsSolve(system_size, 1, lhs.data(), invert.ssids_data);
+  } else if (solver_type == 2) {
+    callMA86Solve(system_size, 1, lhs.data(), invert.ma86_data);
+  } else if (solver_type == 3) {
+    callQDLDLSolve(system_size, 1, lhs.data(), invert.qdldl_data);
+  } else if (solver_type == 4) {
+    callCholmodSolve(system_size, 1, lhs.data(), invert.cholmod_data);
+  }
+
+  experiment_data.nla_time.solve = getWallTime() - start_time;
+
+  return kDecomposerStatusOk;
 }

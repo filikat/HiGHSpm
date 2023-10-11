@@ -2,8 +2,8 @@
 #define DIRECT_H
 
 #include "ExperimentData.h"
-#include "VectorOperations.h"
 #include "IPM_const.h"
+#include "VectorOperations.h"
 #ifdef HAVE_SPRAL
 #include "spral.h"
 #endif
@@ -211,5 +211,16 @@ int callCholmodNewtonFactor(const HighsSparseMatrix& AThetaAT,
                             const int num_thods = 3);
 void callCholmodSolve(const int system_size, const int num_rhs, double* rhs,
                       CholmodData& cholmod_data);
+
+// ------------------------------------------
+// Metis invert and solve
+// ------------------------------------------
+int blockInvert(const HighsSparseMatrix& block, IpmInvert& invert,
+                ExperimentData& experiment_data,
+                const int solver_type = default_solver);
+
+int blockSolve(const std::vector<double>& rhs, std::vector<double>& lhs,
+               IpmInvert& invert, ExperimentData& experiment_data,
+               const int& solver_type = default_solver);
 
 #endif
