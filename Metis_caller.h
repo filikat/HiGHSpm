@@ -60,7 +60,7 @@ class Metis_caller {
   // Contains the blocks, after getBlocks returns.
   // Blocks[2 * i] contains the i-th diagonal block
   // Blocks[2 * i + 1] contains the i-th linking block
-  // Blocks[2 * nparts + 1] contains the Schur block (i.e. the last diagonal
+  // Blocks[2 * nparts] contains the Schur block (i.e. the last diagonal
   //   block that will become the Schur compl)
   std::vector<HighsSparseMatrix> Blocks;
 
@@ -68,8 +68,8 @@ class Metis_caller {
   // getNonzeros returns.
   // nzCount[2 * i] contains the nonzero count of the i-th diag block
   // nzCount[2 * i + 1] contains the nonzero count of the i-th linking block
-  // nzCount[2 * nparts + 1] contains the nonzero count of the Schur block
-  // nzCount[2 * nparts + 2] should not be used for anything
+  // nzCount[2 * nparts] contains the nonzero count of the Schur block
+  // nzCount[2 * nparts + 1] should not be used for anything
   std::vector<int> nzCount;
 
   // if debug is true, print out multiple files for debug, using out_file
@@ -109,7 +109,7 @@ class Metis_caller {
 
   // factorize and solve with the diagonal blocks
   // (temporary stuff for testing, schur complement still missing)
-  void factor(); 
+  void factor();
   void solve();
 
   void setDebug(bool db = true) { debug = db; }
@@ -138,5 +138,8 @@ void Metis_caller::debug_print(const std::vector<T>& vec,
   }
   out_file.close();
 }
+
+void denseMatrixPlusVector(std::vector<std::vector<double>>& mat,
+                           const std::vector<double>& vec, int col);
 
 #endif

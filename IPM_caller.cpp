@@ -151,7 +151,7 @@ Output IPM_caller::Solve() {
 
   // Metis stuff
   auto metis_start = getWallTime();
-  Metis_caller Metis_data(model.highs_a, kMetisAugmented, 4);
+  Metis_caller Metis_data(model.highs_a, kMetisAugmented, 2);
   Metis_data.setDebug();
   Metis_data.getPartition();
   Metis_data.getPermutation();
@@ -162,8 +162,7 @@ Output IPM_caller::Solve() {
   std::vector<double> diag2(m, 4.0);
   Metis_data.getBlocks(diag1, diag2);
   Metis_data.factor();
-  Metis_data.solve();
-
+  // Metis_data.solve();
 
   // ------------------------------------------
   // ---- MAIN LOOP ---------------------------
@@ -735,14 +734,21 @@ void IPM_caller::ComputeStartingPoint() {
   It.y = model.rhs;
   model.highs_a.alphaProductPlusY(-1.0, It.x, It.y);
 
-  // solve A*A^T * dx = b-A*x with CG and store the result in temp_m
+  // solve A*A^T * dx = b-A*x with factorization and store the result in temp_m
   std::vector<double> temp_scaling(n, 1.0);
-  NormalEquations N(model.highs_a, temp_scaling);
-
   std::vector<double> temp_m(m);
-  int cg_iter{};
-  CG_solve(N, It.y, 1e-4, 100, temp_m, &cg_iter);
-  int cg_iter_starting_point{cg_iter};
+  // factorize A*A^T
+  IpmInvert startPointInvert;
+  ExperimentData startPointExpData;
+  startPointExpData.reset();
+  int newton_invert_status = newtonInvert(
+      model.highs_a, temp_scaling, startPointInvert, 0, 0, startPointExpData);
+  if (newton_invert_status) std::cerr << "Error in factorization of A*A^T\n";
+  // solve
+  int newton_solve_status =
+      newtonSolve(model.highs_a, temp_scaling, It.y, temp_m, startPointInvert,
+                  startPointExpData);
+  if (newton_solve_status) std::cerr << "Error in solution of A*A^T\n";
 
   // compute dx = A^T * (A*A^T)^{-1} * (b-A*x) and store the result in xl
   std::fill(It.xl.begin(), It.xl.end(), 0.0);
@@ -779,9 +785,9 @@ void IPM_caller::ComputeStartingPoint() {
   model.highs_a.alphaProductPlusY(1.0, model.obj, temp_m);
 
   // compute (A*A^T)^{-1} * A*c and store in y
-  CG_solve(N, temp_m, 1e-4, 100, It.y, &cg_iter);
-  cg_iter_starting_point += cg_iter;
-  printf("Starting point required %d CG iterations\n", cg_iter_starting_point);
+  newton_solve_status = newtonSolve(model.highs_a, temp_scaling, temp_m, It.y,
+                                    startPointInvert, startPointExpData);
+  if (newton_solve_status) std::cerr << "Error in solution of A*A^T\n";
   // *********************************************************************
 
   // *********************************************************************

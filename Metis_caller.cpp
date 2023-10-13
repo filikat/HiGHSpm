@@ -247,8 +247,8 @@ void Metis_caller::getBlocks(const std::vector<double>& diag1,
 
   // allocate space for block
   Blocks[blockIndex].start_.reserve(blockSize.back() + 1);
-  Blocks[blockIndex].index_.reserve(nzCount[2 * nparts + 1]);
-  Blocks[blockIndex].value_.reserve(nzCount[2 * nparts + 1]);
+  Blocks[blockIndex].index_.reserve(nzCount[2 * nparts]);
+  Blocks[blockIndex].value_.reserve(nzCount[2 * nparts]);
 
   int current_nz_schur{};
   for (int i = colStart; i < colStart + blockSize.back(); ++i) {
@@ -402,6 +402,72 @@ void Metis_caller::factor() {
     expData[i].reset();
     blockInvert(Blocks[2 * i], invertData[i], expData[i]);
   }
+
+  // to build Schur complement:
+  // for each linking block
+  // - access rows of linking block (stored row-wise)
+  // - create dense vector with row
+  // - solve with diagonal block factorization
+  // - product with linking block (stored col-wise)
+  // - obtain column of Schur complement
+  // Store everything in a dense matrix
+
+  int linkSize = blockSize.back();
+
+  // space for dense schur complement
+  std::vector<std::vector<double>> schurComplement(
+      linkSize, std::vector<double>(linkSize, 0.0));
+
+  // insert original schur block
+  HighsSparseMatrix& schurB = Blocks[2 * nparts];
+  for (int col = 0; col < linkSize; ++col) {
+    for (int el = schurB.start_[col]; el < schurB.start_[col + 1]; ++el) {
+      schurComplement[col][schurB.index_[el]] += schurB.value_[el];
+    }
+  }
+
+  auto t1 = getWallTime();
+
+  // go through the linking blocks
+  for (int i = 0; i < nparts; ++i) {
+    // current linking block
+    HighsSparseMatrix& B = Blocks[2 * i + 1];
+
+    // row-wise linking block
+    HighsSparseMatrix Bt = B;
+    Bt.ensureRowwise();
+
+    // go through the rows of B
+    for (int row = 0; row < B.num_row_; ++row) {
+      // space for dense vector
+      std::vector<double> denseRow(B.num_col_, 0.0);
+      // space for column of the schur complement
+      std::vector<double> schurContribution(linkSize, 0.0);
+
+      // go through the entries of the row and fill in dense_row
+      for (int elem = Bt.start_[row]; elem < Bt.start_[row + 1]; ++elem) {
+        denseRow[Bt.index_[elem]] = Bt.value_[elem];
+      }
+
+      // solve with diagonal block
+      blockSolve(denseRow.data(), 1, invertData[i], expData[i]);
+
+      // multiply by B
+      B.product(schurContribution, denseRow);
+
+      denseMatrixPlusVector(schurComplement, schurContribution, row);
+    }
+  }
+  std::cout << "time " << getWallTime() - t1 << '\n';
+
+  // print schur complement
+  out_file.open("schur_complement.txt");
+  for (int row = 0; row < linkSize; ++row) {
+    for (double d : schurComplement[row]) {
+      out_file << d << '\n';
+    }
+  }
+  out_file.close();
 }
 
 void Metis_caller::solve() {
@@ -412,12 +478,20 @@ void Metis_caller::solve() {
     for (double& d : rhs) {
       d = random.fraction();
     }
-    std::vector<double> lhs;
-    blockSolve(rhs, lhs, invertData[i], expData[i]);
-    char filename[50];
+    std::vector<double> lhs(rhs);
+    blockSolve(lhs.data(), 1, invertData[i], expData[i]);
+    /*char filename[50];
     snprintf(filename, 50, "metis_rhs_%d.txt", i);
     debug_print(rhs, filename);
     snprintf(filename, 50, "metis_lhs_%d.txt", i);
-    debug_print(lhs, filename);
+    debug_print(lhs, filename);*/
+  }
+}
+
+void denseMatrixPlusVector(std::vector<std::vector<double>>& mat,
+                           const std::vector<double>& vec, int col) {
+  // update column col of dense matrix mat by adding vector vec
+  for (int i = 0; i < vec.size(); ++i) {
+    mat[col][i] += vec[i];
   }
 }

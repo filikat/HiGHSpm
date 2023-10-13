@@ -1142,7 +1142,7 @@ int callMA86NewtonFactor(const HighsSparseMatrix& AThetaAT, MA86Data& ma86_data,
 void callMA86Solve(const int system_size, const int num_rhs, double* rhs,
                    MA86Data& ma86_data) {
 #ifdef HAVE_MA86
-  wrapper_ma86_solve(0, 1, system_size, rhs, ma86_data.order.data(),
+  wrapper_ma86_solve(0, num_rhs, system_size, rhs, ma86_data.order.data(),
                      &ma86_data.keep, &ma86_data.control, &ma86_data.info);
 #endif
 }
@@ -1510,25 +1510,22 @@ int blockInvert(const HighsSparseMatrix& block, IpmInvert& invert,
   return kDecomposerStatusOk;
 }
 
-int blockSolve(const std::vector<double>& rhs, std::vector<double>& lhs,
-               IpmInvert& invert, ExperimentData& experiment_data,
-               const int& solver_type) {
+int blockSolve(double* rhs, int num_rhs, IpmInvert& invert,
+               ExperimentData& experiment_data, const int& solver_type) {
   assert(invert.valid);
 
   double start_time = getWallTime();
 
   const int system_size = invert.system_size;
 
-  lhs = rhs;
-  // Form \hat_b = \hat{A}_d^Tb (as d_rhs);
   if (solver_type == 1) {
-    callSsidsSolve(system_size, 1, lhs.data(), invert.ssids_data);
+    callSsidsSolve(system_size, 1, rhs, invert.ssids_data);
   } else if (solver_type == 2) {
-    callMA86Solve(system_size, 1, lhs.data(), invert.ma86_data);
+    callMA86Solve(system_size, num_rhs, rhs, invert.ma86_data);
   } else if (solver_type == 3) {
-    callQDLDLSolve(system_size, 1, lhs.data(), invert.qdldl_data);
+    callQDLDLSolve(system_size, 1, rhs, invert.qdldl_data);
   } else if (solver_type == 4) {
-    callCholmodSolve(system_size, 1, lhs.data(), invert.cholmod_data);
+    callCholmodSolve(system_size, 1, rhs, invert.cholmod_data);
   }
 
   experiment_data.nla_time.solve = getWallTime() - start_time;
