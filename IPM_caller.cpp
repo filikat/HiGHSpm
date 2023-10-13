@@ -162,7 +162,12 @@ Output IPM_caller::Solve() {
   std::vector<double> diag2(m, 4.0);
   Metis_data.getBlocks(diag1, diag2);
   Metis_data.factor();
-  // Metis_data.solve();
+  std::vector<double> input_rhs(m + n);
+  for (int i = 0; i < m + n; ++i) {
+    input_rhs[i] = i;
+  }
+  std::vector<double> input_lhs(m + n, 0.0);
+  Metis_data.solve(input_rhs, input_lhs);
 
   // ------------------------------------------
   // ---- MAIN LOOP ---------------------------

@@ -393,15 +393,9 @@ void Metis_caller::debug_print(const HighsSparseMatrix& mat,
 }
 
 void Metis_caller::factor() {
-  // allocate space for factorizations of diagonal blocks
-  invertData.resize(nparts);
-  expData.resize(nparts);
-
-  // factorize the diagonal blocks
-  for (int i = 0; i < nparts; ++i) {
-    expData[i].reset();
-    blockInvert(Blocks[2 * i], invertData[i], expData[i]);
-  }
+  // allocate space for factorizations of blocks
+  invertData.resize(nparts + 1);
+  expData.resize(nparts + 1);
 
   // to build Schur complement:
   // for each linking block
@@ -411,6 +405,8 @@ void Metis_caller::factor() {
   // - product with linking block (stored col-wise)
   // - obtain column of Schur complement
   // Store everything in a dense matrix
+
+  auto t1 = getWallTime();
 
   int linkSize = blockSize.back();
 
@@ -426,10 +422,12 @@ void Metis_caller::factor() {
     }
   }
 
-  auto t1 = getWallTime();
-
-  // go through the linking blocks
+  // go through the parts
   for (int i = 0; i < nparts; ++i) {
+    // factorize the diagonal blocks
+    expData[i].reset();
+    blockInvert(Blocks[2 * i], invertData[i], expData[i]);
+
     // current linking block
     HighsSparseMatrix& B = Blocks[2 * i + 1];
 
@@ -455,43 +453,112 @@ void Metis_caller::factor() {
       // multiply by B
       B.product(schurContribution, denseRow);
 
-      denseMatrixPlusVector(schurComplement, schurContribution, row);
+      // subtract contribution of current row from schur complement
+      denseMatrixPlusVector(schurComplement, schurContribution, row, -1.0);
     }
   }
   std::cout << "time " << getWallTime() - t1 << '\n';
 
-  // print schur complement
-  out_file.open("schur_complement.txt");
-  for (int row = 0; row < linkSize; ++row) {
-    for (double d : schurComplement[row]) {
-      out_file << d << '\n';
+  // convert schur complement to sparse matrix
+  HighsSparseMatrix sparseSchur;
+  sparseSchur.start_.reserve(linkSize + 1);
+  sparseSchur.index_.reserve(linkSize * linkSize);
+  sparseSchur.value_.reserve(linkSize * linkSize);
+  for (int col = 0; col < linkSize; ++col) {
+    sparseSchur.start_.push_back(sparseSchur.start_[col] + linkSize);
+    for (int row = 0; row < linkSize; ++row) {
+      sparseSchur.index_.push_back(row);
+      sparseSchur.value_.push_back(schurComplement[col][row]);
     }
   }
-  out_file.close();
+  sparseSchur.num_row_ = linkSize;
+  sparseSchur.num_col_ = linkSize;
+  schurComplement.clear();
+
+  // factorize schur complement
+  blockInvert(sparseSchur, invertData.back(), expData.back());
 }
 
-void Metis_caller::solve() {
-  // solve for each diagonal block
-  for (int i = 0; i < nparts; ++i) {
-    std::vector<double> rhs(Blocks[2 * i].num_row_);
-    HighsRandom random;
-    for (double& d : rhs) {
-      d = random.fraction();
-    }
-    std::vector<double> lhs(rhs);
-    blockSolve(lhs.data(), 1, invertData[i], expData[i]);
-    /*char filename[50];
-    snprintf(filename, 50, "metis_rhs_%d.txt", i);
-    debug_print(rhs, filename);
-    snprintf(filename, 50, "metis_lhs_%d.txt", i);
-    debug_print(lhs, filename);*/
+void Metis_caller::solve(const std::vector<double>& rhs,
+                         std::vector<double>& lhs) {
+  // space for permuted rhs and lhs
+  std::vector<double> perm_rhs(rhs.size());
+  std::vector<double> perm_lhs(lhs.size());
+
+  // permute rhs
+  for (int i = 0; i < rhs.size(); ++i) {
+    perm_rhs[i] = rhs[permutation[i]];
   }
+
+  // allocate space for partitioning rhs and lhs
+  block_rhs.resize(nparts + 1);
+  block_lhs.resize(nparts + 1);
+
+  // rhs of schur complement is temporarily stored in the last solution block
+  block_lhs.back().resize(blockSize.back());
+  std::vector<double>& schur_rhs(block_lhs.back());
+
+  int start{};
+  for (int i = 0; i <= nparts; ++i) {
+    // allocate space for current rhs and lhs blocks
+    block_rhs[i].resize(blockSize[i]);
+    block_lhs[i].resize(blockSize[i]);
+
+    // break rhs into blocks
+    for (int j = 0; j < blockSize[i]; ++j) {
+      block_rhs[i][j] = perm_rhs[start + j];
+    }
+    start += blockSize[i];
+
+    // contribution to schur_rhs:
+    // schur_rhs = rhs_link - \sum_i Bi * Di^-1 * rhs_i
+    if (i < nparts) {
+      std::vector<double> temp(block_rhs[i]);
+      std::vector<double> schur_rhs_temp(blockSize.back());
+      blockSolve(temp.data(), 1, invertData[i], expData[i]);
+      Blocks[2 * i + 1].product(schur_rhs_temp, temp);
+      VectorAdd(schur_rhs, schur_rhs_temp, -1.0);
+    } else {
+      VectorAdd(schur_rhs, block_rhs[i], 1.0);
+    }
+  }
+
+  // solve linear system with schur complement to compute last block of solution
+  blockSolve(schur_rhs.data(), 1, invertData.back(), expData.back());
+
+  // compute the other blocks of the solution:
+  // lhs_i = Di^-1 * (rhs_i - Bi^T * lhs_last)
+  std::vector<double>& lastSol(block_lhs.back());
+  int positionInLhs{};
+  for (int i = 0; i < nparts; ++i) {
+    Blocks[2 * i + 1].productTranspose(block_lhs[i], lastSol);
+    VectorAdd(block_lhs[i], block_rhs[i], -1.0);
+    VectorScale(block_lhs[i], -1.0);
+    blockSolve(block_lhs[i].data(), 1, invertData[i], expData[i]);
+
+    // copy solution into lhs
+    std::copy(block_lhs[i].begin(), block_lhs[i].end(),
+              perm_lhs.begin() + positionInLhs);
+    positionInLhs += blockSize[i];
+  }
+
+  // copy last block of solution
+  std::copy(lastSol.begin(), lastSol.end(), perm_lhs.begin() + positionInLhs);
+
+  // permute back lhs
+  for (int i = 0; i < lhs.size(); ++i) {
+    lhs[i] = perm_lhs[perminv[i]];
+  }
+
+  debug_print(rhs, "debug_data/rhs.txt");
+  debug_print(lhs, "debug_data/lhs.txt");
 }
 
 void denseMatrixPlusVector(std::vector<std::vector<double>>& mat,
-                           const std::vector<double>& vec, int col) {
-  // update column col of dense matrix mat by adding vector vec
+                           const std::vector<double>& vec, int col,
+                           double alpha) {
+  // update column col of dense matrix mat by adding vector vec scaled by alpha
   for (int i = 0; i < vec.size(); ++i) {
-    mat[col][i] += vec[i];
+    mat[col][i] += alpha * vec[i];
   }
 }

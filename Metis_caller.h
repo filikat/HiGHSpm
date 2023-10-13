@@ -80,6 +80,10 @@ class Metis_caller {
   std::vector<IpmInvert> invertData;
   std::vector<ExperimentData> expData;
 
+  // store the rhs and lhs in blocks for solve()
+  std::vector<std::vector<double>> block_rhs;
+  std::vector<std::vector<double>> block_lhs;
+
  public:
   // Constructor
   // Set up matrix M with either augmented system or normal equations, depending
@@ -110,7 +114,7 @@ class Metis_caller {
   // factorize and solve with the diagonal blocks
   // (temporary stuff for testing, schur complement still missing)
   void factor();
-  void solve();
+  void solve(const std::vector<double>& rhs, std::vector<double>& lhs);
 
   void setDebug(bool db = true) { debug = db; }
   const HighsSparseMatrix& accessBlock(int i) const { return Blocks[i]; }
@@ -140,6 +144,7 @@ void Metis_caller::debug_print(const std::vector<T>& vec,
 }
 
 void denseMatrixPlusVector(std::vector<std::vector<double>>& mat,
-                           const std::vector<double>& vec, int col);
+                           const std::vector<double>& vec, int col,
+                           double alpha);
 
 #endif
