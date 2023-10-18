@@ -33,7 +33,7 @@ class Metis_caller {
   const HighsSparseMatrix* A;
 
   // type of M (augmented or normal equations)
-  MetisPartitionType type;
+  int type;
 
   // number of parts in the partition
   int nparts;
@@ -78,17 +78,14 @@ class Metis_caller {
 
   // store the factorization and data of the diagonal blocks
   std::vector<IpmInvert> invertData;
-  std::vector<ExperimentData> expData;
-
-  // store the rhs and lhs in blocks for solve()
-  std::vector<std::vector<double>> block_rhs;
-  std::vector<std::vector<double>> block_lhs;
+  std::vector<ExperimentData> expData;  
 
  public:
   // Constructor
   // Set up matrix M with either augmented system or normal equations, depending
   // on the value of type.
-  Metis_caller(const HighsSparseMatrix& input_A, MetisPartitionType input_type,
+  Metis_caller() = default;
+  Metis_caller(const HighsSparseMatrix& input_A, int input_type,
                int input_nparts);
 
   // Call Metis and produce the partition of the graph
@@ -103,7 +100,7 @@ class Metis_caller {
   void getPermutation();
 
   // Extracts the diagonal and linking blocks of matrix M permuted.
-  // For augm system, diag1 and diag2 are the diagonals of 1,1 and 2,2 blocks.
+  // For augm system, diag1 is Theta^-1 and diag2 is the diagonal of 2,2 block
   // For normal equations, diag1 is theta, diag2 is ignored.
   // At the first call, Blocks are computed. At subsequent calls:
   // - Blocks are recomputed entirely for normal equations
@@ -118,6 +115,8 @@ class Metis_caller {
 
   void setDebug(bool db = true) { debug = db; }
   const HighsSparseMatrix& accessBlock(int i) const { return Blocks[i]; }
+  void prepare() { invertData.assign(nparts + 1, IpmInvert()); }
+  bool valid() { return invertData.front().valid; }
 
  private:
   // Computes the number of nonzeros of each of the diagonal and linking blocks.

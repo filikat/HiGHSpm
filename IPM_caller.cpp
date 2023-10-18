@@ -150,24 +150,17 @@ Output IPM_caller::Solve() {
   double objective_value{};
 
   // Metis stuff
-  auto metis_start = getWallTime();
-  Metis_caller Metis_data(model.highs_a, kMetisAugmented, 2);
-  Metis_data.setDebug();
-  Metis_data.getPartition();
-  Metis_data.getPermutation();
-  std::cout << "Metis time: " << getWallTime() - metis_start << '\n';
-
-  // test metis update
-  std::vector<double> diag1(n, 10.0);
-  std::vector<double> diag2(m, 4.0);
-  Metis_data.getBlocks(diag1, diag2);
-  Metis_data.factor();
-  std::vector<double> input_rhs(m + n);
-  for (int i = 0; i < m + n; ++i) {
-    input_rhs[i] = i;
+  bool use_metis = option_nla == kOptionNlaMetisAugmented ||
+                   option_nla == kOptionNlaMetisNormalEq;
+  use_metis = true;
+  if (use_metis) {
+    auto metis_start = getWallTime();
+    Metis_data = Metis_caller(model.highs_a, 5, 2);
+    Metis_data.setDebug(false);
+    Metis_data.getPartition();
+    Metis_data.getPermutation();
+    std::cout << "Metis time: " << getWallTime() - metis_start << '\n';
   }
-  std::vector<double> input_lhs(m + n, 0.0);
-  Metis_data.solve(input_rhs, input_lhs);
 
   // ------------------------------------------
   // ---- MAIN LOOP ---------------------------
@@ -203,9 +196,18 @@ Output IPM_caller::Solve() {
     // Clear any existing INVERT now that scaling has changed
     invert.clear();
 
-    //    printf("grep %d & %3.1f & %3.1f & %5.1g & %5.1g & %5.1g & %5.1g\n",
-    //	   iter,
-    // It.x[0],It.x[1],1/scaling[0],1/scaling[1],1/scaling[2],1/scaling[3]);
+    if (use_metis) {
+      Metis_data.prepare();
+      std::vector<double> block22(m, kDualRegularization);
+
+      if (option_nla == kOptionNlaMetisAugmented) {
+        Metis_data.getBlocks(scaling, block22);
+      } else {
+        std::vector<double> theta(n);
+        scaling2theta(scaling, theta);
+        Metis_data.getBlocks(theta, block22);
+      }
+    }
 
     // Initialize Newton direction
     NewtonDir Delta(m, n);
@@ -651,6 +653,62 @@ int IPM_caller::SolveNewtonSystem(const HighsSparseMatrix& highs_a,
       Delta.y = augmented_delta_y;
     }
   }
+
+  // solve augmented system with metis
+  if (option_nla == kOptionNlaMetisAugmented) {
+    // predictor?
+    if (!Metis_data.valid()) {
+      Metis_data.factor();
+    }
+
+    // create rhs = [rhs7; rhs1]
+    std::vector<double> rhs(m + n);
+    for (int i = 0; i < n; ++i) {
+      rhs[i] = res7[i];
+    }
+    for (int i = 0; i < m; ++i) {
+      rhs[i + n] = Res.res1[i];
+    }
+
+    // solve
+    std::vector<double> lhs(m + n);
+    Metis_data.solve(rhs, lhs);
+
+    // assign Dx and Dy from lhs
+    for (int i = 0; i < n; ++i) {
+      Delta.x[i] = lhs[i];
+    }
+    for (int i = 0; i < m; ++i) {
+      Delta.y[i] = lhs[n + i];
+    }
+  }
+
+  if (option_nla == kOptionNlaMetisNormalEq) {
+    // predictor?
+    if (!Metis_data.valid()) {
+      Metis_data.factor();
+    }
+
+    // Compute res8
+    std::vector<double> res8{
+        ComputeResiduals_8(highs_a, scaling, Res, res7, isCorrector)};
+
+    std::vector<double> metis_y(m);
+    Metis_data.solve(res8, metis_y);
+    Delta.y = metis_y;
+
+    // Compute Delta.x
+    // *********************************************************************
+    // Deltax = A^T * Deltay - res7;
+    Delta.x = res7;
+    highs_a.alphaProductPlusY(-1.0, Delta.y, Delta.x, true);
+    VectorScale(Delta.x, -1.0);
+
+    // Deltax = Theta * Deltax
+    VectorDivide(Delta.x, scaling);
+    // *********************************************************************
+  }
+
   return 0;
 }
 

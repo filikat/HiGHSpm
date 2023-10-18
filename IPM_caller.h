@@ -28,6 +28,8 @@ class IPM_caller {
   // IPM iterate
   Iterate It{};
 
+  Metis_caller Metis_data;
+
  public:
   // ===================================================================================
   // Run-time options

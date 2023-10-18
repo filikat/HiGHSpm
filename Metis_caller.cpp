@@ -19,8 +19,8 @@ void metis_wrapper_call_metis(idx_t nvertex, idx_t nconstraints, idx_t* adj_ptr,
 //}
 // -----------------------------------------------------------
 
-Metis_caller::Metis_caller(const HighsSparseMatrix& input_A,
-                           MetisPartitionType input_type, int input_nparts) {
+Metis_caller::Metis_caller(const HighsSparseMatrix& input_A, int input_type,
+                           int input_nparts) {
   nparts = input_nparts;
   type = input_type;
   A = &input_A;
@@ -28,7 +28,7 @@ Metis_caller::Metis_caller(const HighsSparseMatrix& input_A,
   // -----------------------------------------------------------
   // set up the augmented system
   // -----------------------------------------------------------
-  if (type == kMetisAugmented) {
+  if (type == kOptionNlaMetisAugmented) {
     nvertex = A->num_row_ + A->num_col_;
     nedges = A->numNz() * 2;
 
@@ -67,15 +67,19 @@ Metis_caller::Metis_caller(const HighsSparseMatrix& input_A,
   // -----------------------------------------------------------
   // set up the normal equations
   // -----------------------------------------------------------
-  else if (type == kMetisNormalEq) {
+  else if (type == kOptionNlaMetisNormalEq) {
     std::vector<double> theta(A->num_col_, 1.0);
     computeAThetaAT(*A, theta, M);
     nvertex = A->num_row_;
     nedges = M.numNz();
   } else {
-    std::cerr << "Wront type of matrix for Metis parition\n";
+    std::cerr << "Wrong type of matrix for Metis partition\n";
     return;
   }
+
+  // space for factorizations
+  invertData.resize(nparts + 1, {});
+  expData.resize(nparts + 1);
 }
 
 void Metis_caller::getPartition() {
@@ -142,13 +146,13 @@ void Metis_caller::getBlocks(const std::vector<double>& diag1,
                              const std::vector<double>& diag2) {
   // normal equations has to be recomputed with correct diagonal
   // (cannot be easily updated)
-  if (type == kMetisNormalEq) {
+  if (type == kOptionNlaMetisNormalEq) {
     M.clear();
     computeAThetaAT(*A, diag1, M);
   }
 
   // if Blocks were already computed, aug system can be easily updated
-  if (!Blocks.empty() && type == kMetisAugmented) {
+  if (!Blocks.empty() && type == kOptionNlaMetisAugmented) {
     updateDiag(diag1, diag2);
     return;
   }
@@ -187,13 +191,13 @@ void Metis_caller::getBlocks(const std::vector<double>& diag1,
     for (int i = colStart; i < colStart + blockSize[blockId]; ++i) {
       int col = permutation[i];
 
-      if (type == kMetisAugmented) {
+      if (type == kOptionNlaMetisAugmented) {
         // diagonal is not included in augmented system
         Blocks[diagBlockIndex].index_.push_back(i - colStart);
 
         // extract diagonal element from diag1 or diag2
         double diagEl =
-            col < diag1.size() ? diag1[col] : diag2[col - diag1.size()];
+            col < diag1.size() ? -diag1[col] : diag2[col - diag1.size()];
         Blocks[diagBlockIndex].value_.push_back(diagEl);
         ++current_nz_block;
       }
@@ -254,12 +258,12 @@ void Metis_caller::getBlocks(const std::vector<double>& diag1,
   for (int i = colStart; i < colStart + blockSize.back(); ++i) {
     int col = permutation[i];
 
-    if (type == kMetisAugmented) {
+    if (type == kOptionNlaMetisAugmented) {
       // diagonal is not included in augmented system
       Blocks[blockIndex].index_.push_back(i - colStart);
       // extract diagonal element from diag1 or diag2
       double diagEl =
-          col < diag1.size() ? diag1[col] : diag2[col - diag1.size()];
+          col < diag1.size() ? -diag1[col] : diag2[col - diag1.size()];
       Blocks[blockIndex].value_.push_back(diagEl);
       ++current_nz_schur;
     }
@@ -291,6 +295,11 @@ void Metis_caller::getBlocks(const std::vector<double>& diag1,
     char str[50];
     snprintf(str, 50, "debug_data/block%d.txt", blockIndex);
     debug_print(Blocks[blockIndex], str);
+  }
+
+  if (debug) {
+    debug_print(diag1, "diag1.txt");
+    debug_print(diag2, "diag2.txt");
   }
 }
 
@@ -338,7 +347,7 @@ void Metis_caller::getNonzeros() {
 
 void Metis_caller::updateDiag(const std::vector<double>& diag1,
                               const std::vector<double>& diag2) {
-  assert(type == kMetisAugmented);
+  assert(type == kOptionNlaMetisAugmented);
 
   // index to access permutation
   int permIndex{};
@@ -360,7 +369,7 @@ void Metis_caller::updateDiag(const std::vector<double>& diag1,
 
       // extract the correct diagonal element
       double newDiagEl = diagIndex < diag1.size()
-                             ? diag1[diagIndex]
+                             ? -diag1[diagIndex]
                              : diag2[diagIndex - diag1.size()];
 
       curBlock->value_[firstEl] = newDiagEl;
@@ -393,10 +402,6 @@ void Metis_caller::debug_print(const HighsSparseMatrix& mat,
 }
 
 void Metis_caller::factor() {
-  // allocate space for factorizations of blocks
-  invertData.resize(nparts + 1);
-  expData.resize(nparts + 1);
-
   // to build Schur complement:
   // for each linking block
   // - access rows of linking block (stored row-wise)
@@ -457,7 +462,7 @@ void Metis_caller::factor() {
       denseMatrixPlusVector(schurComplement, schurContribution, row, -1.0);
     }
   }
-  std::cout << "time " << getWallTime() - t1 << '\n';
+  std::cout << "factor time " << getWallTime() - t1 << '\n';
 
   // convert schur complement to sparse matrix
   HighsSparseMatrix sparseSchur;
@@ -481,6 +486,10 @@ void Metis_caller::factor() {
 
 void Metis_caller::solve(const std::vector<double>& rhs,
                          std::vector<double>& lhs) {
+  // space for blocks of rhs and lhs
+  std::vector<std::vector<double>> block_rhs;
+  std::vector<std::vector<double>> block_lhs;
+
   // space for permuted rhs and lhs
   std::vector<double> perm_rhs(rhs.size());
   std::vector<double> perm_lhs(lhs.size());
@@ -550,8 +559,10 @@ void Metis_caller::solve(const std::vector<double>& rhs,
     lhs[i] = perm_lhs[perminv[i]];
   }
 
-  debug_print(rhs, "debug_data/rhs.txt");
-  debug_print(lhs, "debug_data/lhs.txt");
+  if (debug) {
+    debug_print(rhs, "debug_data/rhs.txt");
+    debug_print(lhs, "debug_data/lhs.txt");
+  }
 }
 
 void denseMatrixPlusVector(std::vector<std::vector<double>>& mat,

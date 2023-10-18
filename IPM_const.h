@@ -4,11 +4,13 @@
 enum OptionNla {
   kOptionNlaMin = 0,
   kOptionNlaCg = kOptionNlaMin,
-  kOptionNlaAugmented,    // 1
-  kOptionNlaNewton,       // 2
-  kOptionNlaAugmentedCg,  // 3
-  kOptionNlaNewtonCg,     // 4
-  kOptionNlaMax = kOptionNlaNewtonCg,
+  kOptionNlaAugmented,       // 1
+  kOptionNlaNewton,          // 2
+  kOptionNlaAugmentedCg,     // 3
+  kOptionNlaNewtonCg,        // 4
+  kOptionNlaMetisAugmented,  // 5
+  kOptionNlaMetisNormalEq,   // 6
+  kOptionNlaMax = kOptionNlaMetisNormalEq,
   kOptionNlaDefault = kOptionNlaCg
 };
 
