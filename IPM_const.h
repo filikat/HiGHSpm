@@ -40,4 +40,7 @@ const int kCgIterationLimit = 10000;
 const double kPrimalRegularization = 1e-8;
 const double kDualRegularization = 1e-8;
 
+//const double kPrimalRegularization = 0;
+//const double kDualRegularization = 0;
+
 #endif

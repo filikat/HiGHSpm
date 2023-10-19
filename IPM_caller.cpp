@@ -152,13 +152,13 @@ Output IPM_caller::Solve() {
   // Metis stuff
   bool use_metis = option_nla == kOptionNlaMetisAugmented ||
                    option_nla == kOptionNlaMetisNormalEq;
-  use_metis = true;
   if (use_metis) {
     auto metis_start = getWallTime();
-    Metis_data = Metis_caller(model.highs_a, 5, 2);
+    Metis_data = Metis_caller(model.highs_a, option_nla, 2);
     Metis_data.setDebug(false);
     Metis_data.getPartition();
     Metis_data.getPermutation();
+    Metis_data.printInfo();
     std::cout << "Metis time: " << getWallTime() - metis_start << '\n';
   }
 

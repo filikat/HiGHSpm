@@ -78,7 +78,7 @@ class Metis_caller {
 
   // store the factorization and data of the diagonal blocks
   std::vector<IpmInvert> invertData;
-  std::vector<ExperimentData> expData;  
+  std::vector<ExperimentData> expData;
 
  public:
   // Constructor
@@ -117,6 +117,7 @@ class Metis_caller {
   const HighsSparseMatrix& accessBlock(int i) const { return Blocks[i]; }
   void prepare() { invertData.assign(nparts + 1, IpmInvert()); }
   bool valid() { return invertData.front().valid; }
+  void printInfo() const;
 
  private:
   // Computes the number of nonzeros of each of the diagonal and linking blocks.

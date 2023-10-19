@@ -69,7 +69,12 @@ Metis_caller::Metis_caller(const HighsSparseMatrix& input_A, int input_type,
   // -----------------------------------------------------------
   else if (type == kOptionNlaMetisNormalEq) {
     std::vector<double> theta(A->num_col_, 1.0);
-    computeAThetaAT(*A, theta, M);
+    // To use metis, what matters is the sparsity pattern of M. Compute M using
+    // temporary A, with all nonzeros equal to 1, to avoid numerical
+    // cancellation.
+    HighsSparseMatrix tempA = *A;
+    tempA.value_.assign(A->value_.size(), 1.0);
+    computeAThetaAT(tempA, theta, M);
     nvertex = A->num_row_;
     nedges = M.numNz();
   } else {
@@ -114,7 +119,6 @@ void Metis_caller::getPermutation() {
     debug_print(A->start_, "debug_data/A_ptr.txt");
     debug_print(A->index_, "debug_data/A_adj.txt");
     debug_print(A->value_, "debug_data/A_val.txt");
-    debug_print(partition, "debug_data/partition.txt");
     debug_print(permutationMM, "debug_data/permMM.txt");
     debug_print(permutationG, "debug_data/permG.txt");
     debug_print(blockSizeMM, "debug_data/blockSizeMM.txt");
@@ -133,6 +137,9 @@ void Metis_caller::getPermutation() {
   // update partition so that if node i is linking, partition[i] = nparts
   for (int i = 0; i < blockSize.back(); ++i) {
     partition[permutation[nvertex - 1 - i]] = nparts;
+  }
+  if (debug) {
+    debug_print(partition, "debug_data/partition.txt");
   }
 
   // get inverse permutation
@@ -226,8 +233,12 @@ void Metis_caller::getBlocks(const std::vector<double>& diag1,
       Blocks[linkBlockIndex].start_.push_back(current_nz_link);
     }
 
-    assert(current_nz_block == nzCount[2 * blockId]);
-    assert(current_nz_link == nzCount[2 * blockId + 1]);
+    // These assertions with equality may fail because elements of the normal
+    // equations that are too small (<1e-10) are ignored, changing the actual
+    // number of nonzeros depending on the values of theta. With inequality, the
+    // code works but may use more memory than needed.
+    assert(current_nz_block <= nzCount[2 * blockId]);
+    assert(current_nz_link <= nzCount[2 * blockId + 1]);
 
     Blocks[diagBlockIndex].num_row_ = blockSize[blockId];
     Blocks[diagBlockIndex].num_col_ = blockSize[blockId];
@@ -285,7 +296,7 @@ void Metis_caller::getBlocks(const std::vector<double>& diag1,
     Blocks[blockIndex].start_.push_back(current_nz_schur);
   }
 
-  assert(current_nz_schur == nzCount[2 * nparts]);
+  assert(current_nz_schur <= nzCount[2 * nparts]);
 
   Blocks[blockIndex].num_row_ = blockSize.back();
   Blocks[blockIndex].num_col_ = blockSize.back();
@@ -462,7 +473,6 @@ void Metis_caller::factor() {
       denseMatrixPlusVector(schurComplement, schurContribution, row, -1.0);
     }
   }
-  std::cout << "factor time " << getWallTime() - t1 << '\n';
 
   // convert schur complement to sparse matrix
   HighsSparseMatrix sparseSchur;
@@ -563,6 +573,21 @@ void Metis_caller::solve(const std::vector<double>& rhs,
     debug_print(rhs, "debug_data/rhs.txt");
     debug_print(lhs, "debug_data/lhs.txt");
   }
+}
+
+void Metis_caller::printInfo() const {
+  std::cout << "* * * * * * * * * * *\n";
+  std::string matrix_str = type == kOptionNlaMetisAugmented
+                               ? "augmented system"
+                               : "normal equations";
+  std::cout << "Using Metis for " << matrix_str << '\n';
+  std::cout << nvertex << " nodes, " << nedges << " edges\n";
+  std::cout << "Partitioning in " << nparts << " parts\n";
+  std::cout << "Diagonal blocks size: ";
+  for (int i = 0; i < nparts; ++i) std::cout << blockSize[i] << ' ';
+  std::cout << '\n';
+  std::cout << "Schur complement size: " << blockSize.back() << '\n';
+  std::cout << "* * * * * * * * * * *\n";
 }
 
 void denseMatrixPlusVector(std::vector<std::vector<double>>& mat,
