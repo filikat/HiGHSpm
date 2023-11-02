@@ -1532,3 +1532,35 @@ int blockSolve(double* rhs, int num_rhs, IpmInvert& invert,
 
   return kDecomposerStatusOk;
 }
+
+int diagonalForwardSolve(double* rhs, IpmInvert& invert,
+                         ExperimentData& experiment_data,
+                         double* diagForwardSolvedRhs, const int& solver_type) {
+  // rhs on output contains the forward solve rhs as a dense vector:
+  //  L^-1 * rhs
+  // diagForwardSolvedRhs contains the rhs solved also with diagonal:
+  //  D^-1 * L^-1 * rhs
+
+#ifdef HAVE_MA86
+
+  // forward solve (job = 1)
+  wrapper_ma86_solve(1, 1, invert.system_size, rhs,
+                     invert.ma86_data.order.data(), &invert.ma86_data.keep,
+                     &invert.ma86_data.control, &invert.ma86_data.info);
+
+  // copy rhs into DiagForwardSolvedRhs
+  for (int i = 0; i < invert.system_size; ++i) {
+    diagForwardSolvedRhs[i] = rhs[i];
+  }
+
+  // diagonal solve (job = 2)
+  wrapper_ma86_solve(2, 1, invert.system_size, diagForwardSolvedRhs,
+                     invert.ma86_data.order.data(), &invert.ma86_data.keep,
+                     &invert.ma86_data.control, &invert.ma86_data.info);
+
+  return kDecomposerStatusOk;
+
+#else
+  return kDecomposerStatusErrorFactorize;
+#endif
+}

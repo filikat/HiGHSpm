@@ -223,4 +223,9 @@ int blockSolve(double* rhs, int num_rhs, IpmInvert& invert,
                ExperimentData& experiment_data,
                const int& solver_type = default_solver);
 
+int diagonalForwardSolve(double* rhs, IpmInvert& invert,
+                         ExperimentData& experiment_data,
+                         double* DiagForwardSolvedRhs,
+                         const int& solver_type = default_solver);
+
 #endif

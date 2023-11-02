@@ -153,13 +153,11 @@ Output IPM_caller::Solve() {
   bool use_metis = option_nla == kOptionNlaMetisAugmented ||
                    option_nla == kOptionNlaMetisNormalEq;
   if (use_metis) {
-    auto metis_start = getWallTime();
     Metis_data = Metis_caller(model.highs_a, option_nla, 2);
     Metis_data.setDebug(false);
     Metis_data.getPartition();
     Metis_data.getPermutation();
     Metis_data.printInfo();
-    std::cout << "Metis time: " << getWallTime() - metis_start << '\n';
   }
 
   // ------------------------------------------
@@ -316,6 +314,8 @@ Output IPM_caller::Solve() {
   out.primal_infeas = primal_infeas;
   out.dual_infeas = dual_infeas;
   out.mu = mu;
+
+  Metis_data.printTimes();
 
   return out;
 }

@@ -80,6 +80,22 @@ class Metis_caller {
   std::vector<IpmInvert> invertData;
   std::vector<ExperimentData> expData;
 
+  // metis times
+  double initial_time{};
+  double getBlocks_time{};
+  double formSchur_time{};
+  double factorBlocks_time{};
+  double factorSchur_time{};
+  double solve_time{};
+
+  // schur complement times
+  double schur_initial_time{};
+  double schur_factor_time{};
+  double schur_fillrow_time{};
+  double schur_dfsolve_time{};
+  double schur_transform_time{};
+  double schur_multiply_time{};
+
  public:
   // Constructor
   // Set up matrix M with either augmented system or normal equations, depending
@@ -118,6 +134,7 @@ class Metis_caller {
   void prepare() { invertData.assign(nparts + 1, IpmInvert()); }
   bool valid() { return invertData.front().valid; }
   void printInfo() const;
+  void printTimes() const;
 
  private:
   // Computes the number of nonzeros of each of the diagonal and linking blocks.
