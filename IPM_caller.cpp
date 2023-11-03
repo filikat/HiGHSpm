@@ -144,10 +144,12 @@ Output IPM_caller::Solve() {
   ComputeResiduals_1234(Res);
 
   // initialize infeasibilities and mu
-  double primal_infeas = Norm2(Res.res1) / Norm2(model.rhs);
-  double dual_infeas = Norm2(Res.res4) / Norm2(model.obj);
+  double primal_infeas = Norm2(Res.res1) / (1 + Norm2(model.rhs));
+  double dual_infeas = Norm2(Res.res4) / (1 + Norm2(model.obj));
   double mu = ComputeMu();
-  double objective_value{};
+  double primal_obj{};
+  double dual_obj{};
+  double pd_gap = 1.0;
 
   // Metis stuff
   bool use_metis = option_nla == kOptionNlaMetisAugmented ||
@@ -165,15 +167,16 @@ Output IPM_caller::Solve() {
   // ------------------------------------------
 
   printf("\n");
-  while (iter < option_iteration_limit) {
-    // Check that iterate is not NaN
+  while (iter < kMaxIterations) {
+    // Check that iterate is not NaN or Inf
     assert(!It.isNaN());
+    assert(!It.isInf());
 
     // Stopping criterion
-    if (iter > 0 && mu < option_ipm_tolerance &&  // complementarity measure
-        primal_infeas < option_ipm_tolerance &&   // primal feasibility
-        dual_infeas < option_ipm_tolerance        // dual feasibility
-    ) {
+    if (iter > 0 && pd_gap < kIpmTolerance &&  // primal-dual gap is small
+        // mu < kIpmTolerance &&             // mu
+        primal_infeas < kIpmTolerance &&  // primal feasibility
+        dual_infeas < kIpmTolerance) {    // dual feasibility
       printf("\n===== Optimal solution found =====\n\n");
       printf("Objective: %20.10e\n\n", DotProd(It.x, model.obj));
       break;
@@ -182,8 +185,8 @@ Output IPM_caller::Solve() {
     // Possibly print header
     if (iter % 20 == 0)
       printf(
-          " iter            obj_v       pinf       dinf         mu        "
-          "alpha_p    alpha_d\n");
+          " iter         primal obj            dual obj        pinf       dinf "
+          "       mu        alpha_p    alpha_d      p/d rel gap\n");
 
     ++iter;
 
@@ -299,12 +302,32 @@ Output IPM_caller::Solve() {
     mu = ComputeMu();
 
     // Print output to screen
-    primal_infeas = Norm2(Res.res1) / Norm2(model.rhs);
-    dual_infeas = Norm2(Res.res4) / Norm2(model.obj);
-    objective_value = DotProd(It.x, model.obj);
-    printf("%5d %20.10e %10.2e %10.2e %10.2e %10.2f %10.2f\n", iter,
-           objective_value, primal_infeas, dual_infeas, mu, alpha_primal,
-           alpha_dual);
+    primal_infeas = Norm2(Res.res1) / (1 + Norm2(model.rhs));
+    dual_infeas = Norm2(Res.res4) / (1 + Norm2(model.obj));
+    primal_obj = DotProd(It.x, model.obj);
+
+    // compute dual objective
+    dual_obj = DotProd(It.y, model.rhs);
+    for (int i = 0; i < n; ++i) {
+      if (model.has_lb(i)) {
+        dual_obj += model.lower[i] * It.zl[i];
+      }
+      if (model.has_ub(i)) {
+        dual_obj -= model.upper[i] * It.zu[i];
+      }
+    }
+
+    // compute scaled primal-dual gap
+    pd_gap = std::fabs(primal_obj - dual_obj) /
+             (1 + 0.5 * std::fabs(primal_obj + dual_obj));
+
+    printf("%5d %20.10e %20.10e %10.2e %10.2e %10.2e %10.2f %10.2f %15.2e\n",
+           iter, primal_obj, dual_obj, primal_infeas, dual_infeas, mu,
+           alpha_primal, alpha_dual, pd_gap);
+
+    // It.print(iter);
+    // Delta.print(iter);
+    // Res.print(iter);
   }
 
   // output struct
@@ -377,8 +400,9 @@ void IPM_caller::ComputeResiduals_1234(Residuals& Res) {
     }
   }
 
-  // Check for NaN
+  // Check for NaN or Inf
   assert(!Res.isNaN());
+  assert(!Res.isInf());
 }
 
 void IPM_caller::ComputeResiduals_56(const double sigmaMu,
@@ -744,8 +768,9 @@ void IPM_caller::RecoverDirection(const Residuals& Res, bool isCorrector,
   VectorAddMult(Delta.zu, It.zu, Delta.xu, -1.0);
   VectorDivide(Delta.zu, It.xu);
 
-  // Check for NaN
+  // Check for NaN of Inf
   assert(!Delta.isNaN());
+  assert(!Delta.isInf());
 }
 
 // =======================================================================
@@ -827,11 +852,18 @@ void IPM_caller::ComputeStartingPoint() {
   // compute xl, xu that satisfy linear constraints
   double violation{};
   for (int i = 0; i < n; ++i) {
-    It.xl[i] = It.x[i] - model.lower[i];
-    It.xu[i] = model.upper[i] - It.x[i];
-
-    violation = std::min(violation, It.xl[i]);
-    violation = std::min(violation, It.xu[i]);
+    if (model.has_lb(i)) {
+      It.xl[i] = It.x[i] - model.lower[i];
+      violation = std::min(violation, It.xl[i]);
+    } else {
+      It.xl[i] = 0.0;
+    }
+    if (model.has_ub(i)) {
+      It.xu[i] = model.upper[i] - It.x[i];
+      violation = std::min(violation, It.xu[i]);
+    } else {
+      It.xu[i] = 0.0;
+    }
   }
 
   // shift to be positive

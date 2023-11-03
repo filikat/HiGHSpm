@@ -22,11 +22,12 @@ class Residuals {
   std::vector<double> res5{};
   std::vector<double> res6{};
 
-public:
+ public:
   Residuals(int m, int n);
 
-  void Print() const;
+  void print(int iter = 0) const;
   bool isNaN() const;
+  bool isInf() const;
 
   friend class IPM_caller;
 };
@@ -36,7 +37,7 @@ public:
 // =======================================================================
 // Holds the iterate (x,y,xl,xu,zl,zu)
 class Iterate {
-public:
+ public:
   std::vector<double> x{};
   std::vector<double> y{};
   std::vector<double> xl{};
@@ -48,6 +49,9 @@ public:
   Iterate(int m, int n);
 
   bool isNaN() const;
+  bool isInf() const;
+
+  void print(int iter = 0) const;
 
   friend class IPM_caller;
 };
@@ -64,11 +68,14 @@ class NewtonDir {
   std::vector<double> zl{};
   std::vector<double> zu{};
 
-public:
+ public:
   NewtonDir() = default;
   NewtonDir(int m, int n);
 
   bool isNaN() const;
+  bool isInf() const;
+
+  void print(int iter = 0) const;
 
   friend class IPM_caller;
 };
@@ -77,7 +84,6 @@ public:
 // OUTPUT
 // =======================================================================
 struct Output {
-
   Iterate It{};
   int iterations{};
   double primal_infeas{};

@@ -159,6 +159,9 @@ void Metis_caller::getPermutation() {
   }
 
   initial_time += getWallTime() - t0;
+
+  // get number of nonzeros in blocks for preallocation
+  getNonzeros();
 }
 
 void Metis_caller::getBlocks(const std::vector<double>& diag1,
@@ -180,10 +183,6 @@ void Metis_caller::getBlocks(const std::vector<double>& diag1,
   }
 
   int threshold = M.num_col_ - blockSize.back();
-
-  // get number of nonzeros in blocks for preallocation
-  // (just the first time)
-  if (nzCount.empty()) getNonzeros();
 
   // allocate/clear space for blocks
   Blocks.assign(2 * nparts + 1, HighsSparseMatrix());
@@ -250,8 +249,7 @@ void Metis_caller::getBlocks(const std::vector<double>& diag1,
 
     // These assertions with equality may fail because elements of the normal
     // equations that are too small (<1e-10) are ignored, changing the actual
-    // number of nonzeros depending on the values of theta. With inequality, the
-    // code works but may use more memory than needed.
+    // number of nonzeros depending on the values of theta.
     assert(current_nz_block <= nzCount[2 * blockId]);
     assert(current_nz_link <= nzCount[2 * blockId + 1]);
 
@@ -324,8 +322,8 @@ void Metis_caller::getBlocks(const std::vector<double>& diag1,
   }
 
   if (debug) {
-    debug_print(diag1, "diag1.txt");
-    debug_print(diag2, "diag2.txt");
+    debug_print(diag1, "debug_data/diag1.txt");
+    debug_print(diag2, "debug_data/diag2.txt");
   }
 
   getBlocks_time += getWallTime() - t0;

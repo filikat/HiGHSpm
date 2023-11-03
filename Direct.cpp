@@ -1536,7 +1536,7 @@ int blockSolve(double* rhs, int num_rhs, IpmInvert& invert,
 int diagonalForwardSolve(double* rhs, IpmInvert& invert,
                          ExperimentData& experiment_data,
                          double* diagForwardSolvedRhs, const int& solver_type) {
-  // rhs on output contains the forward solve rhs as a dense vector:
+  // rhs on output contains the forward solved rhs as a dense vector:
   //  L^-1 * rhs
   // diagForwardSolvedRhs contains the rhs solved also with diagonal:
   //  D^-1 * L^-1 * rhs

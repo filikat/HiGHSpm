@@ -34,10 +34,8 @@ class IPM_caller {
   // ===================================================================================
   // Run-time options
   // ===================================================================================
-  int option_iteration_limit = 100;
   int option_nla = kOptionNlaDefault;
   int option_max_dense_col = kOptionMaxDenseColDefault;
-  double option_ipm_tolerance = 1e-6;
   double option_dense_col_tolerance = kOptionDenseColToleranceDefault;
   int option_predcor = kOptionPredCorDefault;
 
