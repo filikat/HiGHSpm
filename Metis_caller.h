@@ -85,13 +85,12 @@ class Metis_caller {
   double getBlocks_time{};
   double formSchur_time{};
   double factorBlocks_time{};
+  double schurConvert_time{};
   double factorSchur_time{};
   double solve_time{};
 
   // schur complement times
-  double schur_initial_time{};
   double schur_factor_time{};
-  double schur_fillrow_time{};
   double schur_dfsolve_time{};
   double schur_transform_time{};
   double schur_multiply_time{};
@@ -129,7 +128,7 @@ class Metis_caller {
   void factor();
   void solve(const std::vector<double>& rhs, std::vector<double>& lhs);
 
-  void setDebug(bool db = true) { debug = db; }
+  void setDebug(bool db = true);
   const HighsSparseMatrix& accessBlock(int i) const { return Blocks[i]; }
   void prepare() { invertData.assign(nparts + 1, IpmInvert()); }
   bool valid() { return invertData.front().valid; }

@@ -427,7 +427,8 @@ void Metis_caller::debug_print(const HighsSparseMatrix& mat,
   out_file.close();
 }
 
-void Metis_caller::factor() {
+// OLD FACTOR
+/*void Metis_caller::factor() {
   // to build Schur complement:
   // for each linking block
   // - access rows of linking block B^T (stored row-wise)
@@ -457,8 +458,6 @@ void Metis_caller::factor() {
     }
   }
 
-  schur_initial_time += getWallTime() - t0;
-
   // go through the parts
   for (int i = 0; i < nparts; ++i) {
     // factorize the diagonal blocks
@@ -485,7 +484,6 @@ void Metis_caller::factor() {
 
     // go through the rows of B
     for (int row = 0; row < B.num_row_; ++row) {
-      t1 = getWallTime();
       // space for dense vector
       std::vector<double> denseRow(B.num_col_, 0.0);
 
@@ -501,13 +499,12 @@ void Metis_caller::factor() {
       for (int elem = Bt.start_[row]; elem < Bt.start_[row + 1]; ++elem) {
         denseRow[Bt.index_[elem]] = Bt.value_[elem];
       }
-      schur_fillrow_time += getWallTime() - t1;
 
       t1 = getWallTime();
       // on return from diagonalForwardSolve, denseRow contains L^-1 * denseRow
       // and diagForwardSolvedRow contains D^-1 * L^-1 * denseRow
       std::vector<double> diagForwardSolvedRow(B.num_col_, 0.0);
-      diagonalForwardSolve(denseRow.data(), invertData[i], expData[i],
+      diagonalForwardSolve(denseRow.data(), 1, invertData[i], expData[i],
                            diagForwardSolvedRow.data());
       schur_dfsolve_time += getWallTime() - t1;
 
@@ -608,6 +605,194 @@ void Metis_caller::factor() {
 
   factorSchur_time += getWallTime() - t0;
 }
+*/
+
+void Metis_caller::factor() {
+  // to build Schur complement:
+  // for each linking block
+  // - access rows of linking block B^T (stored row-wise)
+  // - create dense vector with row b
+  // - do a forward solve and store as sparse column
+  //    L^-1 * b
+  // - do a diagonal solve and store as sparse column
+  //    D^-1 * L^-1 * b
+  // - do the previous solve operations all at once
+  // - leave L^-1 * B^T col-wise, but get D^-1 * L^-1 * B^T row-wise
+  // - use same trick as computeAThetaAT to find contribution to Schur
+  //    complement
+  // - Store everything in a dense matrix
+
+  double t0 = getWallTime();
+
+  int linkSize = blockSize.back();
+
+  // space for dense schur complement
+  std::vector<std::vector<double>> schurComplement(
+      linkSize, std::vector<double>(linkSize, 0.0));
+
+  // insert original schur block
+  HighsSparseMatrix& schurB = Blocks[2 * nparts];
+  for (int col = 0; col < linkSize; ++col) {
+    for (int el = schurB.start_[col]; el < schurB.start_[col + 1]; ++el) {
+      schurComplement[col][schurB.index_[el]] += schurB.value_[el];
+    }
+  }
+
+  // go through the parts
+  for (int i = 0; i < nparts; ++i) {
+    // factorize the diagonal blocks
+    double t1 = getWallTime();
+    expData[i].reset();
+    blockInvert(Blocks[2 * i], invertData[i], expData[i]);
+    factorBlocks_time += getWallTime() - t1;
+    schur_factor_time += getWallTime() - t1;
+
+    // current linking block
+    HighsSparseMatrix& B = Blocks[2 * i + 1];
+
+    // row-wise linking block
+    HighsSparseMatrix Bt = B;
+    Bt.ensureRowwise();
+
+    // space for L^-1 B^T and D^-1 L^-1 B^T
+    HighsSparseMatrix forwardSolvedBlock;
+    HighsSparseMatrix diagForwardSolvedBlock;
+    forwardSolvedBlock.num_row_ = B.num_col_;
+    forwardSolvedBlock.num_col_ = B.num_row_;
+    diagForwardSolvedBlock.num_row_ = B.num_col_;
+    diagForwardSolvedBlock.num_col_ = B.num_row_;
+
+    // space for all dense rows together
+    std::vector<double> denseRows(B.num_col_ * B.num_row_, 0.0);
+
+    // go through the rows of B and fill denseRows
+    for (int row = 0; row < B.num_row_; ++row) {
+      // offset for writing to denseRows
+      int offset = B.num_col_ * row;
+
+      // go through the entries of the row and fill in dense_rows
+      for (int elem = Bt.start_[row]; elem < Bt.start_[row + 1]; ++elem) {
+        denseRows[offset + Bt.index_[elem]] = Bt.value_[elem];
+      }
+    }
+
+    t1 = getWallTime();
+    // diagonalForwardSolve of all rows at the same time.
+    // On return from diagonalForwardSolve, denseRows contains L^-1 * denseRows
+    // and diagForwardSolvedRows contains D^-1 * L^-1 * denseRows
+    std::vector<double> diagForwardSolvedRows(B.num_col_ * B.num_row_, 0.0);
+    if (linkSize > 0) {
+      diagonalForwardSolve(denseRows.data(), B.num_row_, invertData[i],
+                           expData[i], diagForwardSolvedRows.data());
+    }
+    schur_dfsolve_time += getWallTime() - t1;
+
+    // go through the rows of B
+    for (int row = 0; row < B.num_row_; ++row) {
+      // offset for reading from denseRows
+      int offset = B.num_col_ * row;
+
+      t1 = getWallTime();
+      // transform denseRows into sparse columns of forwardSolvedBlock
+      int countNnzRow{};
+      for (int i = 0; i < B.num_col_; ++i) {
+        if (std::fabs(denseRows[offset + i]) > 1e-20) {
+          forwardSolvedBlock.index_.push_back(i);
+          forwardSolvedBlock.value_.push_back(denseRows[offset + i]);
+          ++countNnzRow;
+        }
+      }
+      forwardSolvedBlock.start_.push_back(forwardSolvedBlock.start_.back() +
+                                          countNnzRow);
+
+      // transform diagForwardSolvedRows into sparse columns of
+      // diagForwardSolvedBlock
+      countNnzRow = 0;
+      for (int i = 0; i < B.num_col_; ++i) {
+        if (std::fabs(diagForwardSolvedRows[offset + i]) > 1e-20) {
+          diagForwardSolvedBlock.index_.push_back(i);
+          diagForwardSolvedBlock.value_.push_back(
+              diagForwardSolvedRows[offset + i]);
+          ++countNnzRow;
+        }
+      }
+      diagForwardSolvedBlock.start_.push_back(
+          diagForwardSolvedBlock.start_.back() + countNnzRow);
+
+      schur_transform_time += getWallTime() - t1;
+    }
+
+    // diagForwardSolvedBlock needs row-wise access
+    diagForwardSolvedBlock.ensureRowwise();
+
+    // similar trick as computeAThetaAT, with simplifications, to compute
+    //      Q^T        *          R
+    // (L^-1 * B^T)^T  *  (D^-1 * L^-1 * B^T)
+    // ^^^^^^^^^^^^       ^^^^^^^^^^^^^^^^^^^
+    //  col-wise               row-wise
+    // access to Q            access to R
+    //
+    // Q and R may have different sparsity pattern, because D may have 2x2
+    // pivots. This may cause inefficiencies.
+
+    HighsSparseMatrix& Q = forwardSolvedBlock;
+    HighsSparseMatrix& R = diagForwardSolvedBlock;
+
+    t1 = getWallTime();
+
+    // go through columns of Q
+    for (int col = 0; col < Q.num_col_; ++col) {
+      // go through entries of the column
+      for (int colEl = Q.start_[col]; colEl < Q.start_[col + 1]; ++colEl) {
+        // row index of current entry
+        int row = Q.index_[colEl];
+        // go through entries of the row of R
+        for (int rowEl = R.start_[row]; rowEl < R.start_[row + 1]; ++rowEl) {
+          // this entry contributes to Schur(col,col1) and Schur (col1,col)
+          int col1 = R.index_[rowEl];
+
+          // avoid counting entries twice
+          if (col1 < col) continue;
+
+          double value = Q.value_[colEl] * R.value_[rowEl];
+          schurComplement[col][col1] -= value;
+          if (col != col1) {
+            schurComplement[col1][col] -= value;
+          }
+        }
+      }
+    }
+    schur_multiply_time += getWallTime() - t1;
+  }
+
+  formSchur_time += getWallTime() - t0;
+
+  t0 = getWallTime();
+
+  // convert schur complement to sparse matrix
+  HighsSparseMatrix sparseSchur;
+  sparseSchur.start_.reserve(linkSize + 1);
+  sparseSchur.index_.reserve(linkSize * linkSize);
+  sparseSchur.value_.reserve(linkSize * linkSize);
+  for (int col = 0; col < linkSize; ++col) {
+    sparseSchur.start_.push_back(sparseSchur.start_[col] + linkSize);
+    for (int row = 0; row < linkSize; ++row) {
+      sparseSchur.index_.push_back(row);
+      sparseSchur.value_.push_back(schurComplement[col][row]);
+    }
+  }
+  sparseSchur.num_row_ = linkSize;
+  sparseSchur.num_col_ = linkSize;
+  schurComplement.clear();
+
+  schurConvert_time += getWallTime() - t0;
+
+  t0 = getWallTime();
+  // factorize schur complement
+  blockInvert(sparseSchur, invertData.back(), expData.back());
+
+  factorSchur_time += getWallTime() - t0;
+}
 
 void Metis_caller::solve(const std::vector<double>& rhs,
                          std::vector<double>& lhs) {
@@ -694,6 +879,15 @@ void Metis_caller::solve(const std::vector<double>& rhs,
   solve_time += getWallTime() - t0;
 }
 
+void Metis_caller::setDebug(bool db) {
+  debug = db;
+  if (db && nvertex > 1e3) {
+    printf("===================================\n");
+    printf("\tWARNING\n Debug is on for large problem\n Printing large data\n");
+    printf("===================================\n");
+  }
+}
+
 void Metis_caller::printInfo() const {
   printf("* * * * * * * * * * *\n");
   printf("Using Metis for %s\n", type == kOptionNlaMetisAugmented
@@ -710,7 +904,7 @@ void Metis_caller::printInfo() const {
 
 void Metis_caller::printTimes() const {
   double sum_time = initial_time + getBlocks_time + formSchur_time +
-                    factorSchur_time + solve_time;
+                    schurConvert_time + factorSchur_time + solve_time;
   sum_time = sum_time > 0 ? sum_time : 1;
 
   printf("Metis time profile\n");
@@ -722,20 +916,19 @@ void Metis_caller::printTimes() const {
          formSchur_time, 100 * formSchur_time / sum_time);
   printf("factor blocks %5.2f (%5.1f%% sum)\n", factorBlocks_time,
          100 * factorBlocks_time / sum_time);
+  printf("convert Schur %5.2f (%5.1f%% sum)\n", schurConvert_time,
+         100 * schurConvert_time / sum_time);
   printf("factor Schur  %5.2f (%5.1f%% sum)\n", factorSchur_time,
          100 * factorSchur_time / sum_time);
   printf("solve         %5.2f (%5.1f%% sum)\n", solve_time,
          100 * solve_time / sum_time);
 
-  sum_time = schur_initial_time + schur_factor_time + schur_fillrow_time +
-             schur_dfsolve_time + schur_transform_time + schur_multiply_time;
+  sum_time = schur_factor_time + schur_dfsolve_time + schur_transform_time +
+             schur_multiply_time;
+  sum_time = sum_time > 0 ? sum_time : 1;
   printf("\nSchur form profile\n");
-  printf("initial       %5.2f (%5.1f%% sum)\n", schur_initial_time,
-         100 * schur_initial_time / sum_time);
   printf("factor        %5.2f (%5.1f%% sum)\n", schur_factor_time,
          100 * schur_factor_time / sum_time);
-  printf("fillrow       %5.2f (%5.1f%% sum)\n", schur_fillrow_time,
-         100 * schur_fillrow_time / sum_time);
   printf("dfsolve       %5.2f (%5.1f%% sum)\n", schur_dfsolve_time,
          100 * schur_dfsolve_time / sum_time);
   printf("transform     %5.2f (%5.1f%% sum)\n", schur_transform_time,

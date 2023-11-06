@@ -174,11 +174,10 @@ Output IPM_caller::Solve() {
 
     // Stopping criterion
     if (iter > 0 && pd_gap < kIpmTolerance &&  // primal-dual gap is small
-        // mu < kIpmTolerance &&             // mu
-        primal_infeas < kIpmTolerance &&  // primal feasibility
-        dual_infeas < kIpmTolerance) {    // dual feasibility
+        mu < kIpmTolerance &&                  // mu
+        primal_infeas < kIpmTolerance &&       // primal feasibility
+        dual_infeas < kIpmTolerance) {         // dual feasibility
       printf("\n===== Optimal solution found =====\n\n");
-      printf("Objective: %20.10e\n\n", DotProd(It.x, model.obj));
       break;
     }
 
@@ -234,6 +233,8 @@ Output IPM_caller::Solve() {
 
       // Compute full Newton direction
       RecoverDirection(Res, isCorrector, Delta);
+
+      CheckResiduals(Delta, Res);
 
     } else {
       // *********************************************************************
@@ -987,4 +988,69 @@ double IPM_caller::ComputeSigmaCorrector(const NewtonDir& DeltaAff, double mu) {
   double ratio = mu_aff / mu;
 
   return ratio * ratio * ratio;
+}
+
+void IPM_caller::CheckResiduals(const NewtonDir& Delta,
+                                const Residuals& Res) const {
+  std::vector<double> temp_m(m, 0.0);
+  std::vector<double> temp_n(n, 0.0);
+
+  // check A * Delta.x - res1
+  model.highs_a.product(temp_m, Delta.x);
+  double norm_diff_1 = infNormDiff(temp_m, Res.res1);
+  VectorAdd(temp_m, Res.res1, -1.0);
+  VectorDivide(temp_m, Res.res1);
+  double rel_norm_1 = infNorm(temp_m);
+
+  // check Delta.x - Delta.xl - res2
+  temp_n = Delta.x;
+  VectorAdd(temp_n, Delta.xl, -1.0);
+  double norm_diff_2 = infNormDiff(temp_n, Res.res2);
+  VectorAdd(temp_n, Res.res2, -1.0);
+  VectorDivide(temp_n, Res.res2);
+  double rel_norm_2 = infNorm(temp_n);
+
+  // check Delta.x + Delta.xu - res3
+  temp_n = Delta.x;
+  VectorAdd(temp_n, Delta.xu);
+  double norm_diff_3 = infNormDiff(temp_n, Res.res3);
+  VectorAdd(temp_n, Res.res3, -1.0);
+  VectorDivide(temp_n, Res.res3);
+  double rel_norm_3 = infNorm(temp_n);
+
+  // check A^T * Delta.y + Delta.zl - Delta.zu - res4
+  std::fill(temp_n.begin(), temp_n.end(), 0.0);
+  model.highs_a.productTranspose(temp_n, Delta.y);
+  VectorAdd(temp_n, Delta.zl);
+  VectorAdd(temp_n, Delta.zu, -1.0);
+  double norm_diff_4 = infNormDiff(temp_n, Res.res4);
+  VectorAdd(temp_n, Res.res4, -1.0);
+  VectorDivide(temp_n, Res.res4);
+  double rel_norm_4 = infNorm(temp_n);
+
+  // check Zl * Delta.xl + Xl * Delta.zl - res5
+  temp_n = Delta.xl;
+  VectorMultiply(temp_n, It.zl);
+  VectorAddMult(temp_n, Delta.zl, It.xl);
+  double norm_diff_5 = infNormDiff(temp_n, Res.res5);
+  VectorAdd(temp_n, Res.res5, -1.0);
+  VectorDivide(temp_n, Res.res5);
+  double rel_norm_5 = infNorm(temp_n);
+
+  // check Zu * Delta.xu + Xu * Delta.zu - res6
+  temp_n = Delta.xu;
+  VectorMultiply(temp_n, It.zu);
+  VectorAddMult(temp_n, Delta.zu, It.xu);
+  double norm_diff_6 = infNormDiff(temp_n, Res.res6);
+  VectorAdd(temp_n, Res.res6, -1.0);
+  VectorDivide(temp_n, Res.res6);
+  double rel_norm_6 = infNorm(temp_n);
+
+  printf("Diff norms:\n");
+  printf("1: %.2e\n", norm_diff_1);
+  printf("2: %.2e\n", norm_diff_2);
+  printf("3: %.2e\n", norm_diff_3);
+  printf("4: %.2e\n", norm_diff_4);
+  printf("5: %.2e\n", norm_diff_5);
+  printf("6: %.2e\n", norm_diff_6);
 }

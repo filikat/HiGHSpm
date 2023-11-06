@@ -10,7 +10,7 @@ ml.mps
 ipm
 a.out
 ipm.dSYM
-*.txt
 *.o
 *.d
 .clang-format
+debug_data

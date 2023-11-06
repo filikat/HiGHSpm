@@ -310,6 +310,8 @@ class IPM_caller {
       const NewtonDir& DeltaAff,  // Predictor Newton direction
       double mu                   // mu of previous iteration
   );
+
+  void CheckResiduals(const NewtonDir& Delta, const Residuals& Res) const;
 };
 
 #endif

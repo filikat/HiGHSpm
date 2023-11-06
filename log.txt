@@ -1,0 +1,40 @@
+
+*****
+3-11-23
+Added check for Inf. Needed to change starting point for components without lower or upper bounds.
+Added 1+ in denominator of primal and dual feasibility. This avoid issues with zero obj or rhs.
+Added calculation of dual objective function and potential stopping criterion based on scaled duality gap. It looks like sometimes it may not work properly. Modified screen output accordingly.
+Moved some parameters to IPM_const.h. It's easier to control the algorithm.
+Moved getNonzeros after permutation is finished, so that it uses the fictitious matrix A with all entries set to one. This avoids that certain nonzeros are ignore because too small during the call to computeAThetaAT.
+---
+stat96v2.mps shows strange behaviour. Stepsizes go to zero and algorithm stagnates. Before that, primal infeas grows with stepwise 0.99. Need to check the residuals of the linear system to see if direction is accurate. 
+---
+Computation of Schur complement remains slow. Major contribution is the forward solve with all the columns. Need to solve all the columns at once, rather than one at a time. May bring small advantage. For neos-5052403-cygnet.mps, we are competitive with ipx, without parallelization implemented.
+---
+
+*****
+6-11-23
+Added computation of the residuals of the linear system. They appear low for all problems, including stat96v2.mps, but I don't know if they are low enough. It's difficult to obtain a relative measure, because the corresponding res_j may be very close to zero. Absolute values of infinity norms of the differences are of the order 1e-4 or lower. Maybe this is not low enough and needs some refinement after the solve. 
+---
+For neos-5052403-cygnet.mps with normal equations, most of the time is taken by building the normal equations at each iteration, because the Schur complement has size zero. Using Metis with normal equations corresponds to slicing matrix A into blocks of rows:
+
+     [ A1 ]                                       [ A1*A1^T   0     A1*A3^T ]
+ A = [ A2 ]    A^T = [ A1^T A2^T A3^T]    A*A^T = [   0     A2*A2^T A2*A3^T ]
+     [ A3 ]                                       [ A3*A1^T A3*A2^T A3*A3^T ]
+
+such that A1*A2^T is the zero matrix. Rather than computing A*A^T every time, I can compute all the five (or 2*nparts+1) nonzero blocks of A*A^T in parallel, using the previously stored slices of rows of A and the new Theta vector.
+This requires storing the slices row and column wise. Also, computing Aj*Aj^T exploits symmetry, but computing Ai*Aj^T does not. Is this an issue?
+---
+Implemented forward/diagonal solve for all columns at once. It bring substantial benefit. E.g.
+25fv47 with normal equations :  0.65 -> 0.23
+25fv47 with augmented system :  2.66 -> 0.68 
+80bau3b with normal equations:  1.80 -> 1.04
+80bau3b with augmented system: 12.56 -> 4.09
+Need to understand exactly how solving all rhs together brings such large benefit, to implement it later on in our factorisation.
+Added warning that debug is on for large problems, as it was hampering performance before I noticed.
+---
+
+
+
+
+
