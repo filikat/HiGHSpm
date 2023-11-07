@@ -85,6 +85,7 @@ public:
     theta_order_k.clear();
   }
   void fillIn_LL();
+  void fillIn_LU();
   void fillIn_LDL();
   void analyseTheta(const std::vector<double> &theta, const bool quiet = true);
 };

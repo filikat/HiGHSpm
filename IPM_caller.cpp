@@ -120,7 +120,7 @@ Output IPM_caller::Solve() {
   // solve only if model is loaded
   if (!model_ready) return Output{};
 
-  //  assert(equalMatrix("Entering Solve()"));
+  double timer_iterations = getWallTime();
 
   // ------------------------------------------
   // ---- INITIALIZE --------------------------
@@ -185,7 +185,7 @@ Output IPM_caller::Solve() {
     if (iter % 20 == 0)
       printf(
           " iter         primal obj            dual obj        pinf       dinf "
-          "       mu        alpha_p    alpha_d      p/d rel gap\n");
+          "       mu        alpha_p    alpha_d      p/d rel gap      time\n");
 
     ++iter;
 
@@ -322,9 +322,11 @@ Output IPM_caller::Solve() {
     pd_gap = std::fabs(primal_obj - dual_obj) /
              (1 + 0.5 * std::fabs(primal_obj + dual_obj));
 
-    printf("%5d %20.10e %20.10e %10.2e %10.2e %10.2e %10.2f %10.2f %15.2e\n",
-           iter, primal_obj, dual_obj, primal_infeas, dual_infeas, mu,
-           alpha_primal, alpha_dual, pd_gap);
+    printf(
+        "%5d %20.10e %20.10e %10.2e %10.2e %10.2e %10.2f %10.2f %15.2e "
+        "%10.1fs\n",
+        iter, primal_obj, dual_obj, primal_infeas, dual_infeas, mu,
+        alpha_primal, alpha_dual, pd_gap, getWallTime() - timer_iterations);
 
     // It.print(iter);
     // Delta.print(iter);

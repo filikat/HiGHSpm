@@ -3,8 +3,8 @@
 void Lapack_wrapper_factor(std::vector<double>& a, std::vector<int>& ipiv) {
   // Call Lapack dsytrf to factor the dense symmetric matrix contained in a.
   // a contains (at least) the lower triangular part of the matrix (col-wise).
-  // On retur, a contains data to be used by dsytrs to solve linear systems
-  // and ipiv contains additional information.
+  // On return, a and ipiv contain data to be used by dsytrs to solve linear
+  // systems.
 
   char uplo = 'L';
   int n = ipiv.size();

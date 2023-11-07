@@ -42,3 +42,7 @@ Need to add LU factorisation from HFactor. Need to create function, to be called
 Factorization of the schur complement switched to dense Lapack routine, using dsytrf and dsytrs. 
 Avoid converting schur complement from dense to spase and using inefficient sparse factorization for it.
 ---
+Added checks for empty schur complement, otherwise lapack complains.
+Separated computation of contributions to schur complement from Metis_caller::factor(). Now they are in a separate file and one can add any method he wants.
+Added HFactor as general solver (not for metis yet). It seems to be considerably slower than MA86. Julian's experiments seemed to indicate the opposite, not sure what is happening here. Also, it fails in a weird way for 80bau3b with augmented system.
+---

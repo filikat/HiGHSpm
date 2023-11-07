@@ -19,7 +19,8 @@ cpp_sources = \
 		ExperimentData.cpp \
 		Metis_caller.cpp \
 		VertexCover.cpp \
-		Lapack_wrapper.cpp
+		Lapack_wrapper.cpp \
+		SchurContribution.cpp
 c_sources = hsl_ma86_wrapper.c
 
 # binary file name

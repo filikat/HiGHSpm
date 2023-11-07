@@ -133,8 +133,7 @@ class Metis_caller {
   void solve(const std::vector<double>& rhs, std::vector<double>& lhs);
 
   void setDebug(bool db = true);
-  const HighsSparseMatrix& accessBlock(int i) const { return Blocks[i]; }
-  void prepare() { invertData.assign(nparts + 1, IpmInvert()); }
+  void prepare();
   bool valid() { return invertData.front().valid; }
   void printInfo() const;
   void printTimes() const;
@@ -146,6 +145,12 @@ class Metis_caller {
   // Update diagonal elements of the augmented system blocks
   void updateDiag(const std::vector<double>& diag1,
                   const std::vector<double>& diag2);
+
+  // compute contribution to the Schur complement
+  void addSchurContribution(int part);
+  void SchurContributionSingle(int part);
+  void SchurContributionMultiple(int part);
+  void SchurContributionHFactor(int part);
 
   // print for debug
   template <typename T>

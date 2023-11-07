@@ -37,6 +37,7 @@ const double ok_theta_relative_tolerance = 1e-3;
 // 2: ma86
 // 3: qdldl
 // 4: cholmod
+// 5 : highs
 const int default_solver = 2;
 
 struct SsidsData {
@@ -93,6 +94,12 @@ struct CholmodData {
   void clear();
 };
 
+struct HighsData {
+  std::vector<HighsInt> basic_index;
+  HFactor factor;
+  void clear();
+};
+
 struct IpmInvert {
   bool valid = false;
   int system_size = 0;
@@ -105,6 +112,7 @@ struct IpmInvert {
   MA86Data ma86_data;
   QDLDLData qdldl_data;
   CholmodData cholmod_data;
+  HighsData highs_data;
   void clear(const int solver_type = default_solver);
 };
 
@@ -211,6 +219,20 @@ int callCholmodNewtonFactor(const HighsSparseMatrix& AThetaAT,
                             const int num_thods = 3);
 void callCholmodSolve(const int system_size, const int num_rhs, double* rhs,
                       CholmodData& cholmod_data);
+
+int callHighsAugmentedFactor(const HighsSparseMatrix& matrix,
+                             const std::vector<double>& theta,
+                             HighsData& highs_data,
+                             ExperimentData& experiment_data);
+
+int callHighsNewtonFactor(const HighsSparseMatrix& AThetaAT,
+                          HighsData& highs_data,
+                          ExperimentData& experiment_data);
+
+void callHighsSolve(std::vector<std::vector<double>>& rhs,
+                    HighsData& highs_data);
+
+void callHighsSolve(std::vector<double>& rhs, HighsData& highs_data);
 
 // ------------------------------------------
 // Metis invert and solve
