@@ -33,8 +33,12 @@ Implemented forward/diagonal solve for all columns at once. It bring substantial
 Need to understand exactly how solving all rhs together brings such large benefit, to implement it later on in our factorisation.
 Added warning that debug is on for large problems, as it was hampering performance before I noticed.
 ---
+Need to add LU factorisation from HFactor. Need to create function, to be called from Metis_caller::factor(), that computes contribution to the Schur complement for a given linking and diagonal block, to improve modularity. Then, Metis_caller::factor() does not have to change, and I can add any method to compute the contribution to the Schur complement.
+---
 
 
-
-
-
+*****
+7-11-23
+Factorization of the schur complement switched to dense Lapack routine, using dsytrf and dsytrs. 
+Avoid converting schur complement from dense to spase and using inefficient sparse factorization for it.
+---

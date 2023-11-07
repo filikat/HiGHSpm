@@ -3,6 +3,7 @@
 
 #include "Direct.h"
 #include "GKlib.h"
+#include "Lapack_wrapper.h"
 #include "VertexCover.h"
 #include "metis.h"
 #include "util/HighsSparseMatrix.h"
@@ -80,12 +81,15 @@ class Metis_caller {
   std::vector<IpmInvert> invertData;
   std::vector<ExperimentData> expData;
 
+  // Lapack data for dense factorization
+  std::vector<double> lapack_a;
+  std::vector<int> lapack_ipiv;
+
   // metis times
   double initial_time{};
   double getBlocks_time{};
   double formSchur_time{};
   double factorBlocks_time{};
-  double schurConvert_time{};
   double factorSchur_time{};
   double solve_time{};
 

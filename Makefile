@@ -18,7 +18,8 @@ cpp_sources = \
 		Direct.cpp \
 		ExperimentData.cpp \
 		Metis_caller.cpp \
-		VertexCover.cpp
+		VertexCover.cpp \
+		Lapack_wrapper.cpp
 c_sources = hsl_ma86_wrapper.c
 
 # binary file name
@@ -44,7 +45,7 @@ rpaths = -rpath $(CHOLMOD_PATH)/lib/ -rpath $(QDLDL_PATH)/build/out/ -rpath $(LO
 # includes and libraries
 includes = -I$(HIGHS_PATH)/build -I$(HIGHS_PATH)/src/ -I$(CHOLMOD_PATH)/include -I$(QDLDL_PATH)/include -I$(METIS_PATH)/include -I$(LOCAL_PATH)/include
 libs_path = -L$(HIGHS_PATH)/build/lib -L$(CHOLMOD_PATH)/lib -L$(QDLDL_PATH)/build/out -L$(METIS_PATH)/build/libmetis -L$(LOCAL_PATH)/lib
-libs = -lhighs -lcholmod -lqdldl -lmetis -lhsl_ma86 -lfakemetis -lGKlib
+libs = -lhighs -lcholmod -lqdldl -lmetis -lhsl_ma86 -lfakemetis -lGKlib -llapack
 
 # name of objects
 cpp_objects = $(cpp_sources:%.cpp=$(OBJDIR)/%.o)

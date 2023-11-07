@@ -84,9 +84,9 @@ Metis_caller::Metis_caller(const HighsSparseMatrix& input_A, int input_type,
     return;
   }
 
-  // space for factorizations
-  invertData.resize(nparts + 1, {});
-  expData.resize(nparts + 1);
+  // space for factorizations of diagonal blocks
+  invertData.resize(nparts, {});
+  expData.resize(nparts);
 
   initial_time += getWallTime() - t0;
 }
@@ -162,6 +162,10 @@ void Metis_caller::getPermutation() {
 
   // get number of nonzeros in blocks for preallocation
   getNonzeros();
+
+  // allocate space for dense schur complement
+  lapack_a.resize(blockSize.back() * blockSize.back(), 0.0);
+  lapack_ipiv.resize(blockSize.back(), 0);
 }
 
 void Metis_caller::getBlocks(const std::vector<double>& diag1,
@@ -621,20 +625,24 @@ void Metis_caller::factor() {
   // - use same trick as computeAThetaAT to find contribution to Schur
   //    complement
   // - Store everything in a dense matrix
+  // - Call Lapack to factor the schur complement
 
   double t0 = getWallTime();
 
   int linkSize = blockSize.back();
 
-  // space for dense schur complement
-  std::vector<std::vector<double>> schurComplement(
-      linkSize, std::vector<double>(linkSize, 0.0));
+  // dense schur complement alias
+  std::vector<double>& schurComplement = lapack_a;
+
+  // set schur complement to zero
+  std::fill(schurComplement.begin(), schurComplement.end(), 0.0);
 
   // insert original schur block
   HighsSparseMatrix& schurB = Blocks[2 * nparts];
   for (int col = 0; col < linkSize; ++col) {
     for (int el = schurB.start_[col]; el < schurB.start_[col + 1]; ++el) {
-      schurComplement[col][schurB.index_[el]] += schurB.value_[el];
+      // insert element in position (col,schurB.index_[el])
+      schurComplement[col * linkSize + schurB.index_[el]] += schurB.value_[el];
     }
   }
 
@@ -755,9 +763,12 @@ void Metis_caller::factor() {
           if (col1 < col) continue;
 
           double value = Q.value_[colEl] * R.value_[rowEl];
-          schurComplement[col][col1] -= value;
+
+          // insert element in position (col, col1)
+          schurComplement[col * linkSize + col1] -= value;
           if (col != col1) {
-            schurComplement[col1][col] -= value;
+            // insert element in position (col1, col)
+            schurComplement[col1 * linkSize + col] -= value;
           }
         }
       }
@@ -769,28 +780,9 @@ void Metis_caller::factor() {
 
   t0 = getWallTime();
 
-  // convert schur complement to sparse matrix
-  HighsSparseMatrix sparseSchur;
-  sparseSchur.start_.reserve(linkSize + 1);
-  sparseSchur.index_.reserve(linkSize * linkSize);
-  sparseSchur.value_.reserve(linkSize * linkSize);
-  for (int col = 0; col < linkSize; ++col) {
-    sparseSchur.start_.push_back(sparseSchur.start_[col] + linkSize);
-    for (int row = 0; row < linkSize; ++row) {
-      sparseSchur.index_.push_back(row);
-      sparseSchur.value_.push_back(schurComplement[col][row]);
-    }
-  }
-  sparseSchur.num_row_ = linkSize;
-  sparseSchur.num_col_ = linkSize;
-  schurComplement.clear();
-
-  schurConvert_time += getWallTime() - t0;
-
-  t0 = getWallTime();
   // factorize schur complement
-  blockInvert(sparseSchur, invertData.back(), expData.back());
-
+  t0 = getWallTime();
+  Lapack_wrapper_factor(lapack_a, lapack_ipiv);
   factorSchur_time += getWallTime() - t0;
 }
 
@@ -845,7 +837,7 @@ void Metis_caller::solve(const std::vector<double>& rhs,
   }
 
   // solve linear system with schur complement to compute last block of solution
-  blockSolve(schur_rhs.data(), 1, invertData.back(), expData.back());
+  Lapack_wrapper_solve(lapack_a, lapack_ipiv, schur_rhs);
 
   // compute the other blocks of the solution:
   // lhs_i = Di^-1 * (rhs_i - Bi^T * lhs_last)
@@ -904,7 +896,7 @@ void Metis_caller::printInfo() const {
 
 void Metis_caller::printTimes() const {
   double sum_time = initial_time + getBlocks_time + formSchur_time +
-                    schurConvert_time + factorSchur_time + solve_time;
+                    factorSchur_time + solve_time;
   sum_time = sum_time > 0 ? sum_time : 1;
 
   printf("Metis time profile\n");
@@ -916,8 +908,6 @@ void Metis_caller::printTimes() const {
          formSchur_time, 100 * formSchur_time / sum_time);
   printf("factor blocks %5.2f (%5.1f%% sum)\n", factorBlocks_time,
          100 * factorBlocks_time / sum_time);
-  printf("convert Schur %5.2f (%5.1f%% sum)\n", schurConvert_time,
-         100 * schurConvert_time / sum_time);
   printf("factor Schur  %5.2f (%5.1f%% sum)\n", factorSchur_time,
          100 * factorSchur_time / sum_time);
   printf("solve         %5.2f (%5.1f%% sum)\n", solve_time,
