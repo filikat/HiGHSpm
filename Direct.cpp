@@ -218,7 +218,7 @@ int augmentedInvert(const HighsSparseMatrix& highs_a,
   assert(highs_a.isColwise());
   double start_time0 = getWallTime();
   experiment_data.reset();
-  //assert(solver_type >= 1 && solver_type <= 3);
+  assert((solver_type >= 1 && solver_type <= 3) || solver_type == 5);
   if (solver_type == 1) {
     experiment_data.decomposer = "ssids";
     experiment_data.system_type = kSystemTypeAugmented;
@@ -1088,13 +1088,27 @@ int callMA86AugmentedFactor(const HighsSparseMatrix& matrix,
   ptr.push_back(val.size());
 
   ma86_data.order.resize(m + n);
+#ifdef HAVE_MC68
+  wrapper_mc68_default_control(&ma86_data.control_perm);
+  // choose ordering heuristic
+  // 1 - amd
+  // 2 - md from MA27
+  // 3 - do not use!
+  // 4 - order from MA47
+  int ord = 1;
+  wrapper_mc68_order(ord, n + m, ptr.data(), row.data(), ma86_data.order.data(),
+                     &ma86_data.control_perm, &ma86_data.info_perm);
+  if (ma86_data.info_perm.flag < 0) return kDecomposerStatusErrorFactorize;
+#else
   for (int i = 0; i < m + n; i++) ma86_data.order[i] = i;
+#endif
 
   wrapper_ma86_default_control(&ma86_data.control);
   experiment_data.nla_time.setup = getWallTime() - start_time;
   start_time = getWallTime();
   wrapper_ma86_analyse(n + m, ptr.data(), row.data(), ma86_data.order.data(),
                        &ma86_data.keep, &ma86_data.control, &ma86_data.info);
+  // printf("L nnz %d\n", ma86_data.info.num_factor);
   experiment_data.nla_time.analysis = getWallTime() - start_time;
   if (ma86_data.info.flag < 0) return kDecomposerStatusErrorFactorize;
   start_time = getWallTime();
@@ -1141,18 +1155,28 @@ int callMA86NewtonFactor(const HighsSparseMatrix& AThetaAT, MA86Data& ma86_data,
   // Add the last pointer
   ptr.push_back(val.size());
 
-  // print ptr
-  for (int i = 0; i < ptr.size(); i++) {
-    // std::cout << ptr[i] << " ";
-  }
   ma86_data.order.resize(AThetaAT.num_row_);
+#ifdef HAVE_MC68
+  wrapper_mc68_default_control(&ma86_data.control_perm);
+  // choose ordering heuristic
+  // 1 - amd
+  // 2 - md from MA27
+  // 3 - do not use!
+  // 4 - order from MA47
+  int ord = 1;
+  wrapper_mc68_order(ord, n, ptr.data(), row.data(), ma86_data.order.data(),
+                     &ma86_data.control_perm, &ma86_data.info_perm);
+  if (ma86_data.info_perm.flag < 0) return kDecomposerStatusErrorFactorize;
+#else
   for (int i = 0; i < n; i++) ma86_data.order[i] = i;
+#endif
 
   wrapper_ma86_default_control(&ma86_data.control);
   experiment_data.nla_time.setup = getWallTime() - start_time;
   start_time = getWallTime();
   wrapper_ma86_analyse(n, ptr.data(), row.data(), ma86_data.order.data(),
                        &ma86_data.keep, &ma86_data.control, &ma86_data.info);
+  // printf("L nnz %d\n", ma86_data.info.num_factor);
   experiment_data.nla_time.analysis = getWallTime() - start_time;
   if (ma86_data.info.flag < 0) return kDecomposerStatusErrorFactorize;
   start_time = getWallTime();

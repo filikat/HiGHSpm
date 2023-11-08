@@ -56,6 +56,10 @@ struct MA86Data {
   ma86_control_d control;
   ma86_info_d info;
 #endif
+#ifdef HAVE_MC68
+  mc68_control control_perm;
+  mc68_info info_perm;
+#endif
   std::vector<int> order;
   void clear();
 };

@@ -120,6 +120,11 @@ Output IPM_caller::Solve() {
   // solve only if model is loaded
   if (!model_ready) return Output{};
 
+  printf("--------------\n");
+  printf("Rows %d\n", model.highs_a.num_row_);
+  printf("Cols %d\n", model.highs_a.num_col_);
+  printf("--------------\n");
+
   double timer_iterations = getWallTime();
 
   // ------------------------------------------

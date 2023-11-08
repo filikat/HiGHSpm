@@ -34,7 +34,7 @@ CC=clang
 CPP=clang++
 
 # compiler flags
-CPPFLAGS = -std=c++11 -O3 -DHAVE_CHOLMOD -DHAVE_MA86
+CPPFLAGS = -std=c++11 -O3 -DHAVE_CHOLMOD -DHAVE_MA86 -DHAVE_MC68
 CFLAGS = -O3
 
 # mess to link openmp on mac
@@ -46,7 +46,7 @@ rpaths = -rpath $(CHOLMOD_PATH)/lib/ -rpath $(QDLDL_PATH)/build/out/ -rpath $(LO
 # includes and libraries
 includes = -I$(HIGHS_PATH)/build -I$(HIGHS_PATH)/src/ -I$(CHOLMOD_PATH)/include -I$(QDLDL_PATH)/include -I$(METIS_PATH)/include -I$(LOCAL_PATH)/include
 libs_path = -L$(HIGHS_PATH)/build/lib -L$(CHOLMOD_PATH)/lib -L$(QDLDL_PATH)/build/out -L$(METIS_PATH)/build/libmetis -L$(LOCAL_PATH)/lib
-libs = -lhighs -lcholmod -lqdldl -lmetis -lhsl_ma86 -lfakemetis -lGKlib -llapack
+libs = -lhighs -lcholmod -lqdldl -lmetis -lhsl_ma86 -lhsl_mc68 -lfakemetis -lGKlib -llapack
 
 # name of objects
 cpp_objects = $(cpp_sources:%.cpp=$(OBJDIR)/%.o)
