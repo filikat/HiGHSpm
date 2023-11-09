@@ -40,7 +40,7 @@ const double kSolutionDiffTolerance = 1e-6;
 const double kCgTolerance = 1e-12;
 const int kCgIterationLimit = 10000;
 
-const double kPrimalRegularization = 1e-6;
-const double kDualRegularization = 1e-6;
+const double kPrimalRegularization = 0;
+const double kDualRegularization = 0;
 
 #endif

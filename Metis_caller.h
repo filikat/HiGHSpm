@@ -127,14 +127,16 @@ class Metis_caller {
   void getBlocks(const std::vector<double>& diag1,
                  const std::vector<double>& diag2);
 
-  // factorize and solve with the diagonal blocks
-  // (temporary stuff for testing, schur complement still missing)
+  // factorize diagonal blocks, form schur complement and factorize it
   void factor();
+
+  // solve with full matrix, exploiting the block structure
   void solve(const std::vector<double>& rhs, std::vector<double>& lhs);
 
+  // auxiliary stuff
   void setDebug(bool db = true);
   void prepare();
-  bool valid() { return invertData.front().valid; }
+  bool valid() const { return invertData.front().valid; }
   void printInfo() const;
   void printTimes() const;
 
@@ -167,9 +169,5 @@ void Metis_caller::debug_print(const std::vector<T>& vec,
   }
   out_file.close();
 }
-
-void denseMatrixPlusVector(std::vector<std::vector<double>>& mat,
-                           const std::vector<double>& vec, int col,
-                           double alpha);
 
 #endif

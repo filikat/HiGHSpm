@@ -4,6 +4,7 @@
 #include "util/HighsSparseMatrix.h"
 #include <limits>
 #include <vector>
+#include <string>
 
 // Optimization problem:
 // min obj^T * x
@@ -37,6 +38,7 @@ class IPM_model {
   std::vector<double> lower{};
   std::vector<double> upper{};
   HighsSparseMatrix highs_a{};
+  std::string pb_name{};
 
 public:
   // =======================================================================

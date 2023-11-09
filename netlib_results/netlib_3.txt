@@ -1,0 +1,101 @@
+        Problem       Time       Iter     Status
+         25fv47       0.22         25    optimal
+        80bau3b       1.06         42    optimal
+       adlittle       0.01         13    optimal
+          afiro       0.01          8    optimal
+            agg       0.03         32    optimal
+           agg2       0.03         24    optimal
+           agg3       0.03         21    optimal
+          bandm       0.01         17    optimal
+       beaconfd       0.00          8    optimal
+          blend       0.01          9    optimal
+           bnl1       0.15         27    optimal
+           bnl2       0.65         33    optimal
+        boeing1       0.08         22    optimal
+        boeing2       0.02         18    optimal
+         bore3d       0.01         16    optimal
+         brandy       0.01         18    optimal
+          capri       0.01         17    optimal
+          cycle       0.55        100   max iter
+         czprob       2.42         32    optimal
+         d2q06c       0.78         32    optimal
+         d6cube       0.13         23    optimal
+         degen2       0.11         14    optimal
+         degen3       2.01        100   max iter
+         dfl001       4.08        100   max iter
+           e226       0.02         20    optimal
+       etamacro       0.05         28    optimal
+       fffff800       0.06         33    optimal
+         finnis       0.03         21    optimal
+          fit1d       0.02         20    optimal
+          fit1p       0.27         17    optimal
+          fit2d       0.13         21    optimal
+          fit2p       7.64         19    optimal
+        forplan       0.05         36    optimal
+         ganges       0.02         16    optimal
+       gfrd-pnc       0.02         18    optimal
+       greenbea       0.58        100   max iter
+       greenbeb       0.31         44    optimal
+         grow15       0.13        100   max iter
+         grow22       0.16        100   max iter
+          grow7       0.08        100   max iter
+         israel       0.04         26    optimal
+            kb2       0.01         25    optimal
+          lotfi       0.01         15    optimal
+       maros-r7       0.41         15    optimal
+          maros       0.07         27    optimal
+        modszk1       0.23        100   max iter
+           nesm       0.10         36    optimal
+         perold       0.10         31    optimal
+       pilot.ja       0.23         36    optimal
+          pilot       0.61         37    optimal
+       pilot.we       0.28        100   max iter
+         pilot4       0.26         40    optimal
+        pilot87       1.34         40    optimal
+       pilotnov       0.13         22    optimal
+           qap8       0.07         10    optimal
+          qap12       1.86         19    optimal
+          qap15      32.53        100   max iter
+         recipe       0.00          9    optimal
+          sc105       0.01         11    optimal
+          sc205       0.01         12    optimal
+          sc50a       0.00          9    optimal
+          sc50b       0.00          9    optimal
+        scagr25       0.02         19    optimal
+         scagr7       0.01         16    optimal
+         scfxm1       0.02         19    optimal
+         scfxm2       0.03         21    optimal
+         scfxm3       0.05         22    optimal
+       scorpion       0.01         12    optimal
+          scrs8       0.02         17    optimal
+          scsd1       0.01         10    optimal
+          scsd6       0.01         12    optimal
+          scsd8       0.02         11    optimal
+         sctap1       0.01         15    optimal
+         sctap2       0.04         16    optimal
+         sctap3       0.05         15    optimal
+           seba       0.00          9    optimal
+        share1b       0.01         24    optimal
+        share2b       0.01         12    optimal
+          shell       0.02         22    optimal
+        ship04l       0.15        100   max iter
+        ship04s       0.02         27    optimal
+        ship08l       0.10         40    optimal
+        ship08s       0.01         15    optimal
+        ship12l       0.23        100   max iter
+        ship12s       0.02         23    optimal
+         sierra       0.04         19    optimal
+          stair       0.02         15    optimal
+       standata       0.01         13    optimal
+       standgub       0.01         13    optimal
+       standmps       0.03         22    optimal
+       stocfor1       0.01         12    optimal
+       stocfor2       0.08         17    optimal
+           tuff       0.02         20    optimal
+       vtp.base       0.00         11    optimal
+         wood1p       0.06         20    optimal
+          woodw       0.08         24    optimal
+
+================
+Total time:      66.40 sec
+Optimal   :         84 / 96

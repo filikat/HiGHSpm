@@ -8,6 +8,7 @@ main.cpp
 *.ods
 ml.mps
 ipm
+runNetlib
 a.out
 ipm.dSYM
 *.o

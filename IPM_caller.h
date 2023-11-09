@@ -1,6 +1,8 @@
 #ifndef IPM_CALLER
 #define IPM_CALLER
 
+#include <string>
+
 #include "ConjugateGradient.h"
 #include "Direct.h"
 #include "IPM_aux.h"
@@ -67,9 +69,9 @@ class IPM_caller {
       const int* A_colptr,  // column pointers of A           num_var + 1
       const int* A_rowind,  // row indices of A               A_colptr[num_var]
       const double* A_values,  // values of A A_colptr[num_var]
-      const int* constraints   // type of constraints            num_con
+      const int* constraints,  // type of constraints            num_con
                                // 1: >=, 0: =, -1: <=
-  );
+      const std::string& pb_name);
 
   // ===================================================================================
   // SOLVE THE LP

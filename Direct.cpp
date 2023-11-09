@@ -1159,7 +1159,7 @@ int callMA86NewtonFactor(const HighsSparseMatrix& AThetaAT, MA86Data& ma86_data,
 #ifdef HAVE_MC68
   wrapper_mc68_default_control(&ma86_data.control_perm);
   // choose ordering heuristic
-  // 1 - amd
+  // 1 - amd     <==== use this
   // 2 - md from MA27
   // 3 - do not use!
   // 4 - order from MA47
@@ -1619,6 +1619,9 @@ int callHighsNewtonFactor(const HighsSparseMatrix& AThetaAT,
   experiment_data.nla_time.factorization = getWallTime() - start_time;
 
   experiment_data.nnz_L = factor.invert_num_el;
+
+  //printf("nnz LU %d\n", factor.invert_num_el);
+
   experiment_data.fillIn_LU();
 
   int invert_status;

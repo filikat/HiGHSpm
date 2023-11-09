@@ -2,6 +2,7 @@
 #define IPM_AUX_H
 
 #include <vector>
+#include <string>
 
 // =======================================================================
 // RESIDUALS
@@ -89,6 +90,7 @@ struct Output {
   double primal_infeas{};
   double dual_infeas{};
   double mu{};
+  std::string status;
 };
 
 #endif

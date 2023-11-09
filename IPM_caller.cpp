@@ -18,7 +18,7 @@ void IPM_caller::Load(const int num_var, const int num_con, const double* obj,
                       const double* rhs, const double* lower,
                       const double* upper, const int* A_colptr,
                       const int* A_rowind, const double* A_values,
-                      const int* constraints) {
+                      const int* constraints, const std::string& pb_name) {
   if (!obj || !rhs || !lower || !upper || !A_colptr || !A_rowind || !A_values ||
       !constraints)
     return;
@@ -110,6 +110,8 @@ void IPM_caller::Load(const int num_var, const int num_con, const double* obj,
 
   m = model.num_con;
   n = model.num_var;
+
+  model.pb_name = pb_name;
   model_ready = true;
 }
 
@@ -121,8 +123,10 @@ Output IPM_caller::Solve() {
   if (!model_ready) return Output{};
 
   printf("--------------\n");
-  printf("Rows %d\n", model.highs_a.num_row_);
-  printf("Cols %d\n", model.highs_a.num_col_);
+  printf("Problem %s\n", model.pb_name.c_str());
+  printf("A rows %d\n", model.highs_a.num_row_);
+  printf("A cols %d\n", model.highs_a.num_col_);
+  printf("A nnz  %d\n", model.highs_a.numNz());
   printf("--------------\n");
 
   double timer_iterations = getWallTime();
@@ -167,6 +171,8 @@ Output IPM_caller::Solve() {
     Metis_data.printInfo();
   }
 
+  std::string status;
+
   // ------------------------------------------
   // ---- MAIN LOOP ---------------------------
   // ------------------------------------------
@@ -183,6 +189,7 @@ Output IPM_caller::Solve() {
         primal_infeas < kIpmTolerance &&       // primal feasibility
         dual_infeas < kIpmTolerance) {         // dual feasibility
       printf("\n===== Optimal solution found =====\n\n");
+      status = "optimal";
       break;
     }
 
@@ -338,6 +345,8 @@ Output IPM_caller::Solve() {
     // Res.print(iter);
   }
 
+  if (status.empty()) status = "max iter";
+
   // output struct
   Output out{};
   out.It = It;
@@ -345,8 +354,9 @@ Output IPM_caller::Solve() {
   out.primal_infeas = primal_infeas;
   out.dual_infeas = dual_infeas;
   out.mu = mu;
+  out.status = status;
 
-  Metis_data.printTimes();
+  if (use_metis) Metis_data.printTimes();
 
   return out;
 }

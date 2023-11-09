@@ -46,7 +46,8 @@ Added checks for empty schur complement, otherwise lapack complains.
 Separated computation of contributions to schur complement from Metis_caller::factor(). Now they are in a separate file and one can add any method he wants.
 Added HFactor as general solver (not for metis yet). It seems to be considerably slower than MA86. Julian's experiments seemed to indicate the opposite, not sure what is happening here. Also, it fails in a weird way for 80bau3b with augmented system.
 ---
-It looks like MA86 does not produce an elimination ordering. That's weird because the code is quite performant. Checking the number of nonzero in the computed factor and comparing with the factor that Matlab produces, it looks like indeed there is large margin of improvement. I need to use HSL_MC68 to produce a good elimination ordering to pass to MA86. I hope it works without using Metis, otherwise I need to switch to the old Metis 4 and change the interface.
+It looks like MA86 does not produce an elimination ordering. That's weird because the code is quite performant. Checking the number of nonzero in the computed factor and comparing with the factor that Matlab produces, it looks like indeed there is large margin of improvement. 
+I need to use HSL_MC68 to produce a good elimination ordering to pass to MA86. I hope it works without using Metis, otherwise I need to switch to the old Metis 4 and change the interface.
 ---
 
 
@@ -54,4 +55,21 @@ It looks like MA86 does not produce an elimination ordering. That's weird becaus
 8-11-23
 Inserted MC68 to compute the elimination ordering. It reduces the number of nonzeros in the L factor considerably (5 times for 80bau3b). Times improve considerably.
 For neos-5052403-cygnet the effect is much smaller.
+---
+Extra experiments using HFactor. 
+For 80bau3b, L from MA86 has 107k entries, L and U together from HFactor have 75k entries. 
+Solve time is slightly reduced due to this. However, factorization time is much larger (0.05 vs 0.75).
+For neos-5052403-cygnet, starting point not yet computed after 5 minutes. MA86 converges in 15s.
+For stat96v2, L from MA86 has 1.7M entries, LU from HFactor have 4.2M entries. Factorization is much slower.
+---
+Need to run the code on the whole Netlib collection. Maybe compare times of MA86 and HFactor. 
+Need a master file to run all problems.
+
+
+*****
+9-11-23
+Computed netlib results for various combinations of type of linear system, regularization and tolerance. 
+Normal equations is usually faster, but fails to converge for come problems. Augmented system without regularization converges for all 96 problems.
+Regularization seems to only make things worse. Need specialized dynamic regularization within the factorization.
+Added extraction of problem name from path. Added print of problem name to screen.
 ---
