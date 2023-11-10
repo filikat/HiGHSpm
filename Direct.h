@@ -245,7 +245,7 @@ int blockInvert(const HighsSparseMatrix& block, IpmInvert& invert,
                 ExperimentData& experiment_data,
                 const int solver_type = default_solver);
 
-int blockSolve(double* rhs, int num_rhs, IpmInvert& invert,
+int blockSolve(std::vector<double>& rhs, int num_rhs, IpmInvert& invert,
                ExperimentData& experiment_data,
                const int& solver_type = default_solver);
 

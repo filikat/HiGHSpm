@@ -272,4 +272,190 @@ void Metis_caller::SchurContributionMultiple(int i) {
 }
 
 // Use Highs LU factorization
-void Metis_caller::SchurContributionHFactor(int part) {}
+void Metis_caller::SchurContributionHFactor(int i) {
+  // to build Schur complement:
+  // for each linking block
+  // - access rows of linking block B^T (stored row-wise)
+  // - do a ftran solve with L
+  //    L^-1 * b
+  // - do a btran solve with U
+  //    U^-T * b
+  // - leave U^-T * B^T col-wise, but get L^-1 * B^T row-wise
+  // - use same trick as computeAThetaAT to find contribution to Schur
+  //    complement
+  // - Store everything in a dense matrix
+
+  int linkSize = blockSize.back();
+
+  // current linking block
+  HighsSparseMatrix& B = Blocks[2 * i + 1];
+
+  // row-wise linking block
+  HighsSparseMatrix Bt = B;
+  Bt.ensureRowwise();
+
+  // space for L^-1 B^T and U^-T B^T
+  HighsSparseMatrix LSolvedBlock;
+  HighsSparseMatrix USolvedBlock;
+  LSolvedBlock.num_row_ = B.num_col_;
+  LSolvedBlock.num_col_ = B.num_row_;
+  USolvedBlock.num_row_ = B.num_col_;
+  USolvedBlock.num_col_ = B.num_row_;
+
+  // go through the rows of B
+  for (int row = 0; row < B.num_row_; ++row) {
+    // space for dense vector
+    std::vector<double> denseRow(B.num_col_, 0.0);
+
+    // avoid computations if row is empty
+    if (Bt.start_[row] == Bt.start_[row + 1]) {
+      LSolvedBlock.start_.push_back(LSolvedBlock.start_.back());
+      USolvedBlock.start_.push_back(USolvedBlock.start_.back());
+      continue;
+    }
+
+    // go through the entries of the row and fill in dense_row
+    for (int elem = Bt.start_[row]; elem < Bt.start_[row + 1]; ++elem) {
+      denseRow[Bt.index_[elem]] = Bt.value_[elem];
+    }
+
+    // space for L^-1 * b and U^-T * b
+    std::vector<double> LSolvedRow;
+    std::vector<double> USolvedRow;
+
+    // perform ftran and btran call
+    double t1 = getWallTime();
+
+    HVector hvec{};
+    hvec.setup(B.num_col_);
+    hvec.array = denseRow;
+    hvec.count = -1;
+    double exp_density = 1;
+    invertData[i].highs_data.factor.ftranL(hvec, exp_density);
+    LSolvedRow = hvec.array;
+
+    hvec.clear();
+    hvec.setup(B.num_col_);
+    for (int j = 0; j < denseRow.size(); ++j) {
+      hvec.array[j] = denseRow[invertData[i].highs_data.basic_index[j]];
+    }
+    hvec.count = -1;
+    invertData[i].highs_data.factor.btranU(hvec, exp_density);
+    USolvedRow = hvec.array;
+
+    schur_dfsolve_time += getWallTime() - t1;
+
+    t1 = getWallTime();
+    // transform LSolvedRow into sparse column of LSolvedBlock
+    int countNnzRow{};
+    for (int j = 0; j < LSolvedRow.size(); ++j) {
+      if (std::fabs(LSolvedRow[j]) > 1e-20) {
+        LSolvedBlock.index_.push_back(j);
+        LSolvedBlock.value_.push_back(LSolvedRow[j]);
+        ++countNnzRow;
+      }
+    }
+    LSolvedBlock.start_.push_back(LSolvedBlock.start_.back() + countNnzRow);
+
+    // transform USolvedRow into sparse column of USolvedBlock
+    countNnzRow = 0;
+    for (int j = 0; j < USolvedRow.size(); ++j) {
+      if (std::fabs(USolvedRow[j]) > 1e-20) {
+        USolvedBlock.index_.push_back(j);
+        USolvedBlock.value_.push_back(USolvedRow[j]);
+        ++countNnzRow;
+      }
+    }
+    USolvedBlock.start_.push_back(USolvedBlock.start_.back() + countNnzRow);
+
+    schur_transform_time += getWallTime() - t1;
+  }
+
+  // LSolvedBlock needs row-wise access
+  LSolvedBlock.ensureRowwise();
+
+  // similar trick as computeAThetaAT, with simplifications, to compute
+  //      Q^T        *      R
+  // (U^-T * B^T)^T  *  (L^-1 * B^T)
+  // ^^^^^^^^^^^^       ^^^^^^^^^^^^
+  //  col-wise            row-wise
+  // access to Q         access to R
+  //
+
+  HighsSparseMatrix& Q = USolvedBlock;
+  HighsSparseMatrix& R = LSolvedBlock;
+
+  double t1 = getWallTime();
+
+  // go through columns of Q
+  for (int col = 0; col < Q.num_col_; ++col) {
+    // go through entries of the column
+    for (int colEl = Q.start_[col]; colEl < Q.start_[col + 1]; ++colEl) {
+      // row index of current entry
+      int row = Q.index_[colEl];
+      // go through entries of the row of R
+      for (int rowEl = R.start_[row]; rowEl < R.start_[row + 1]; ++rowEl) {
+        // this entry contributes to Schur(col,col1) and Schur (col1,col)
+        int col1 = R.index_[rowEl];
+
+        // avoid counting entries twice
+        if (col1 < col) continue;
+
+        double value = Q.value_[colEl] * R.value_[rowEl];
+
+        lapack_a[col * linkSize + col1] -= value;
+        if (col != col1) {
+          lapack_a[col1 * linkSize + col] -= value;
+        }
+      }
+    }
+  }
+  schur_multiply_time += getWallTime() - t1;
+}
+
+/*void Metis_caller::SchurContributionHFactor(int i) {
+  // to build Schur complement:
+  // for each linking block
+  // - access rows of linking block B^T (stored row-wise)
+  // - do a ftran solve with L
+  //    L^-1 * b
+  // - do a btran solve with U
+  //    U^-T * b
+  // - leave U^-T * B^T col-wise, but get L^-1 * B^T row-wise
+  // - use same trick as computeAThetaAT to find contribution to Schur
+  //    complement
+  // - Store everything in a dense matrix
+
+  int linkSize = blockSize.back();
+
+  // current linking block
+  HighsSparseMatrix& B = Blocks[2 * i + 1];
+
+  // row-wise linking block
+  HighsSparseMatrix Bt = B;
+  Bt.ensureRowwise();
+
+  // go through the rows of B
+  for (int row = 0; row < B.num_row_; ++row) {
+    // space for dense vector
+    std::vector<double> denseRow(B.num_col_, 0.0);
+
+    // go through the entries of the row and fill in dense_row
+    for (int elem = Bt.start_[row]; elem < Bt.start_[row + 1]; ++elem) {
+      denseRow[Bt.index_[elem]] = Bt.value_[elem];
+    }
+
+    invertData[i].highs_data.factor.ftranCall(denseRow);
+
+    std::vector<double> solution(B.num_col_);
+    for (int iCol = 0; iCol < int(solution.size()); iCol++)
+      solution[invertData[i].highs_data.basic_index[iCol]] = denseRow[iCol];
+    std::vector<double> result(B.num_col_);
+
+    B.product(result, solution);
+
+    for (int el = 0; el < result.size(); ++el) {
+      lapack_a[row * linkSize + el] -= result[el];
+    }
+  }
+}*/

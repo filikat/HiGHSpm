@@ -473,6 +473,8 @@ int newtonInvert(const HighsSparseMatrix& highs_a,
     experiment_data.decomposer = "qdldl";
   } else if (solver_type == 4) {
     experiment_data.decomposer = "cholmod";
+  } else if (solver_type == 5) {
+    experiment_data.decomposer = "highs";
   }
 
   experiment_data.system_type = kSystemTypeNewton;
@@ -1620,7 +1622,7 @@ int callHighsNewtonFactor(const HighsSparseMatrix& AThetaAT,
 
   experiment_data.nnz_L = factor.invert_num_el;
 
-  //printf("nnz LU %d\n", factor.invert_num_el);
+  // printf("nnz LU %d\n", factor.invert_num_el);
 
   experiment_data.fillIn_LU();
 
@@ -1670,6 +1672,8 @@ int blockInvert(const HighsSparseMatrix& block, IpmInvert& invert,
     experiment_data.decomposer = "qdldl";
   } else if (solver_type == 4) {
     experiment_data.decomposer = "cholmod";
+  } else if (solver_type == 5) {
+    experiment_data.decomposer = "highs";
   }
 
   experiment_data.system_nnz = block.numNz();
@@ -1679,6 +1683,7 @@ int blockInvert(const HighsSparseMatrix& block, IpmInvert& invert,
   MA86Data& ma86_data = invert.ma86_data;
   QDLDLData& qdldl_data = invert.qdldl_data;
   CholmodData& cholmod_data = invert.cholmod_data;
+  HighsData& highs_data = invert.highs_data;
   int factor_status;
   if (solver_type == 1) {
     factor_status = callSsidsNewtonFactor(block, ssids_data, experiment_data);
@@ -1689,6 +1694,8 @@ int blockInvert(const HighsSparseMatrix& block, IpmInvert& invert,
   } else if (solver_type == 4) {
     factor_status =
         callCholmodNewtonFactor(block, cholmod_data, experiment_data);
+  } else if (solver_type == 5) {
+    factor_status = callHighsNewtonFactor(block, highs_data, experiment_data);
   }
 
   if (factor_status) return factor_status;
@@ -1700,7 +1707,7 @@ int blockInvert(const HighsSparseMatrix& block, IpmInvert& invert,
   return kDecomposerStatusOk;
 }
 
-int blockSolve(double* rhs, int num_rhs, IpmInvert& invert,
+int blockSolve(std::vector<double>& rhs, int num_rhs, IpmInvert& invert,
                ExperimentData& experiment_data, const int& solver_type) {
   assert(invert.valid);
 
@@ -1709,13 +1716,15 @@ int blockSolve(double* rhs, int num_rhs, IpmInvert& invert,
   const int system_size = invert.system_size;
 
   if (solver_type == 1) {
-    callSsidsSolve(system_size, 1, rhs, invert.ssids_data);
+    callSsidsSolve(system_size, 1, rhs.data(), invert.ssids_data);
   } else if (solver_type == 2) {
-    callMA86Solve(system_size, num_rhs, rhs, invert.ma86_data);
+    callMA86Solve(system_size, num_rhs, rhs.data(), invert.ma86_data);
   } else if (solver_type == 3) {
-    callQDLDLSolve(system_size, 1, rhs, invert.qdldl_data);
+    callQDLDLSolve(system_size, 1, rhs.data(), invert.qdldl_data);
   } else if (solver_type == 4) {
-    callCholmodSolve(system_size, 1, rhs, invert.cholmod_data);
+    callCholmodSolve(system_size, 1, rhs.data(), invert.cholmod_data);
+  } else if (solver_type == 5) {
+    callHighsSolve(rhs, invert.highs_data);
   }
 
   experiment_data.nla_time.solve = getWallTime() - start_time;

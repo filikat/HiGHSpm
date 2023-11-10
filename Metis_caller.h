@@ -7,6 +7,7 @@
 #include "VertexCover.h"
 #include "metis.h"
 #include "util/HighsSparseMatrix.h"
+#include "util/HFactor.h"
 
 enum MetisPartitionType {
   kMetisAugmented,

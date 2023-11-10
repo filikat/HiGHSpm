@@ -2,7 +2,7 @@
 
 // how to compute schur complement:
 // 0 - MA86 with single rhs
-// 1 - MA86 with multiple rhs
+// 1 - MA86 with multiple rhs  <=== use this
 // 2 - Hfactor
 const int schur_method = 1;
 
@@ -497,6 +497,21 @@ void Metis_caller::addSchurContribution(int i) {
 
 void Metis_caller::solve(const std::vector<double>& rhs,
                          std::vector<double>& lhs) {
+  // Solve linear system with k blocks:
+  //
+  // [D1           B1^T] [lhs_1]   [rhs_1]
+  // [   D2        B2^T] [lhs_2]   [rhs_2]
+  // [      ...    ... ] [ ... ] = [ ... ]
+  // [          Dk Bk^T] [lhs_k]   [rhs_k]
+  // [B1 B2 ... Bk  DS ] [lhs_S]   [rhs_S]
+  //
+  // by solving:
+  // S * lhs_S = rhs_schur
+  // D_i * lhs_i = rhs_i - Bi^T * lhs_S
+  // where:
+  // S = DS - \sum_i Bi * Di^-1 * Bi^T (already computed and factorized)
+  // rhs_schur = rhs_S - \sum_i Bi * Di^-1 * rhs_i
+
   double t0 = getWallTime();
 
   // space for blocks of rhs and lhs
@@ -533,11 +548,11 @@ void Metis_caller::solve(const std::vector<double>& rhs,
     start += blockSize[i];
 
     // contribution to schur_rhs:
-    // schur_rhs = rhs_link - \sum_i Bi * Di^-1 * rhs_i
+    // schur_rhs = rhs_S - \sum_i Bi * Di^-1 * rhs_i
     if (i < nparts) {
       std::vector<double> temp(block_rhs[i]);
       std::vector<double> schur_rhs_temp(blockSize.back());
-      blockSolve(temp.data(), 1, invertData[i], expData[i]);
+      blockSolve(temp, 1, invertData[i], expData[i]);
       Blocks[2 * i + 1].product(schur_rhs_temp, temp);
       VectorAdd(schur_rhs, schur_rhs_temp, -1.0);
     } else {
@@ -552,14 +567,14 @@ void Metis_caller::solve(const std::vector<double>& rhs,
   }
 
   // compute the other blocks of the solution:
-  // lhs_i = Di^-1 * (rhs_i - Bi^T * lhs_last)
+  // lhs_i = Di^-1 * (rhs_i - Bi^T * lhs_S)
   std::vector<double>& lastSol(block_lhs.back());
   int positionInLhs{};
   for (int i = 0; i < nparts; ++i) {
     Blocks[2 * i + 1].productTranspose(block_lhs[i], lastSol);
     VectorAdd(block_lhs[i], block_rhs[i], -1.0);
     VectorScale(block_lhs[i], -1.0);
-    blockSolve(block_lhs[i].data(), 1, invertData[i], expData[i]);
+    blockSolve(block_lhs[i], 1, invertData[i], expData[i]);
 
     // copy solution into lhs
     std::copy(block_lhs[i].begin(), block_lhs[i].end(),

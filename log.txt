@@ -73,3 +73,14 @@ Normal equations is usually faster, but fails to converge for come problems. Aug
 Regularization seems to only make things worse. Need specialized dynamic regularization within the factorization.
 Added extraction of problem name from path. Added print of problem name to screen.
 ---
+
+
+*****
+10-11-23
+Managed to make solution with Metis blocks work with HFactor. Needed to use the correct permutation at the correct point in the code. 
+Needed also to make ftranL and btranU public in HFactor.h.
+I still need to make extensive tests, but it looks like for some problems it brings some benefit. 
+However, for other problems it is incredibly slow and sometimes it just fails. It goes well until at some point the direction is not correct anymore and the iterations start diverging. Weird.
+I don't understand why sometimes the starting point alone takes a lot of time. Need to switch the starting point to use metis blocks as well.
+---
+For next week, I need to understand how to make the code parallel and do some more tests to check when HFactor is better.
