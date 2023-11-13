@@ -84,3 +84,16 @@ However, for other problems it is incredibly slow and sometimes it just fails. I
 I don't understand why sometimes the starting point alone takes a lot of time. Need to switch the starting point to use metis blocks as well.
 ---
 For next week, I need to understand how to make the code parallel and do some more tests to check when HFactor is better.
+
+
+*****
+13-11-23
+Changed starting point to use metis blocks. 
+When using normal equations, minimal changes needed. 
+When using augmented system, solution of A*A^T * q = s + A*r is found by solving
+    [ -I  A^T] [ p ] = [ r ]
+    [  A   0 ] [ q ] = [ s ]
+and ignoring the solution p. I changed this also for the non-metis augmented system, to avoid forming A*A^T (it may be much denser).
+---
+Added break in main loop is an error occurs during factorization (any type, normal equation, augmented, metis or not). 
+Weird behaviour for some problems seems to be caused by error in factorization. Incomplete of wrong data is used to solve the following linear systems.

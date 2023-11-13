@@ -437,7 +437,7 @@ void Metis_caller::debug_print(const HighsSparseMatrix& mat,
   out_file.close();
 }
 
-void Metis_caller::factor() {
+int Metis_caller::factor() {
   double t0 = getWallTime();
 
   int linkSize = blockSize.back();
@@ -459,7 +459,8 @@ void Metis_caller::factor() {
     // factorize the diagonal blocks
     double t1 = getWallTime();
     expData[i].reset();
-    blockInvert(Blocks[2 * i], invertData[i], expData[i]);
+    int status = blockInvert(Blocks[2 * i], invertData[i], expData[i]);
+    if (status) return status;
     factorBlocks_time += getWallTime() - t1;
     schur_factor_time += getWallTime() - t1;
 
@@ -479,6 +480,8 @@ void Metis_caller::factor() {
     Lapack_wrapper_factor(lapack_a, lapack_ipiv);
   }
   factorSchur_time += getWallTime() - t0;
+
+  return 0;
 }
 
 void Metis_caller::addSchurContribution(int i) {
@@ -495,8 +498,7 @@ void Metis_caller::addSchurContribution(int i) {
   }
 }
 
-void Metis_caller::solve(const std::vector<double>& rhs,
-                         std::vector<double>& lhs) {
+void Metis_caller::solve(std::vector<double>& rhs) {
   // Solve linear system with k blocks:
   //
   // [D1           B1^T] [lhs_1]   [rhs_1]
@@ -512,6 +514,10 @@ void Metis_caller::solve(const std::vector<double>& rhs,
   // S = DS - \sum_i Bi * Di^-1 * Bi^T (already computed and factorized)
   // rhs_schur = rhs_S - \sum_i Bi * Di^-1 * rhs_i
 
+  if (debug) {
+    debug_print(rhs, "debug_data/rhs.txt");
+  }
+
   double t0 = getWallTime();
 
   // space for blocks of rhs and lhs
@@ -520,7 +526,7 @@ void Metis_caller::solve(const std::vector<double>& rhs,
 
   // space for permuted rhs and lhs
   std::vector<double> perm_rhs(rhs.size());
-  std::vector<double> perm_lhs(lhs.size());
+  std::vector<double> perm_lhs(rhs.size());
 
   // permute rhs
   for (int i = 0; i < rhs.size(); ++i) {
@@ -586,13 +592,12 @@ void Metis_caller::solve(const std::vector<double>& rhs,
   std::copy(lastSol.begin(), lastSol.end(), perm_lhs.begin() + positionInLhs);
 
   // permute back lhs
-  for (int i = 0; i < lhs.size(); ++i) {
-    lhs[i] = perm_lhs[perminv[i]];
+  for (int i = 0; i < rhs.size(); ++i) {
+    rhs[i] = perm_lhs[perminv[i]];
   }
 
   if (debug) {
-    debug_print(rhs, "debug_data/rhs.txt");
-    debug_print(lhs, "debug_data/lhs.txt");
+    debug_print(rhs, "debug_data/lhs.txt");
   }
 
   solve_time += getWallTime() - t0;

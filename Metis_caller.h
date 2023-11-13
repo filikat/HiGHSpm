@@ -6,8 +6,8 @@
 #include "Lapack_wrapper.h"
 #include "VertexCover.h"
 #include "metis.h"
-#include "util/HighsSparseMatrix.h"
 #include "util/HFactor.h"
+#include "util/HighsSparseMatrix.h"
 
 enum MetisPartitionType {
   kMetisAugmented,
@@ -129,10 +129,10 @@ class Metis_caller {
                  const std::vector<double>& diag2);
 
   // factorize diagonal blocks, form schur complement and factorize it
-  void factor();
+  int factor();
 
   // solve with full matrix, exploiting the block structure
-  void solve(const std::vector<double>& rhs, std::vector<double>& lhs);
+  void solve(std::vector<double>& rhs);
 
   // auxiliary stuff
   void setDebug(bool db = true);

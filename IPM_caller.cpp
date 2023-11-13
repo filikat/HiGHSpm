@@ -135,6 +135,17 @@ Output IPM_caller::Solve() {
   // ---- INITIALIZE --------------------------
   // ------------------------------------------
 
+  // Metis stuff
+  bool use_metis = option_nla == kOptionNlaMetisAugmented ||
+                   option_nla == kOptionNlaMetisNormalEq;
+  if (use_metis) {
+    Metis_data = Metis_caller(model.highs_a, option_nla, 2);
+    Metis_data.setDebug(false);
+    Metis_data.getPartition();
+    Metis_data.getPermutation();
+    Metis_data.printInfo();
+  }
+
   // iterations counter
   int iter{};
 
@@ -159,17 +170,6 @@ Output IPM_caller::Solve() {
   double primal_obj{};
   double dual_obj{};
   double pd_gap = 1.0;
-
-  // Metis stuff
-  bool use_metis = option_nla == kOptionNlaMetisAugmented ||
-                   option_nla == kOptionNlaMetisNormalEq;
-  if (use_metis) {
-    Metis_data = Metis_caller(model.highs_a, option_nla, 2);
-    Metis_data.setDebug(false);
-    Metis_data.getPartition();
-    Metis_data.getPermutation();
-    Metis_data.printInfo();
-  }
 
   std::string status;
 
@@ -241,7 +241,11 @@ Output IPM_caller::Solve() {
       ComputeResiduals_56(sigma * mu, Delta, isCorrector, Res);
 
       // Solve Newton system
-      SolveNewtonSystem(model.highs_a, scaling, Res, isCorrector, Delta);
+      if (SolveNewtonSystem(model.highs_a, scaling, Res, isCorrector, Delta)) {
+        std::cerr << "Error while solving Newton system\n";
+        status = "Error";
+        break;
+      }
 
       // Compute full Newton direction
       RecoverDirection(Res, isCorrector, Delta);
@@ -258,7 +262,11 @@ Output IPM_caller::Solve() {
       ComputeResiduals_56(0, Delta, isCorrector, Res);
 
       // Solve Newton system for predictor
-      SolveNewtonSystem(model.highs_a, scaling, Res, isCorrector, Delta);
+      if (SolveNewtonSystem(model.highs_a, scaling, Res, isCorrector, Delta)) {
+        std::cerr << "Error while solving Newton system\n";
+        status = "Error";
+        break;
+      }
 
       // Compute full Newton direction for predictor
       RecoverDirection(Res, isCorrector, Delta);
@@ -280,7 +288,12 @@ Output IPM_caller::Solve() {
 
       // Solve Newton system for corrector
       Res.res1.assign(m, 0.0);
-      SolveNewtonSystem(model.highs_a, scaling, Res, isCorrector, DeltaCor);
+      if (SolveNewtonSystem(model.highs_a, scaling, Res, isCorrector,
+                            DeltaCor)) {
+        std::cerr << "Error while solving Newton system\n";
+        status = "Error";
+        break;
+      }
 
       // Compute full Newton direction for corrector
       RecoverDirection(Res, isCorrector, DeltaCor);
@@ -700,7 +713,8 @@ int IPM_caller::SolveNewtonSystem(const HighsSparseMatrix& highs_a,
   if (option_nla == kOptionNlaMetisAugmented) {
     // predictor?
     if (!Metis_data.valid()) {
-      Metis_data.factor();
+      int status = Metis_data.factor();
+      if (status) return status;
     }
 
     // create rhs = [rhs7; rhs1]
@@ -713,15 +727,14 @@ int IPM_caller::SolveNewtonSystem(const HighsSparseMatrix& highs_a,
     }
 
     // solve
-    std::vector<double> lhs(m + n);
-    Metis_data.solve(rhs, lhs);
+    Metis_data.solve(rhs);
 
     // assign Dx and Dy from lhs
     for (int i = 0; i < n; ++i) {
-      Delta.x[i] = lhs[i];
+      Delta.x[i] = rhs[i];
     }
     for (int i = 0; i < m; ++i) {
-      Delta.y[i] = lhs[n + i];
+      Delta.y[i] = rhs[n + i];
     }
   }
 
@@ -732,12 +745,11 @@ int IPM_caller::SolveNewtonSystem(const HighsSparseMatrix& highs_a,
     }
 
     // Compute res8
-    std::vector<double> res8{
+    std::vector<double> rhs{
         ComputeResiduals_8(highs_a, scaling, Res, res7, isCorrector)};
 
-    std::vector<double> metis_y(m);
-    Metis_data.solve(res8, metis_y);
-    Delta.y = metis_y;
+    Metis_data.solve(rhs);
+    Delta.y = rhs;
 
     // Compute Delta.x
     // *********************************************************************
@@ -826,6 +838,10 @@ void IPM_caller::ComputeStepSizes(const NewtonDir& Delta, double& alpha_primal,
 // COMPUTE STARTING POINT
 // ===================================================================================
 void IPM_caller::ComputeStartingPoint() {
+  // solutions with A*A^T is done differently depending on the use of metis
+  bool use_metis = option_nla == kOptionNlaMetisAugmented ||
+                   option_nla == kOptionNlaMetisNormalEq;
+
   // *********************************************************************
   // x starting point
   // *********************************************************************
@@ -836,25 +852,79 @@ void IPM_caller::ComputeStartingPoint() {
     It.x[i] = std::min(It.x[i], model.upper[i]);
   }
 
-  // use y to store b-A*x
-  It.y = model.rhs;
-  model.highs_a.alphaProductPlusY(-1.0, It.x, It.y);
-
-  // solve A*A^T * dx = b-A*x with factorization and store the result in temp_m
-  std::vector<double> temp_scaling(n, 1.0);
-  std::vector<double> temp_m(m);
-  // factorize A*A^T
   IpmInvert startPointInvert;
   ExperimentData startPointExpData;
-  startPointExpData.reset();
-  int newton_invert_status = newtonInvert(
-      model.highs_a, temp_scaling, startPointInvert, 0, 0, startPointExpData);
-  if (newton_invert_status) std::cerr << "Error in factorization of A*A^T\n";
-  // solve
-  int newton_solve_status =
-      newtonSolve(model.highs_a, temp_scaling, It.y, temp_m, startPointInvert,
-                  startPointExpData);
-  if (newton_solve_status) std::cerr << "Error in solution of A*A^T\n";
+  const std::vector<double> temp_scaling(n, 1.0);
+  std::vector<double> temp_m(m);
+
+  if (!use_metis) {
+    // factorize and solve with the full matrices
+
+    if (option_nla == kOptionNlaNewton) {
+      // use y to store b-A*x
+      It.y = model.rhs;
+      model.highs_a.alphaProductPlusY(-1.0, It.x, It.y);
+
+      // solve A*A^T * dx = b-A*x with factorization and store the result in
+      // temp_m
+
+      // factorize A*A^T
+      startPointExpData.reset();
+      int newton_invert_status =
+          newtonInvert(model.highs_a, temp_scaling, startPointInvert, 0, 0,
+                       startPointExpData);
+      if (newton_invert_status)
+        std::cerr << "Error in factorization of A*A^T\n";
+      // solve
+      int newton_solve_status =
+          newtonSolve(model.highs_a, temp_scaling, It.y, temp_m,
+                      startPointInvert, startPointExpData);
+      if (newton_solve_status) std::cerr << "Error in solution of A*A^T\n";
+    } else if (option_nla == kOptionNlaAugmented) {
+      // obtain solution of A*A^T * dx = b-A*x by solving
+      // [ -I  A^T] [...] = [ -x]
+      // [  A   0 ] [ dx] = [ b ]
+      startPointExpData.reset();
+      int augmented_invert_status = augmentedInvert(
+          model.highs_a, temp_scaling, startPointInvert, startPointExpData);
+      if (augmented_invert_status)
+        std::cerr << "Error in factorization of A*A^T\n";
+
+      std::vector<double> rhs_x(n);
+      for (int i = 0; i < n; ++i) rhs_x[i] = -It.x[i];
+      std::vector<double> lhs_x(n);
+      augmentedSolve(model.highs_a, temp_scaling, rhs_x, model.rhs, lhs_x,
+                     temp_m, startPointInvert, startPointExpData);
+    }
+
+  } else {
+    Metis_data.prepare();
+    std::fill(temp_m.begin(), temp_m.end(), 0.0);
+    Metis_data.getBlocks(temp_scaling, temp_m);
+    Metis_data.factor();
+
+    if (option_nla == kOptionNlaMetisNormalEq) {
+      // solve A*A^T * dx = b-A*x using metis blocks
+
+      // use y to store b-A*x
+      temp_m = model.rhs;
+      model.highs_a.alphaProductPlusY(-1.0, It.x, temp_m);
+
+      // solve and store result in temp_m
+      Metis_data.solve(temp_m);
+
+    } else {
+      // obtain solution of A*A^T * dx = b-A*x by solving
+      // [ -I  A^T] [...] = [ -x]
+      // [  A   0 ] [ dx] = [ b ]
+
+      std::vector<double> temp_mn(m + n);
+      for (int i = 0; i < n; ++i) temp_mn[i] = -It.x[i];
+      for (int i = 0; i < m; ++i) temp_mn[i + n] = model.rhs[i];
+      Metis_data.solve(temp_mn);
+      for (int i = 0; i < m; ++i) temp_m[i] = temp_mn[n + i];
+    }
+  }
 
   // compute dx = A^T * (A*A^T)^{-1} * (b-A*x) and store the result in xl
   std::fill(It.xl.begin(), It.xl.end(), 0.0);
@@ -893,14 +963,45 @@ void IPM_caller::ComputeStartingPoint() {
   // *********************************************************************
   // y starting point
   // *********************************************************************
-  // compute A*c
-  std::fill(temp_m.begin(), temp_m.end(), 0.0);
-  model.highs_a.alphaProductPlusY(1.0, model.obj, temp_m);
+  if (!use_metis) {
+    if (option_nla == kOptionNlaNewton) {
+      // compute A*c
+      std::fill(temp_m.begin(), temp_m.end(), 0.0);
+      model.highs_a.alphaProductPlusY(1.0, model.obj, temp_m);
 
-  // compute (A*A^T)^{-1} * A*c and store in y
-  newton_solve_status = newtonSolve(model.highs_a, temp_scaling, temp_m, It.y,
-                                    startPointInvert, startPointExpData);
-  if (newton_solve_status) std::cerr << "Error in solution of A*A^T\n";
+      // compute (A*A^T)^{-1} * A*c and store in y
+      int newton_solve_status =
+          newtonSolve(model.highs_a, temp_scaling, temp_m, It.y,
+                      startPointInvert, startPointExpData);
+      if (newton_solve_status) std::cerr << "Error in solution of A*A^T\n";
+    } else if (option_nla == kOptionNlaAugmented) {
+      // obtain solution of A*A^T * y = A*c by solving
+      // [ -I  A^T] [...] = [ c ]
+      // [  A   0 ] [ y ] = [ 0 ]
+      std::vector<double> rhs_y(m, 0.0);
+      std::vector<double> lhs_x(n);
+      augmentedSolve(model.highs_a, temp_scaling, model.obj, rhs_y, lhs_x, It.y,
+                     startPointInvert, startPointExpData);
+    }
+  } else if (option_nla == kOptionNlaMetisNormalEq) {
+    // solve A*A^T * y = A*c using metis blocks
+    // compute A*c
+    std::fill(temp_m.begin(), temp_m.end(), 0.0);
+    model.highs_a.alphaProductPlusY(1.0, model.obj, temp_m);
+
+    // solve and store result in temp_m
+    Metis_data.solve(temp_m);
+    It.y = temp_m;
+  } else {
+    // obtain solution of A*A^T * y = A*c by solving
+    // [ -I  A^T] [...] = [ c ]
+    // [  A   0 ] [ y ] = [ 0 ]
+
+    std::vector<double> temp_mn(m + n, 0.0);
+    for (int i = 0; i < n; ++i) temp_mn[i] = model.obj[i];
+    Metis_data.solve(temp_mn);
+    for (int i = 0; i < m; ++i) It.y[i] = temp_mn[n + i];
+  }
   // *********************************************************************
 
   // *********************************************************************
