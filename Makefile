@@ -34,8 +34,8 @@ CC=clang
 CPP=clang++
 
 # compiler flags
-CPPFLAGS = -std=c++11 -O3 -DHAVE_CHOLMOD -DHAVE_MA86 -DHAVE_MC68
-CFLAGS = -O3
+CPPFLAGS = -pthread -std=c++11 -O3 -DHAVE_CHOLMOD -DHAVE_MA86 -DHAVE_MC68
+CFLAGS = -pthread -O3
 
 # mess to link openmp on mac
 OPENMP_FLAGS = -Xclang -fopenmp -I/opt/homebrew/opt/libomp/include -L/opt/homebrew/opt/libomp/lib -lomp

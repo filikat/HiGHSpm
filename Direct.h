@@ -38,7 +38,7 @@ const double ok_theta_relative_tolerance = 1e-3;
 // 3: qdldl
 // 4: cholmod
 // 5 : highs
-const int default_solver = 2;
+const int default_solver = 5;
 
 struct SsidsData {
   void* akeep{nullptr};

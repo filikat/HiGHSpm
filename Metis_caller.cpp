@@ -4,7 +4,7 @@
 // 0 - MA86 with single rhs
 // 1 - MA86 with multiple rhs  <=== use this
 // 2 - Hfactor
-const int schur_method = 1;
+const int schur_method = 2;
 
 // -----------------------------------------------------------
 // Metis wrapper
@@ -24,6 +24,8 @@ void metis_wrapper_call_metis(idx_t nvertex, idx_t nconstraints, idx_t* adj_ptr,
 }
 //}
 // -----------------------------------------------------------
+
+highs::parallel::mutex mtx;
 
 Metis_caller::Metis_caller(const HighsSparseMatrix& input_A, int input_type,
                            int input_nparts) {
@@ -148,6 +150,12 @@ void Metis_caller::getPermutation() {
   } else {
     permutation = std::move(permutationMM);
     blockSize = std::move(blockSizeMM);
+  }
+
+  // generate blockStart
+  blockStart.resize(nparts + 1, 0);
+  for (int i = 0; i < nparts; ++i) {
+    blockStart[i + 1] = blockStart[i] + blockSize[i];
   }
 
   // update partition so that if node i is linking, partition[i] = nparts
@@ -454,21 +462,60 @@ int Metis_caller::factor() {
     }
   }
 
-  // go through the parts
-  for (int i = 0; i < nparts; ++i) {
-    // factorize the diagonal blocks
-    double t1 = getWallTime();
-    expData[i].reset();
-    int status = blockInvert(Blocks[2 * i], invertData[i], expData[i]);
-    if (status) return status;
-    factorBlocks_time += getWallTime() - t1;
-    schur_factor_time += getWallTime() - t1;
+  int error_factorize{};
+  double t98 = getWallTime();
 
-    if (linkSize > 0) {
-      // compute contribution to the Schur complement by the current part
-      addSchurContribution(i);
+  // parallel for
+  highs::parallel::for_each(0, nparts, [&](int start, int end) {
+    // local copy of schur complement for this thread
+    std::vector<double> local_schur(lapack_a.size(), 0.0);
+
+    // local times
+    double local_factorBlocks_time{};
+    double local_schur_factor_time{};
+    double local_schur_dfsolve_time{};
+    double local_schur_transform_time{};
+    double local_schur_multiply_time{};
+
+    // go through the parts assigned to this thread
+    for (int i = start; i < end; ++i) {
+      // printf("Thread %d -> part %d\n", highs::parallel::thread_num(), i);
+      double t99 = getWallTime();
+
+      // factorize the diagonal blocks
+      double t1 = getWallTime();
+      expData[i].reset();
+      int status = blockInvert(Blocks[2 * i], invertData[i], expData[i]);
+      if (status) error_factorize = status;
+
+      local_factorBlocks_time += getWallTime() - t1;
+      local_schur_factor_time += getWallTime() - t1;
+
+      if (linkSize > 0) {
+        // compute contribution to the Schur complement by the current part
+        addSchurContribution(i, local_schur, local_schur_dfsolve_time,
+                             local_schur_transform_time,
+                             local_schur_multiply_time);
+      }
+      printf("Part %d done in %.2e sec\n", i, getWallTime() - t99);
     }
-  }
+
+    // copy the local copy of data to the shared one, one thread at a time
+    mtx.lock();
+    for (int i = 0; i < local_schur.size(); ++i) {
+      lapack_a[i] += local_schur[i];
+    }
+    factorBlocks_time += local_factorBlocks_time;
+    schur_factor_time += local_schur_factor_time;
+    schur_dfsolve_time += local_schur_dfsolve_time;
+    schur_transform_time += local_schur_transform_time;
+    schur_multiply_time += local_schur_multiply_time;
+    mtx.unlock();
+  });
+
+  printf("Total %.2e\n", getWallTime() - t98);
+
+  if (error_factorize) return error_factorize;
 
   formSchur_time += getWallTime() - t0;
 
@@ -484,16 +531,17 @@ int Metis_caller::factor() {
   return 0;
 }
 
-void Metis_caller::addSchurContribution(int i) {
+void Metis_caller::addSchurContribution(int i, std::vector<double>& local_schur,
+                                        double& t1, double& t2, double& t3) {
   switch (schur_method) {
     case 0:
-      SchurContributionSingle(i);
+      SchurContributionSingle(i, local_schur, t1, t2, t3);
       break;
     case 1:
-      SchurContributionMultiple(i);
+      SchurContributionMultiple(i, local_schur, t1, t2, t3);
       break;
     case 2:
-      SchurContributionHFactor(i);
+      SchurContributionHFactor(i, local_schur, t1, t2, t3);
       break;
   }
 }
@@ -541,30 +589,40 @@ void Metis_caller::solve(std::vector<double>& rhs) {
   block_lhs.back().resize(blockSize.back());
   std::vector<double>& schur_rhs(block_lhs.back());
 
-  int start{};
-  for (int i = 0; i <= nparts; ++i) {
-    // allocate space for current rhs and lhs blocks
-    block_rhs[i].resize(blockSize[i]);
-    block_lhs[i].resize(blockSize[i]);
+  // parallel for
+  highs::parallel::for_each(0, nparts + 1, [&](int start, int end) {
+    for (int i = start; i < end; ++i) {
+      // allocate space for current rhs and lhs blocks
+      block_rhs[i].resize(blockSize[i]);
+      block_lhs[i].resize(blockSize[i]);
 
-    // break rhs into blocks
-    for (int j = 0; j < blockSize[i]; ++j) {
-      block_rhs[i][j] = perm_rhs[start + j];
-    }
-    start += blockSize[i];
+      int start = blockStart[i];
 
-    // contribution to schur_rhs:
-    // schur_rhs = rhs_S - \sum_i Bi * Di^-1 * rhs_i
-    if (i < nparts) {
-      std::vector<double> temp(block_rhs[i]);
-      std::vector<double> schur_rhs_temp(blockSize.back());
-      blockSolve(temp, 1, invertData[i], expData[i]);
-      Blocks[2 * i + 1].product(schur_rhs_temp, temp);
-      VectorAdd(schur_rhs, schur_rhs_temp, -1.0);
-    } else {
-      VectorAdd(schur_rhs, block_rhs[i], 1.0);
+      // break rhs into blocks
+      for (int j = 0; j < blockSize[i]; ++j) {
+        block_rhs[i][j] = perm_rhs[start + j];
+      }
+
+      // contribution to schur_rhs:
+      // schur_rhs = rhs_S - \sum_i Bi * Di^-1 * rhs_i
+      if (i < nparts) {
+        std::vector<double> temp(block_rhs[i]);
+        std::vector<double> schur_rhs_temp(blockSize.back());
+        blockSolve(temp, 1, invertData[i], expData[i]);
+        Blocks[2 * i + 1].product(schur_rhs_temp, temp);
+
+        // add contribution to schur_rhs one thread at a time
+        mtx.lock();
+        VectorAdd(schur_rhs, schur_rhs_temp, -1.0);
+        mtx.unlock();
+
+      } else {
+        mtx.lock();
+        VectorAdd(schur_rhs, block_rhs[i], 1.0);
+        mtx.unlock();
+      }
     }
-  }
+  });
 
   if (blockSize.back() > 0) {
     // solve linear system with schur complement to compute last block of
@@ -575,21 +633,26 @@ void Metis_caller::solve(std::vector<double>& rhs) {
   // compute the other blocks of the solution:
   // lhs_i = Di^-1 * (rhs_i - Bi^T * lhs_S)
   std::vector<double>& lastSol(block_lhs.back());
-  int positionInLhs{};
-  for (int i = 0; i < nparts; ++i) {
-    Blocks[2 * i + 1].productTranspose(block_lhs[i], lastSol);
-    VectorAdd(block_lhs[i], block_rhs[i], -1.0);
-    VectorScale(block_lhs[i], -1.0);
-    blockSolve(block_lhs[i], 1, invertData[i], expData[i]);
 
-    // copy solution into lhs
-    std::copy(block_lhs[i].begin(), block_lhs[i].end(),
-              perm_lhs.begin() + positionInLhs);
-    positionInLhs += blockSize[i];
-  }
+  // parallel for
+  highs::parallel::for_each(0, nparts, [&](int start, int end) {
+    for (int i = start; i < end; ++i) {
+      Blocks[2 * i + 1].productTranspose(block_lhs[i], lastSol);
+      VectorAdd(block_lhs[i], block_rhs[i], -1.0);
+      VectorScale(block_lhs[i], -1.0);
+      blockSolve(block_lhs[i], 1, invertData[i], expData[i]);
+
+      int start = blockStart[i];
+
+      // copy solution into lhs
+      std::copy(block_lhs[i].begin(), block_lhs[i].end(),
+                perm_lhs.begin() + start);
+    }
+  });
 
   // copy last block of solution
-  std::copy(lastSol.begin(), lastSol.end(), perm_lhs.begin() + positionInLhs);
+  std::copy(lastSol.begin(), lastSol.end(),
+            perm_lhs.begin() + blockStart.back());
 
   // permute back lhs
   for (int i = 0; i < rhs.size(); ++i) {

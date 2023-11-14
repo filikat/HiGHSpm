@@ -97,3 +97,45 @@ and ignoring the solution p. I changed this also for the non-metis augmented sys
 ---
 Added break in main loop is an error occurs during factorization (any type, normal equation, augmented, metis or not). 
 Weird behaviour for some problems seems to be caused by error in factorization. Incomplete of wrong data is used to solve the following linear systems.
+---
+
+
+*****
+14-11-23
+Added parallel stuff from highs::parallel. Code works, but it is not faster. I have to make local copies to avoid race conditions and then use a highs::parallel::mutex to write to the shared variables.
+Surprisingly, mutex or not, the code works anyway. I don't understand why. It should happen sometimes that the schur complement is missing something.
+Checking the times, the threads indeed do run in parallel, but executing a thread with only one part takes longer than executing one thread in single threaded mode. That's weird. They should take the same amount of time. 
+Overall, the total time does not change much because of this. Maybe I am using the mutex wrong, or maybe I should compile in a different way to exploit the threads in the best way. I need to ask Julian.
+---
+I think I got it. MA86 is already using openmp for parallelism. It may use it for examples to solve multiple rhs at the same time. 
+But anyway, it uses multiple threads already and using std::thread (through the highs::parallel interface) messes things up.
+Two parts are done together, but each one uses half the number of threads that it would use without highs::parallel. So, nothing changes. 
+Using the LU factorization of HFactor, which is not parallel, there is a difference of approximately a factor 2 (as expected for 2 blocks).
+---
+I am changing also the solve() routine to make it parallel. This has a smaller impact than factor, but it's worth doing it as well. 
+I had to make minor changes. I precomputed blockStart, rather that computing sequentially the starting point of each block (should have done it already).
+Code works.
+---
+A summary of where the code has been made parallel. 
+
+The linear system is:
+  [A_1             B_1^T]   [x_1]     [y_1]
+  [    A_2         B_2^T]   [x_2]     [y_2]
+  [        ...          ] * [...]  =  [...]
+  [            A_k B_k^T]   [x_k]     [y_k]
+  [B_1 B_2 ... B_k  A_S ]   [x_S]     [y_S]
+
+In Metis_caller::factor() :
+  - parallel: factorization of A_j, j = 1,...,k
+  - parallel: forming Schur contribution, S_j = B_j * A_j^{-1} * B_j^T, j = 1,...,k
+  - serial: assemblying Schur complement, S = A_S - \sum S_j (through mutex)
+  - serial: factorization of S
+
+In Metis_caller::solve() :
+  - parallel: forming contribution to Schur rhs, z_j = B_j * A_j^{-1} * y_j, j = 1,...,k
+  - serial: assemblying Schur rhs, z_S = y_S - \sum z_j (through mutex)
+  - serial: solving for x_S = S^{-1} * z_S
+  - parallel: solving for x_j = A_j^{-1} * (y_j - B_j^T * x_S), j = 1,...,k
+
+---
+

@@ -4,7 +4,11 @@
 
 // Solve rhs one at a time.
 // I keep this only for comparison, because it is slow
-void Metis_caller::SchurContributionSingle(int i) {
+void Metis_caller::SchurContributionSingle(int i,
+                                           std::vector<double>& local_schur,
+                                           double& local_schur_dfsolve_time,
+                                           double& local_schur_transform_time,
+                                           double& local_schur_multiply_time) {
   // to build Schur complement:
   // for each linking block
   // - access rows of linking block B^T (stored row-wise)
@@ -18,10 +22,10 @@ void Metis_caller::SchurContributionSingle(int i) {
   //    complement
   // - Store everything in a dense matrix
 
-  int linkSize = blockSize.back();
+  const int linkSize = blockSize.back();
 
   // current linking block
-  HighsSparseMatrix& B = Blocks[2 * i + 1];
+  const HighsSparseMatrix& B = Blocks[2 * i + 1];
 
   // row-wise linking block
   HighsSparseMatrix Bt = B;
@@ -59,7 +63,7 @@ void Metis_caller::SchurContributionSingle(int i) {
     std::vector<double> diagForwardSolvedRow(B.num_col_, 0.0);
     diagonalForwardSolve(denseRow.data(), 1, invertData[i], expData[i],
                          diagForwardSolvedRow.data());
-    schur_dfsolve_time += getWallTime() - t1;
+    local_schur_dfsolve_time += getWallTime() - t1;
 
     t1 = getWallTime();
     // transform denseRow into sparse column of forwardSolvedBlock
@@ -87,7 +91,7 @@ void Metis_caller::SchurContributionSingle(int i) {
     diagForwardSolvedBlock.start_.push_back(
         diagForwardSolvedBlock.start_.back() + countNnzRow);
 
-    schur_transform_time += getWallTime() - t1;
+    local_schur_transform_time += getWallTime() - t1;
   }
 
   // diagForwardSolvedBlock needs row-wise access
@@ -123,18 +127,20 @@ void Metis_caller::SchurContributionSingle(int i) {
         if (col1 < col) continue;
 
         double value = Q.value_[colEl] * R.value_[rowEl];
-        lapack_a[col * linkSize + col1] -= value;
+        local_schur[col * linkSize + col1] -= value;
         if (col != col1) {
-          lapack_a[col1 * linkSize + col] -= value;
+          local_schur[col1 * linkSize + col] -= value;
         }
       }
     }
   }
-  schur_multiply_time += getWallTime() - t1;
+  local_schur_multiply_time += getWallTime() - t1;
 }
 
 // Solve rhs all at once.
-void Metis_caller::SchurContributionMultiple(int i) {
+void Metis_caller::SchurContributionMultiple(
+    int i, std::vector<double>& local_schur, double& local_schur_dfsolve_time,
+    double& local_schur_transform_time, double& local_schur_multiply_time) {
   // to build Schur complement:
   // for each linking block
   // - access rows of linking block B^T (stored row-wise)
@@ -148,10 +154,10 @@ void Metis_caller::SchurContributionMultiple(int i) {
   // - use same trick as computeAThetaAT to find contribution to Schur
   //    complement
   // - Store everything in a dense matrix
-  int linkSize = blockSize.back();
+  const int linkSize = blockSize.back();
 
   // current linking block
-  HighsSparseMatrix& B = Blocks[2 * i + 1];
+  const HighsSparseMatrix& B = Blocks[2 * i + 1];
 
   // row-wise linking block
   HighsSparseMatrix Bt = B;
@@ -188,7 +194,7 @@ void Metis_caller::SchurContributionMultiple(int i) {
     diagonalForwardSolve(denseRows.data(), B.num_row_, invertData[i],
                          expData[i], diagForwardSolvedRows.data());
   }
-  schur_dfsolve_time += getWallTime() - t1;
+  local_schur_dfsolve_time += getWallTime() - t1;
 
   // go through the rows of B
   for (int row = 0; row < B.num_row_; ++row) {
@@ -222,7 +228,7 @@ void Metis_caller::SchurContributionMultiple(int i) {
     diagForwardSolvedBlock.start_.push_back(
         diagForwardSolvedBlock.start_.back() + countNnzRow);
 
-    schur_transform_time += getWallTime() - t1;
+    local_schur_transform_time += getWallTime() - t1;
   }
 
   // diagForwardSolvedBlock needs row-wise access
@@ -260,19 +266,23 @@ void Metis_caller::SchurContributionMultiple(int i) {
         double value = Q.value_[colEl] * R.value_[rowEl];
 
         // insert element in position (col, col1)
-        lapack_a[col * linkSize + col1] -= value;
+        local_schur[col * linkSize + col1] -= value;
         if (col != col1) {
           // insert element in position (col1, col)
-          lapack_a[col1 * linkSize + col] -= value;
+          local_schur[col1 * linkSize + col] -= value;
         }
       }
     }
   }
-  schur_multiply_time += getWallTime() - t1;
+  local_schur_multiply_time += getWallTime() - t1;
 }
 
 // Use Highs LU factorization
-void Metis_caller::SchurContributionHFactor(int i) {
+void Metis_caller::SchurContributionHFactor(int i,
+                                            std::vector<double>& local_schur,
+                                            double& local_schur_dfsolve_time,
+                                            double& local_schur_transform_time,
+                                            double& local_schur_multiply_time) {
   // to build Schur complement:
   // for each linking block
   // - access rows of linking block B^T (stored row-wise)
@@ -285,10 +295,10 @@ void Metis_caller::SchurContributionHFactor(int i) {
   //    complement
   // - Store everything in a dense matrix
 
-  int linkSize = blockSize.back();
+  const int linkSize = blockSize.back();
 
   // current linking block
-  HighsSparseMatrix& B = Blocks[2 * i + 1];
+  const HighsSparseMatrix& B = Blocks[2 * i + 1];
 
   // row-wise linking block
   HighsSparseMatrix Bt = B;
@@ -343,7 +353,7 @@ void Metis_caller::SchurContributionHFactor(int i) {
     invertData[i].highs_data.factor.btranU(hvec, exp_density);
     USolvedRow = hvec.array;
 
-    schur_dfsolve_time += getWallTime() - t1;
+    local_schur_dfsolve_time += getWallTime() - t1;
 
     t1 = getWallTime();
     // transform LSolvedRow into sparse column of LSolvedBlock
@@ -368,7 +378,7 @@ void Metis_caller::SchurContributionHFactor(int i) {
     }
     USolvedBlock.start_.push_back(USolvedBlock.start_.back() + countNnzRow);
 
-    schur_transform_time += getWallTime() - t1;
+    local_schur_transform_time += getWallTime() - t1;
   }
 
   // LSolvedBlock needs row-wise access
@@ -403,14 +413,14 @@ void Metis_caller::SchurContributionHFactor(int i) {
 
         double value = Q.value_[colEl] * R.value_[rowEl];
 
-        lapack_a[col * linkSize + col1] -= value;
+        local_schur[col * linkSize + col1] -= value;
         if (col != col1) {
-          lapack_a[col1 * linkSize + col] -= value;
+          local_schur[col1 * linkSize + col] -= value;
         }
       }
     }
   }
-  schur_multiply_time += getWallTime() - t1;
+  local_schur_multiply_time += getWallTime() - t1;
 }
 
 /*void Metis_caller::SchurContributionHFactor(int i) {
@@ -455,7 +465,7 @@ void Metis_caller::SchurContributionHFactor(int i) {
     B.product(result, solution);
 
     for (int el = 0; el < result.size(); ++el) {
-      lapack_a[row * linkSize + el] -= result[el];
+      local_schur[row * linkSize + el] -= result[el];
     }
   }
 }*/

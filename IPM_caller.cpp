@@ -135,6 +135,8 @@ Output IPM_caller::Solve() {
   // ---- INITIALIZE --------------------------
   // ------------------------------------------
 
+  highs::parallel::initialize_scheduler();
+
   // Metis stuff
   bool use_metis = option_nla == kOptionNlaMetisAugmented ||
                    option_nla == kOptionNlaMetisNormalEq;

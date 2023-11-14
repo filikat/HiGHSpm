@@ -6,6 +6,7 @@
 #include "Lapack_wrapper.h"
 #include "VertexCover.h"
 #include "metis.h"
+#include "parallel/HighsParallel.h"
 #include "util/HFactor.h"
 #include "util/HighsSparseMatrix.h"
 
@@ -58,6 +59,11 @@ class Metis_caller {
   // blockSize[i], 0 <= i < nparts: size of the diagonal blocks
   // blockSize[nparts]: size of the linking block
   std::vector<int> blockSize;
+
+  // Contains the starting index of the blocks, after getPermutation returns.
+  // blockStart[i], 0 <= i < nparts: start of the diagonal blocks
+  // blockStart[nparts]: start of the linking block
+  std::vector<int> blockStart;
 
   // Contains the blocks, after getBlocks returns.
   // Blocks[2 * i] contains the i-th diagonal block
@@ -150,10 +156,14 @@ class Metis_caller {
                   const std::vector<double>& diag2);
 
   // compute contribution to the Schur complement
-  void addSchurContribution(int part);
-  void SchurContributionSingle(int part);
-  void SchurContributionMultiple(int part);
-  void SchurContributionHFactor(int part);
+  void addSchurContribution(int part, std::vector<double>& local_schur,
+                            double& t1, double& t2, double& t3);
+  void SchurContributionSingle(int part, std::vector<double>& local_schur,
+                               double& t1, double& t2, double& t3);
+  void SchurContributionMultiple(int part, std::vector<double>& local_schur,
+                                 double& t1, double& t2, double& t3);
+  void SchurContributionHFactor(int part, std::vector<double>& local_schur,
+                                double& t1, double& t2, double& t3);
 
   // print for debug
   template <typename T>
