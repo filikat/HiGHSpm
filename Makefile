@@ -20,7 +20,8 @@ cpp_sources = \
 		Metis_caller.cpp \
 		VertexCover.cpp \
 		Lapack_wrapper.cpp \
-		SchurContribution.cpp
+		SchurContribution.cpp \
+		SelectMethod.cpp
 c_sources = hsl_ma86_wrapper.c
 
 # binary file name

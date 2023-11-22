@@ -2,16 +2,24 @@
 #define IPM_CONST_H
 
 enum OptionNla {
-  kOptionNlaMin = 0,
-  kOptionNlaCg = kOptionNlaMin,
-  kOptionNlaAugmented,       // 1
-  kOptionNlaNewton,          // 2
-  kOptionNlaAugmentedCg,     // 3
-  kOptionNlaNewtonCg,        // 4
-  kOptionNlaMetisAugmented,  // 5
-  kOptionNlaMetisNormalEq,   // 6
-  kOptionNlaMax = kOptionNlaMetisNormalEq,
-  kOptionNlaDefault = kOptionNlaCg
+  kOptionNlaMin = -1,
+  kOptionNlaChoose = kOptionNlaMin,
+  kOptionNlaCg,           // 0
+  kOptionNlaAugmented,    // 1
+  kOptionNlaNewton,       // 2
+  kOptionNlaAugmentedCg,  // 3
+  kOptionNlaNewtonCg,     // 4
+  kOptionNlaMax = kOptionNlaNewtonCg,
+  kOptionNlaDefault = kOptionNlaChoose
+};
+
+enum OptionMetis {
+  kOptionMetisMin = -1,
+  kOptionMetisChoose = kOptionMetisMin,
+  kOptionMetisOff,
+  kOptionMetisOn,
+  kOptionMetisMax = kOptionMetisOn,
+  kOptionMetisDefault = kOptionMetisChoose
 };
 
 enum OptionMaxDenseCol {
@@ -25,7 +33,7 @@ enum OptionPredCor {
   kOptionPredCorAvoid = kOptionPredCorMin,
   kOptionPredCorUse = 1,
   kOptionPredCorMax = kOptionPredCorUse,
-  kOptionPredCorDefault = kOptionPredCorAvoid
+  kOptionPredCorDefault = kOptionPredCorUse
 };
 
 const int kMaxIterations = 100;
@@ -42,5 +50,22 @@ const int kCgIterationLimit = 10000;
 
 const double kPrimalRegularization = 0;
 const double kDualRegularization = 0;
+
+// set default solver
+// 1: ssids
+// 2: ma86
+// 3: qdldl
+// 4: cholmod
+// 5 : highs
+const int kDefaultSolver = 2;
+
+// how to compute schur complement:
+// 0 - MA86 with single rhs
+// 1 - MA86 with multiple rhs  <=== use this
+// 2 - Hfactor
+const int kSchurMethod = 1;
+
+const double kMetisSchurRelativeThreshold = 0.02;
+const int kMetisSchurAbsThreshold = 1000;
 
 #endif

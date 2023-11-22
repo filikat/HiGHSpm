@@ -15,7 +15,7 @@ int main() {
   std::string netlibPath = "../../Netlib/data/";
 
   FILE* results_file;
-  results_file = fopen("netlib_results.txt", "w");
+  results_file = fopen("netlib_results.txt", "a");
   fprintf(results_file, "%15s %10s %10s %10s\n", "Problem", "Time", "Iter",
           "Status");
 
@@ -185,6 +185,8 @@ int main() {
     // ===================================================================================
     ipm.option_nla = 2;
 
+    ipm.option_metis = 0;
+
     ipm.option_predcor = 1;
 
     ipm.option_max_dense_col = 0;
@@ -215,6 +217,7 @@ int main() {
 
     fprintf(results_file, "%15s %10.2f %10d %10s\n", pb_name.c_str(),
             optimize_time, out.iterations, out.status.c_str());
+    fflush(results_file);
   }
 
   total_time = getWallTime() - total_time;

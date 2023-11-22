@@ -1,11 +1,5 @@
 #include "Metis_caller.h"
 
-// how to compute schur complement:
-// 0 - MA86 with single rhs
-// 1 - MA86 with multiple rhs  <=== use this
-// 2 - Hfactor
-const int schur_method = 2;
-
 // -----------------------------------------------------------
 // Metis wrapper
 // -----------------------------------------------------------
@@ -38,7 +32,7 @@ Metis_caller::Metis_caller(const HighsSparseMatrix& input_A, int input_type,
   // -----------------------------------------------------------
   // set up the augmented system
   // -----------------------------------------------------------
-  if (type == kOptionNlaMetisAugmented) {
+  if (type == kOptionNlaAugmented) {
     nvertex = A->num_row_ + A->num_col_;
     nedges = A->numNz() * 2;
 
@@ -77,7 +71,7 @@ Metis_caller::Metis_caller(const HighsSparseMatrix& input_A, int input_type,
   // -----------------------------------------------------------
   // set up the normal equations
   // -----------------------------------------------------------
-  else if (type == kOptionNlaMetisNormalEq) {
+  else if (type == kOptionNlaNewton) {
     std::vector<double> theta(A->num_col_, 1.0);
     // To use metis, what matters is the sparsity pattern of M. Compute M using
     // temporary A, with all nonzeros equal to 1, to avoid numerical
@@ -117,7 +111,7 @@ void Metis_caller::getPartition() {
   initial_time += getWallTime() - t0;
 }
 
-void Metis_caller::getPermutation() {
+int Metis_caller::getPermutation() {
   double t0 = getWallTime();
 
   // compute permutation with maximal matching
@@ -125,12 +119,14 @@ void Metis_caller::getPermutation() {
   std::vector<int> blockSizeMM(nparts + 1);
   vertexCoverMM(nvertex, nedges, nparts, partition, M.start_, M.index_,
                 permutationMM, blockSizeMM);
+  int minPartMM = *std::min_element(blockSizeMM.begin(), blockSizeMM.end() - 1);
 
   // compute permutation with greedy heuristic
   std::vector<int> permutationG(nvertex);
   std::vector<int> blockSizeG(nparts + 1);
   vertexCoverG(nvertex, nedges, nparts, partition, M.start_, M.index_,
                permutationG, blockSizeG);
+  int minPartG = *std::min_element(blockSizeG.begin(), blockSizeG.end() - 1);
 
   // print for debug
   if (debug) {
@@ -144,12 +140,14 @@ void Metis_caller::getPermutation() {
   }
 
   // select permutation with smallest Schur complement
-  if (blockSizeMM.back() > blockSizeG.back()) {
+  if (blockSizeMM.back() > blockSizeG.back() && minPartG > 0) {
     permutation = std::move(permutationG);
     blockSize = std::move(blockSizeG);
-  } else {
+  } else if (minPartMM > 0) {
     permutation = std::move(permutationMM);
     blockSize = std::move(blockSizeMM);
+  } else {
+    return 1;
   }
 
   // generate blockStart
@@ -180,6 +178,8 @@ void Metis_caller::getPermutation() {
   // allocate space for dense schur complement
   lapack_a.resize(blockSize.back() * blockSize.back(), 0.0);
   lapack_ipiv.resize(blockSize.back(), 0);
+
+  return 0;
 }
 
 void Metis_caller::getBlocks(const std::vector<double>& diag1,
@@ -188,13 +188,13 @@ void Metis_caller::getBlocks(const std::vector<double>& diag1,
 
   // normal equations has to be recomputed with correct diagonal
   // (cannot be easily updated)
-  if (type == kOptionNlaMetisNormalEq) {
+  if (type == kOptionNlaNewton) {
     M.clear();
     computeAThetaAT(*A, diag1, M);
   }
 
   // if Blocks were already computed, aug system can be easily updated
-  if (!Blocks.empty() && type == kOptionNlaMetisAugmented) {
+  if (!Blocks.empty() && type == kOptionNlaAugmented) {
     updateDiag(diag1, diag2);
     getBlocks_time += getWallTime() - t0;
     return;
@@ -230,7 +230,7 @@ void Metis_caller::getBlocks(const std::vector<double>& diag1,
     for (int i = colStart; i < colStart + blockSize[blockId]; ++i) {
       int col = permutation[i];
 
-      if (type == kOptionNlaMetisAugmented) {
+      if (type == kOptionNlaAugmented) {
         // diagonal is not included in augmented system
         Blocks[diagBlockIndex].index_.push_back(i - colStart);
 
@@ -300,7 +300,7 @@ void Metis_caller::getBlocks(const std::vector<double>& diag1,
   for (int i = colStart; i < colStart + blockSize.back(); ++i) {
     int col = permutation[i];
 
-    if (type == kOptionNlaMetisAugmented) {
+    if (type == kOptionNlaAugmented) {
       // diagonal is not included in augmented system
       Blocks[blockIndex].index_.push_back(i - colStart);
       // extract diagonal element from diag1 or diag2
@@ -391,7 +391,7 @@ void Metis_caller::getNonzeros() {
 
 void Metis_caller::updateDiag(const std::vector<double>& diag1,
                               const std::vector<double>& diag2) {
-  assert(type == kOptionNlaMetisAugmented);
+  assert(type == kOptionNlaAugmented);
 
   // index to access permutation
   int permIndex{};
@@ -497,7 +497,7 @@ int Metis_caller::factor() {
                              local_schur_transform_time,
                              local_schur_multiply_time);
       }
-      printf("Part %d done in %.2e sec\n", i, getWallTime() - t99);
+      // printf("Part %d done in %.2e sec\n", i, getWallTime() - t99);
     }
 
     // copy the local copy of data to the shared one, one thread at a time
@@ -513,7 +513,7 @@ int Metis_caller::factor() {
     mtx.unlock();
   });
 
-  printf("Total %.2e\n", getWallTime() - t98);
+  // printf("Total %.2e\n", getWallTime() - t98);
 
   if (error_factorize) return error_factorize;
 
@@ -524,7 +524,8 @@ int Metis_caller::factor() {
   // factorize schur complement
   t0 = getWallTime();
   if (linkSize > 0) {
-    Lapack_wrapper_factor(lapack_a, lapack_ipiv);
+    int lapack_status = Lapack_wrapper_factor(lapack_a, lapack_ipiv);
+    if (lapack_status) return lapack_status;
   }
   factorSchur_time += getWallTime() - t0;
 
@@ -533,7 +534,7 @@ int Metis_caller::factor() {
 
 void Metis_caller::addSchurContribution(int i, std::vector<double>& local_schur,
                                         double& t1, double& t2, double& t3) {
-  switch (schur_method) {
+  switch (kSchurMethod) {
     case 0:
       SchurContributionSingle(i, local_schur, t1, t2, t3);
       break;
@@ -546,7 +547,7 @@ void Metis_caller::addSchurContribution(int i, std::vector<double>& local_schur,
   }
 }
 
-void Metis_caller::solve(std::vector<double>& rhs) {
+int Metis_caller::solve(std::vector<double>& rhs) {
   // Solve linear system with k blocks:
   //
   // [D1           B1^T] [lhs_1]   [rhs_1]
@@ -627,7 +628,8 @@ void Metis_caller::solve(std::vector<double>& rhs) {
   if (blockSize.back() > 0) {
     // solve linear system with schur complement to compute last block of
     // solution
-    Lapack_wrapper_solve(lapack_a, lapack_ipiv, schur_rhs);
+    int lapack_status = Lapack_wrapper_solve(lapack_a, lapack_ipiv, schur_rhs);
+    if (lapack_status) return lapack_status;
   }
 
   // compute the other blocks of the solution:
@@ -664,6 +666,8 @@ void Metis_caller::solve(std::vector<double>& rhs) {
   }
 
   solve_time += getWallTime() - t0;
+
+  return 0;
 }
 
 void Metis_caller::setDebug(bool db) {
@@ -680,17 +684,20 @@ void Metis_caller::prepare() {
 }
 
 void Metis_caller::printInfo() const {
-  printf("* * * * * * * * * * *\n");
-  printf("Using Metis for %s\n", type == kOptionNlaMetisAugmented
-                                     ? "augmented system"
-                                     : "normal equations");
+  printf("-----------------------------------------\n");
+  printf("Using Metis for %s\n",
+         type == kOptionNlaAugmented ? "augmented system" : "normal equations");
   printf("Nodes: %8d\nEdges: %8d\n", nvertex, nedges);
   printf("Partitioning in %d parts\n", nparts);
   printf("Diagonal blocks size: ");
   for (int i = 0; i < nparts; ++i) printf("%2d ", blockSize[i]);
   printf("\nSchur complement size: %5d (%.2f%%)\n", blockSize.back(),
          100 * (double)blockSize.back() / nvertex);
-  printf("* * * * * * * * * * *\n");
+  if ((double)blockSize.back() / nvertex > kMetisSchurRelativeThreshold ||
+      blockSize.back() > kMetisSchurAbsThreshold) {
+    printf("WARNING: large Schur complement\n         Suggest to use Metis option -1\n");
+  }
+  printf("-----------------------------------------\n");
 }
 
 void Metis_caller::printTimes() const {

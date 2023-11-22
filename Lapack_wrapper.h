@@ -8,9 +8,9 @@ extern "C" void dsytrf(char* uplo, int* n, double* a, int* lda, int* ipiv,
 extern "C" void dsytrs(char* uplo, int* n, int* nrhs, double* a, int* lda,
                        int* ipiv, double* b, int* ldb, int* info);
 
-void Lapack_wrapper_factor(std::vector<double>& a, std::vector<int>& ipiv);
+int Lapack_wrapper_factor(std::vector<double>& a, std::vector<int>& ipiv);
 
-void Lapack_wrapper_solve(std::vector<double>& a, std::vector<int>& ipiv,
+int Lapack_wrapper_solve(std::vector<double>& a, std::vector<int>& ipiv,
                           std::vector<double>& b);
 
 #endif

@@ -10,6 +10,7 @@
 #include "IPM_model.h"
 #include "Metis_caller.h"
 #include "NormalEquations.h"
+#include "SelectMethod.h"
 #include "VectorOperations.h"
 #include "util/HighsSparseMatrix.h"
 
@@ -37,6 +38,7 @@ class IPM_caller {
   // Run-time options
   // ===================================================================================
   int option_nla = kOptionNlaDefault;
+  int option_metis = kOptionMetisDefault;
   int option_max_dense_col = kOptionMaxDenseColDefault;
   double option_dense_col_tolerance = kOptionDenseColToleranceDefault;
   int option_predcor = kOptionPredCorDefault;

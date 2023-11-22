@@ -90,7 +90,7 @@ struct Output {
   double primal_infeas{};
   double dual_infeas{};
   double mu{};
-  std::string status;
+  std::string status = "Error";
 };
 
 #endif

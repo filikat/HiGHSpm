@@ -139,3 +139,50 @@ In Metis_caller::solve() :
 
 ---
 
+
+*****
+17-11-23
+I tried to switch off openmp when using MA86 to obtain more meaningful results. It's not clear how to do it.
+I tried to remove the -fopenmp flag from the makefile, but this does not change much. Maybe due to how I have to link omp on Mac. Maybe due to something else that MA86 does.
+I can set the OMP_NUM_THREADS environment variable to 1 to force omp to work on a single thread. This gives more sensible results.
+I report some times for 80bau3b with solvers 5 or 6 (i.e. Metis with augmented system and Metis with normal equations, resp.)
+
+solver    OMP_NUM_THREADS     serial       parallel
+5              1              2.1          1.3
+6              1              0.4          0.3
+5              2              1.7          1.1
+6              2              0.4          0.3
+5              4              1.8          1.4
+6              4              0.4          0.4
+5              /              2.4          3.3
+6              /              0.6          0.9
+
+The weird thing is that if I don't set OMP_NUM_THREADS (last two rows), the times are much larger. It should automatically choose the number of threads, but something seems to be going wrong in this case.
+If I force the number of threads, then the behaviour is somewhat sensible: for the serial code (i.e. without highs::parallel), the times is reduced when I use more than one thread, because MA86 already exploits parallelism.
+For the parallel code (i.e. with highs::parallel), the times does not change much, but it gets slightly worse when I increase the number of threads (maybe because the two parallel stuff compete with each other and somehow this messes things up).
+Looking at the time taken by each block in the partition, when using 1 thread only, with solver=5, the results make sense:
+the serial code takes roughly 2e-2 sec to assemble each part of the schur complement, thus the total assembly time is roughly 4e-2.
+the parallel code takes roughly 2.2e-2 to assemble each part (a bit more than the serial, I guess some overhead from highs::parallel), and the total time is the slowest of the blocks, so roughly 2.2e-2, plus some overhead to copy local variables to shared memory with the mutex.
+The time profile to form the Schur complement looks almost identical (with a small overhead for the parallel code), only that the overall time taken by the parallel code is divided by 2.
+Remaining times are identical. Solve time is slightly lower for parallel code, but the impact is much smaller. Solving with schur complement (which uses dense lapack routines), is serial and potentially the most expensive part.
+It makes sense then that the total time goes from 2.1 to 1.3 (38% less, compared to an ideal 50%).
+
+BTW, switching off -fopenmp, the times still depend on OMP_NUM_THREADS. They shouldn't, but they do. I don't know why.
+I think the best course of action to compare the results of MA86 and HFactor is to set OMP_NUM_THREADS to 1 and use the parallel code.
+---
+Checking the activity monitor, the behaviour makes sense:
+If OMP_NUM_THREADS is 1 and I am using 2 Metis blocks with parallel code, the cpu saturates at 200%.
+If OMP_NUM_THREADS is higher, then the cpu jumps higher (3-400% or more) when factorizing with MA86, goes down to 200% when assemlbying the Schur complement, goes to 100% when doing other serial stuff.
+---
+
+
+*****
+22-11-23
+I have done more tests to check that things behave properly and fixed some minor things.
+I have separated the option for NLA and the option for metis.
+Now 1 is AS, 2 is NE and -1 is choose (0 is the old cg). 0 is metis off, 1 is metis on, -1 is choose.
+Added SelectMethod, to choose whether to use NE or AS (not yet implemented), whether or not to use Metis (if the Schur complement is small enough) and how many blocks to use (the one with smaller Schur complement).
+Most of the times, 2 blocks will give the smallest Schur complement, but for some structured problems, it may be better to use more parts. Since it is cheap to run Metis, I run it with 2, 4 or 8 parts and check which one is better.
+I should add an option for forcing the number of blocks. 
+Changed the output to screen. It shows the selection and it gives a warning if the Schur complement is large.
+---

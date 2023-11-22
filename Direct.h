@@ -32,14 +32,6 @@ enum DecomposerStatus {
 
 const double ok_theta_relative_tolerance = 1e-3;
 
-// set default solver
-// 1: ssids
-// 2: ma86
-// 3: qdldl
-// 4: cholmod
-// 5 : highs
-const int default_solver = 5;
-
 struct SsidsData {
   void* akeep{nullptr};
   void* fkeep{nullptr};
@@ -117,7 +109,7 @@ struct IpmInvert {
   QDLDLData qdldl_data;
   CholmodData cholmod_data;
   HighsData highs_data;
-  void clear(const int solver_type = default_solver);
+  void clear(const int solver_type = kDefaultSolver);
 };
 
 void chooseDenseColumns(const HighsSparseMatrix& highs_a,
@@ -131,7 +123,7 @@ void chooseDenseColumns(const HighsSparseMatrix& highs_a,
 int augmentedInvert(const HighsSparseMatrix& highs_a,
                     const std::vector<double>& theta, IpmInvert& invert,
                     ExperimentData& experiment_data,
-                    const int solver_type = default_solver);
+                    const int solver_type = kDefaultSolver);
 
 void augmentedSolve(const HighsSparseMatrix& highs_a,
                     const std::vector<double>& theta,
@@ -139,28 +131,28 @@ void augmentedSolve(const HighsSparseMatrix& highs_a,
                     const std::vector<double>& rhs_y,
                     std::vector<double>& lhs_x, std::vector<double>& lhs_y,
                     IpmInvert& invert, ExperimentData& experiment_data,
-                    const int solver_type = default_solver);
+                    const int solver_type = kDefaultSolver);
 
 double augmentedCondition(const HighsSparseMatrix& matrix,
                           const std::vector<double>& theta, IpmInvert& invert,
-                          const int solver_type = default_solver);
+                          const int solver_type = kDefaultSolver);
 
 int newtonInvert(const HighsSparseMatrix& highs_a,
                  const std::vector<double>& theta, IpmInvert& invert,
                  const int option_max_dense_col,
                  const double option_dense_col_tolerance,
                  ExperimentData& experiment_data, const bool quiet = true,
-                 const int solver_type = default_solver);
+                 const int solver_type = kDefaultSolver);
 
 int newtonSolve(const HighsSparseMatrix& highs_a,
                 const std::vector<double>& theta,
                 const std::vector<double>& rhs, std::vector<double>& lhs,
                 IpmInvert& invert, ExperimentData& experiment_data,
-                const int& solver_type = default_solver);
+                const int& solver_type = kDefaultSolver);
 
 double newtonCondition(const HighsSparseMatrix& matrix,
                        const std::vector<double>& theta, IpmInvert& invert,
-                       const int& solver_type = default_solver);
+                       const int& solver_type = kDefaultSolver);
 
 bool increasingIndex(const HighsSparseMatrix& matrix);
 void productAThetaAT(const HighsSparseMatrix& matrix,
@@ -243,15 +235,15 @@ void callHighsSolve(std::vector<double>& rhs, HighsData& highs_data);
 // ------------------------------------------
 int blockInvert(const HighsSparseMatrix& block, IpmInvert& invert,
                 ExperimentData& experiment_data,
-                const int solver_type = default_solver);
+                const int solver_type = kDefaultSolver);
 
 int blockSolve(std::vector<double>& rhs, int num_rhs, IpmInvert& invert,
                ExperimentData& experiment_data,
-               const int& solver_type = default_solver);
+               const int& solver_type = kDefaultSolver);
 
 int diagonalForwardSolve(double* rhs, int nrhs, IpmInvert& invert,
                          ExperimentData& experiment_data,
                          double* DiagForwardSolvedRhs,
-                         const int& solver_type = default_solver);
+                         const int& solver_type = kDefaultSolver);
 
 #endif

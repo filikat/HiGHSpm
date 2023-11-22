@@ -240,7 +240,7 @@ int augmentedInvert(const HighsSparseMatrix& highs_a,
     experiment_data.decomposer = "ma86";
     experiment_data.system_type = kSystemTypeAugmented;
     experiment_data.system_size = highs_a.num_col_ + highs_a.num_row_;
-    experiment_data.system_nnz = highs_a.numNz();
+    experiment_data.system_nnz = highs_a.num_col_ + 2 * highs_a.numNz();
 
     MA86Data& ma86_data = invert.ma86_data;
     int factor_status =
@@ -272,7 +272,7 @@ int augmentedInvert(const HighsSparseMatrix& highs_a,
     experiment_data.decomposer = "highs";
     experiment_data.system_type = kSystemTypeAugmented;
     experiment_data.system_size = highs_a.num_col_ + highs_a.num_row_;
-    experiment_data.system_nnz = highs_a.numNz();
+    experiment_data.system_nnz = highs_a.num_col_ + 2 * highs_a.numNz();
 
     QDLDLData& qdldl_data = invert.qdldl_data;
     int factor_status = callHighsAugmentedFactor(

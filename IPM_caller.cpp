@@ -122,12 +122,12 @@ Output IPM_caller::Solve() {
   // solve only if model is loaded
   if (!model_ready) return Output{};
 
-  printf("--------------\n");
+  printf("-----------------------------------------\n");
   printf("Problem %s\n", model.pb_name.c_str());
   printf("A rows %d\n", model.highs_a.num_row_);
   printf("A cols %d\n", model.highs_a.num_col_);
   printf("A nnz  %d\n", model.highs_a.numNz());
-  printf("--------------\n");
+  printf("-----------------------------------------\n");
 
   double timer_iterations = getWallTime();
 
@@ -135,18 +135,16 @@ Output IPM_caller::Solve() {
   // ---- INITIALIZE --------------------------
   // ------------------------------------------
 
-  highs::parallel::initialize_scheduler();
-
-  // Metis stuff
-  bool use_metis = option_nla == kOptionNlaMetisAugmented ||
-                   option_nla == kOptionNlaMetisNormalEq;
-  if (use_metis) {
-    Metis_data = Metis_caller(model.highs_a, option_nla, 2);
-    Metis_data.setDebug(false);
-    Metis_data.getPartition();
-    Metis_data.getPermutation();
-    Metis_data.printInfo();
+  if (selectMethod(model.highs_a, Metis_data, option_nla, option_metis)) {
+    return Output{};
   }
+  printf("Selected %s with Metis %s\n",
+         option_nla == kOptionNlaAugmented ? "Augmented system"
+                                           : "Normal equations",
+         option_metis == kOptionMetisOn ? "On" : "Off");
+  printf("-----------------------------------------\n");
+  bool use_metis = option_metis == kOptionMetisOn;
+  if (use_metis) Metis_data.printInfo();
 
   // iterations counter
   int iter{};
@@ -178,6 +176,7 @@ Output IPM_caller::Solve() {
   // ------------------------------------------
   // ---- MAIN LOOP ---------------------------
   // ------------------------------------------
+  highs::parallel::initialize_scheduler();
 
   printf("\n");
   while (iter < kMaxIterations) {
@@ -214,7 +213,7 @@ Output IPM_caller::Solve() {
       Metis_data.prepare();
       std::vector<double> block22(m, kDualRegularization);
 
-      if (option_nla == kOptionNlaMetisAugmented) {
+      if (option_nla == kOptionNlaAugmented) {
         Metis_data.getBlocks(scaling, block22);
       } else {
         std::vector<double> theta(n);
@@ -588,181 +587,187 @@ int IPM_caller::SolveNewtonSystem(const HighsSparseMatrix& highs_a,
   const bool first_call_with_theta = !invert.valid;
   ExperimentData experiment_data;
   experiment_data.reset();
-  if (use_cg || use_direct_newton) {
-    // Have to solve the Newton system
-    //
-    // A.scaling.A^T Delta.y = res8
-    //
 
-    // Compute res8
-    std::vector<double> res8{
-        ComputeResiduals_8(highs_a, scaling, Res, res7, isCorrector)};
+  if (option_metis == kOptionMetisOff) {
+    if (use_cg || use_direct_newton) {
+      // Have to solve the Newton system
+      //
+      // A.scaling.A^T Delta.y = res8
+      //
 
-    // Solve normal equations
-    if (use_cg) {
-      NormalEquations N(highs_a, scaling);
-      CG_solve(N, res8, kCgTolerance, kCgIterationLimit, Delta.y, nullptr);
-      const bool compute_residual_error = false;
-      if (compute_residual_error) {
-        std::pair<double, double> residual_error =
-            residualErrorNewton(highs_a, theta, res8, Delta.y);
-        if (residual_error.first > 1e-12)
-          printf("CG solve abs (rel) residual error = %g (%g)\n",
-                 residual_error.first, residual_error.second);
+      // Compute res8
+      std::vector<double> res8{
+          ComputeResiduals_8(highs_a, scaling, Res, res7, isCorrector)};
+
+      // Solve normal equations
+      if (use_cg) {
+        NormalEquations N(highs_a, scaling);
+        CG_solve(N, res8, kCgTolerance, kCgIterationLimit, Delta.y, nullptr);
+        const bool compute_residual_error = false;
+        if (compute_residual_error) {
+          std::pair<double, double> residual_error =
+              residualErrorNewton(highs_a, theta, res8, Delta.y);
+          if (residual_error.first > 1e-12)
+            printf("CG solve abs (rel) residual error = %g (%g)\n",
+                   residual_error.first, residual_error.second);
+        }
       }
+      if (use_direct_newton) {
+        // Solve the Newton system directly into newton_delta_y
+        std::vector<double> newton_delta_y;
+        newton_delta_y.assign(m, 0);
+        if (first_call_with_theta) {
+          int newton_invert_status =
+              newtonInvert(highs_a, theta, invert, option_max_dense_col,
+                           option_dense_col_tolerance, experiment_data);
+          if (newton_invert_status) return newton_invert_status;
+        } else {
+          // Just set this to avoid assert when writing out
+          // experiment_data in the event of a solution error
+          experiment_data.system_type = kSystemTypeNewton;
+        }
+        int newton_solve_status = newtonSolve(
+            highs_a, theta, res8, newton_delta_y, invert, experiment_data);
+        if (first_call_with_theta) {
+          experiment_data.condition = newtonCondition(highs_a, theta, invert);
+          experiment_data_record.push_back(experiment_data);
+        }
+        if (newton_solve_status) return newton_solve_status;
+        if (check_with_cg) {
+          double inf_norm_solution_diff = infNormDiff(newton_delta_y, Delta.y);
+          if (inf_norm_solution_diff > kSolutionDiffTolerance) {
+            std::cout << "Newton Direct-CG solution error = "
+                      << inf_norm_solution_diff << "\n";
+            std::cout << experiment_data << "\n";
+            assert(111 == 333);
+          }
+        }
+        if (!use_cg) {
+          // Once CG is not being used, use the Newton solution for dy
+          Delta.y = newton_delta_y;
+        }
+      }
+
+      // Compute Delta.x
+      // *********************************************************************
+      // Deltax = A^T * Deltay - res7;
+      Delta.x = res7;
+      highs_a.alphaProductPlusY(-1.0, Delta.y, Delta.x, true);
+      VectorScale(Delta.x, -1.0);
+
+      // Deltax = Theta * Deltax
+      VectorDivide(Delta.x, scaling);
+      // *********************************************************************
     }
-    if (use_direct_newton) {
-      // Solve the Newton system directly into newton_delta_y
-      std::vector<double> newton_delta_y;
-      newton_delta_y.assign(m, 0);
+    if (use_direct_augmented) {
+      // Solve augmented system directly
+      std::vector<double> augmented_delta_x;
+      augmented_delta_x.assign(n, 0);
+      std::vector<double> augmented_delta_y;
+      augmented_delta_y.assign(m, 0);
       if (first_call_with_theta) {
-        int newton_invert_status =
-            newtonInvert(highs_a, theta, invert, option_max_dense_col,
-                         option_dense_col_tolerance, experiment_data);
-        if (newton_invert_status) return newton_invert_status;
+        int augmented_invert_status =
+            augmentedInvert(highs_a, theta, invert, experiment_data);
+        if (augmented_invert_status) return augmented_invert_status;
       } else {
         // Just set this to avoid assert when writing out
         // experiment_data in the event of a solution error
         experiment_data.system_type = kSystemTypeNewton;
       }
-      int newton_solve_status = newtonSolve(
-          highs_a, theta, res8, newton_delta_y, invert, experiment_data);
+      // When solving the augmented system, the right side for the
+      // predictor should be (res7; res1), but for the corrector it
+      // should be (res7; 0)
+      if (isCorrector) {
+        // Check that res1 has been zeroed
+        const double res1_norm = Norm2(Res.res1);
+        assert(!res1_norm);
+      }
+      augmentedSolve(highs_a, theta, res7, Res.res1, augmented_delta_x,
+                     augmented_delta_y, invert, experiment_data);
+      experiment_data.nla_time.total += experiment_data.nla_time.solve;
       if (first_call_with_theta) {
-        experiment_data.condition = newtonCondition(highs_a, theta, invert);
+        experiment_data.condition = augmentedCondition(highs_a, theta, invert);
         experiment_data_record.push_back(experiment_data);
       }
-      if (newton_solve_status) return newton_solve_status;
       if (check_with_cg) {
-        double inf_norm_solution_diff = infNormDiff(newton_delta_y, Delta.y);
+        double inf_norm_solution_diff = infNormDiff(augmented_delta_x, Delta.x);
         if (inf_norm_solution_diff > kSolutionDiffTolerance) {
-          std::cout << "Newton Direct-CG solution error = "
+          std::cout << "Augmented Direct-CG solution error for Delta.x = "
+                    << inf_norm_solution_diff << "\n";
+          std::cout << experiment_data << "\n";
+          assert(111 == 333);
+        }
+        inf_norm_solution_diff = infNormDiff(augmented_delta_y, Delta.y);
+        if (inf_norm_solution_diff > kSolutionDiffTolerance) {
+          std::cout << "Augmented Direct-CG solution error for Delta.y = "
                     << inf_norm_solution_diff << "\n";
           std::cout << experiment_data << "\n";
           assert(111 == 333);
         }
       }
       if (!use_cg) {
-        // Once CG is not being used, use the Newton solution for dy
-        Delta.y = newton_delta_y;
+        // Once CG is not being used, use the augmented solution for dx and dy
+        Delta.x = augmented_delta_x;
+        Delta.y = augmented_delta_y;
       }
     }
-
-    // Compute Delta.x
-    // *********************************************************************
-    // Deltax = A^T * Deltay - res7;
-    Delta.x = res7;
-    highs_a.alphaProductPlusY(-1.0, Delta.y, Delta.x, true);
-    VectorScale(Delta.x, -1.0);
-
-    // Deltax = Theta * Deltax
-    VectorDivide(Delta.x, scaling);
-    // *********************************************************************
-  }
-  if (use_direct_augmented) {
-    // Solve augmented system directly
-    std::vector<double> augmented_delta_x;
-    augmented_delta_x.assign(n, 0);
-    std::vector<double> augmented_delta_y;
-    augmented_delta_y.assign(m, 0);
-    if (first_call_with_theta) {
-      int augmented_invert_status =
-          augmentedInvert(highs_a, theta, invert, experiment_data);
-      if (augmented_invert_status) return augmented_invert_status;
-    } else {
-      // Just set this to avoid assert when writing out
-      // experiment_data in the event of a solution error
-      experiment_data.system_type = kSystemTypeNewton;
-    }
-    // When solving the augmented system, the right side for the
-    // predictor should be (res7; res1), but for the corrector it
-    // should be (res7; 0)
-    if (isCorrector) {
-      // Check that res1 has been zeroed
-      const double res1_norm = Norm2(Res.res1);
-      assert(!res1_norm);
-    }
-    augmentedSolve(highs_a, theta, res7, Res.res1, augmented_delta_x,
-                   augmented_delta_y, invert, experiment_data);
-    experiment_data.nla_time.total += experiment_data.nla_time.solve;
-    if (first_call_with_theta) {
-      experiment_data.condition = augmentedCondition(highs_a, theta, invert);
-      experiment_data_record.push_back(experiment_data);
-    }
-    if (check_with_cg) {
-      double inf_norm_solution_diff = infNormDiff(augmented_delta_x, Delta.x);
-      if (inf_norm_solution_diff > kSolutionDiffTolerance) {
-        std::cout << "Augmented Direct-CG solution error for Delta.x = "
-                  << inf_norm_solution_diff << "\n";
-        std::cout << experiment_data << "\n";
-        assert(111 == 333);
+  } else {
+    // solve augmented system with metis
+    if (option_nla == kOptionNlaAugmented) {
+      // predictor?
+      if (!Metis_data.valid()) {
+        int status = Metis_data.factor();
+        if (status) return status;
       }
-      inf_norm_solution_diff = infNormDiff(augmented_delta_y, Delta.y);
-      if (inf_norm_solution_diff > kSolutionDiffTolerance) {
-        std::cout << "Augmented Direct-CG solution error for Delta.y = "
-                  << inf_norm_solution_diff << "\n";
-        std::cout << experiment_data << "\n";
-        assert(111 == 333);
-      }
-    }
-    if (!use_cg) {
-      // Once CG is not being used, use the augmented solution for dx and dy
-      Delta.x = augmented_delta_x;
-      Delta.y = augmented_delta_y;
-    }
-  }
 
-  // solve augmented system with metis
-  if (option_nla == kOptionNlaMetisAugmented) {
-    // predictor?
-    if (!Metis_data.valid()) {
-      int status = Metis_data.factor();
+      // create rhs = [rhs7; rhs1]
+      std::vector<double> rhs(m + n);
+      for (int i = 0; i < n; ++i) {
+        rhs[i] = res7[i];
+      }
+      for (int i = 0; i < m; ++i) {
+        rhs[i + n] = Res.res1[i];
+      }
+
+      // solve
+      int status = Metis_data.solve(rhs);
       if (status) return status;
+
+      // assign Dx and Dy from lhs
+      for (int i = 0; i < n; ++i) {
+        Delta.x[i] = rhs[i];
+      }
+      for (int i = 0; i < m; ++i) {
+        Delta.y[i] = rhs[n + i];
+      }
     }
 
-    // create rhs = [rhs7; rhs1]
-    std::vector<double> rhs(m + n);
-    for (int i = 0; i < n; ++i) {
-      rhs[i] = res7[i];
+    if (option_nla == kOptionNlaNewton) {
+      // predictor?
+      if (!Metis_data.valid()) {
+        int status = Metis_data.factor();
+        if (status) return status;
+      }
+
+      // Compute res8
+      std::vector<double> rhs{
+          ComputeResiduals_8(highs_a, scaling, Res, res7, isCorrector)};
+
+      int status = Metis_data.solve(rhs);
+      if (status) return status;
+      Delta.y = rhs;
+
+      // Compute Delta.x
+      // *********************************************************************
+      // Deltax = A^T * Deltay - res7;
+      Delta.x = res7;
+      highs_a.alphaProductPlusY(-1.0, Delta.y, Delta.x, true);
+      VectorScale(Delta.x, -1.0);
+
+      // Deltax = Theta * Deltax
+      VectorDivide(Delta.x, scaling);
+      // *********************************************************************
     }
-    for (int i = 0; i < m; ++i) {
-      rhs[i + n] = Res.res1[i];
-    }
-
-    // solve
-    Metis_data.solve(rhs);
-
-    // assign Dx and Dy from lhs
-    for (int i = 0; i < n; ++i) {
-      Delta.x[i] = rhs[i];
-    }
-    for (int i = 0; i < m; ++i) {
-      Delta.y[i] = rhs[n + i];
-    }
-  }
-
-  if (option_nla == kOptionNlaMetisNormalEq) {
-    // predictor?
-    if (!Metis_data.valid()) {
-      Metis_data.factor();
-    }
-
-    // Compute res8
-    std::vector<double> rhs{
-        ComputeResiduals_8(highs_a, scaling, Res, res7, isCorrector)};
-
-    Metis_data.solve(rhs);
-    Delta.y = rhs;
-
-    // Compute Delta.x
-    // *********************************************************************
-    // Deltax = A^T * Deltay - res7;
-    Delta.x = res7;
-    highs_a.alphaProductPlusY(-1.0, Delta.y, Delta.x, true);
-    VectorScale(Delta.x, -1.0);
-
-    // Deltax = Theta * Deltax
-    VectorDivide(Delta.x, scaling);
-    // *********************************************************************
   }
 
   return 0;
@@ -841,8 +846,7 @@ void IPM_caller::ComputeStepSizes(const NewtonDir& Delta, double& alpha_primal,
 // ===================================================================================
 void IPM_caller::ComputeStartingPoint() {
   // solutions with A*A^T is done differently depending on the use of metis
-  bool use_metis = option_nla == kOptionNlaMetisAugmented ||
-                   option_nla == kOptionNlaMetisNormalEq;
+  bool use_metis = option_metis == kOptionMetisOn;
 
   // *********************************************************************
   // x starting point
@@ -905,7 +909,7 @@ void IPM_caller::ComputeStartingPoint() {
     Metis_data.getBlocks(temp_scaling, temp_m);
     Metis_data.factor();
 
-    if (option_nla == kOptionNlaMetisNormalEq) {
+    if (option_nla == kOptionNlaNewton) {
       // solve A*A^T * dx = b-A*x using metis blocks
 
       // use y to store b-A*x
@@ -985,7 +989,7 @@ void IPM_caller::ComputeStartingPoint() {
       augmentedSolve(model.highs_a, temp_scaling, model.obj, rhs_y, lhs_x, It.y,
                      startPointInvert, startPointExpData);
     }
-  } else if (option_nla == kOptionNlaMetisNormalEq) {
+  } else if (option_nla == kOptionNlaNewton) {
     // solve A*A^T * y = A*c using metis blocks
     // compute A*c
     std::fill(temp_m.begin(), temp_m.end(), 0.0);

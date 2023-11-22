@@ -123,7 +123,7 @@ class Metis_caller {
   // - "greedy" heuristic: for each edge in the cut, include in the vertex cover
   //    the node with highest original numbering (when possible)
   // The one which yields the smallest Schur complement is used.
-  void getPermutation();
+  int getPermutation();
 
   // Extracts the diagonal and linking blocks of matrix M permuted.
   // For augm system, diag1 is Theta^-1 and diag2 is the diagonal of 2,2 block
@@ -138,7 +138,7 @@ class Metis_caller {
   int factor();
 
   // solve with full matrix, exploiting the block structure
-  void solve(std::vector<double>& rhs);
+  int solve(std::vector<double>& rhs);
 
   // auxiliary stuff
   void setDebug(bool db = true);
@@ -146,6 +146,7 @@ class Metis_caller {
   bool valid() const { return invertData.front().valid; }
   void printInfo() const;
   void printTimes() const;
+  int sizeSchur() const { return blockSize.back(); }
 
  private:
   // Computes the number of nonzeros of each of the diagonal and linking blocks.
