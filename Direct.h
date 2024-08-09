@@ -13,7 +13,7 @@
 #endif
 extern "C" {
 #ifdef HAVE_MA86
-#include "hsl_ma86_wrapper.h"
+#include "hsl_wrapper.h"
 #endif
 #ifdef HAVE_QDLDL
 #include "qdldl.h"

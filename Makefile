@@ -11,18 +11,13 @@ cpp_sources = \
 		mainIPM.cpp \
 		IPM_caller.cpp \
 		IPM_model.cpp \
-		NormalEquations.cpp \
-		ConjugateGradient.cpp \
 		VectorOperations.cpp \
 		IPM_aux.cpp \
-		Direct.cpp \
-		ExperimentData.cpp \
-		Metis_caller.cpp \
-		VertexCover.cpp \
-		Lapack_wrapper.cpp \
-		SchurContribution.cpp \
-		SelectMethod.cpp
-c_sources = hsl_ma86_wrapper.c
+		MA86Solver.cpp \
+		MA87Solver.cpp \
+		MA97Solver.cpp \
+		CholmodSolver.cpp
+c_sources = hsl_wrapper.c
 
 # binary file name
 binary_name = ipm
@@ -35,7 +30,7 @@ CC=clang
 CPP=clang++
 
 # compiler flags
-CPPFLAGS = -pthread -std=c++11 -O3 -DHAVE_CHOLMOD -DHAVE_MA86 -DHAVE_MC68
+CPPFLAGS = -pthread -std=c++11 -O3 -Wno-deprecated
 CFLAGS = -pthread -O3
 
 # mess to link openmp on mac
@@ -47,7 +42,7 @@ rpaths = -rpath $(CHOLMOD_PATH)/lib/ -rpath $(QDLDL_PATH)/build/out/ -rpath $(LO
 # includes and libraries
 includes = -I$(HIGHS_PATH)/build -I$(HIGHS_PATH)/src/ -I$(CHOLMOD_PATH)/include -I$(QDLDL_PATH)/include -I$(METIS_PATH)/include -I$(LOCAL_PATH)/include
 libs_path = -L$(HIGHS_PATH)/build/lib -L$(CHOLMOD_PATH)/lib -L$(QDLDL_PATH)/build/out -L$(METIS_PATH)/build/libmetis -L$(LOCAL_PATH)/lib
-libs = -lhighs -lcholmod -lqdldl -lmetis -lhsl_ma86 -lhsl_mc68 -lfakemetis -lGKlib -llapack
+libs = -lhighs -lcholmod -lqdldl -lmetis -lhsl_ma86 -lhsl_ma87 -lhsl_ma97 -lhsl_mc68 -lfakemetis -lGKlib
 
 # name of objects
 cpp_objects = $(cpp_sources:%.cpp=$(OBJDIR)/%.o)

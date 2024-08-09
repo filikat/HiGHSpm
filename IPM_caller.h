@@ -3,14 +3,14 @@
 
 #include <string>
 
-#include "ConjugateGradient.h"
-#include "Direct.h"
+#include "CholmodSolver.h"
 #include "IPM_aux.h"
 #include "IPM_const.h"
 #include "IPM_model.h"
-#include "Metis_caller.h"
-#include "NormalEquations.h"
-#include "SelectMethod.h"
+#include "LinearSolver.h"
+#include "MA86Solver.h"
+#include "MA87Solver.h"
+#include "MA97Solver.h"
 #include "VectorOperations.h"
 #include "util/HighsSparseMatrix.h"
 
@@ -20,7 +20,6 @@ class IPM_caller {
   int m{};
   int n{};
   bool model_ready{false};
-  IpmInvert invert;
 
   // IPM parameters
   const double sigma_i = 0.5;
@@ -31,20 +30,14 @@ class IPM_caller {
   // IPM iterate
   Iterate It{};
 
-  Metis_caller Metis_data;
+  LinearSolver *linsol;
 
- public:
+public:
   // ===================================================================================
   // Run-time options
   // ===================================================================================
   int option_nla = kOptionNlaDefault;
-  int option_metis = kOptionMetisDefault;
-  int option_max_dense_col = kOptionMaxDenseColDefault;
-  double option_dense_col_tolerance = kOptionDenseColToleranceDefault;
   int option_predcor = kOptionPredCorDefault;
-
-  // Direct solver experiment data record
-  std::vector<ExperimentData> experiment_data_record;
 
   // ===================================================================================
   // LOAD THE PROBLEM
@@ -60,27 +53,27 @@ class IPM_caller {
   //  >= : add slack -inf <= s_i <=    0
   //
   // ===================================================================================
-  void Load(                // - - - - - - - - - - - - - - -  length
-                            // INPUT
-      const int num_var,    // number of variables
-      const int num_con,    // number of constraints
-      const double* obj,    // objective function c           num_var
-      const double* rhs,    // rhs vector b                   num_con
-      const double* lower,  // lower bound vector             num_var
-      const double* upper,  // upper bound vector             num_var
-      const int* A_colptr,  // column pointers of A           num_var + 1
-      const int* A_rowind,  // row indices of A               A_colptr[num_var]
-      const double* A_values,  // values of A A_colptr[num_var]
-      const int* constraints,  // type of constraints            num_con
-                               // 1: >=, 0: =, -1: <=
-      const std::string& pb_name);
+  void Load(               // - - - - - - - - - - - - - - -  length
+                           // INPUT
+      const int num_var,   // number of variables
+      const int num_con,   // number of constraints
+      const double *obj,   // objective function c           num_var
+      const double *rhs,   // rhs vector b                   num_con
+      const double *lower, // lower bound vector             num_var
+      const double *upper, // upper bound vector             num_var
+      const int *A_colptr, // column pointers of A           num_var + 1
+      const int *A_rowind, // row indices of A               A_colptr[num_var]
+      const double *A_values, // values of A A_colptr[num_var]
+      const int *constraints, // type of constraints            num_con
+                              // 1: >=, 0: =, -1: <=
+      const std::string &pb_name);
 
   // ===================================================================================
   // SOLVE THE LP
   // ===================================================================================
   Output Solve();
 
- private:
+private:
   // ===================================================================================
   // COMPUTE MU
   // ===================================================================================
@@ -110,7 +103,7 @@ class IPM_caller {
   // ===================================================================================
   void ComputeResiduals_1234(
       // OUTPUT
-      Residuals& Res  // residuals
+      Residuals &Res // residuals
   );
 
   // ===================================================================================
@@ -132,11 +125,11 @@ class IPM_caller {
   // ===================================================================================
   void ComputeResiduals_56(
       // INPUT
-      const double sigmaMu,       // sigma * mu
-      const NewtonDir& DeltaAff,  // affine scaling direction (if corrector)
-      bool isCorrector,           // true if corrector, false if predictor
+      const double sigmaMu,      // sigma * mu
+      const NewtonDir &DeltaAff, // affine scaling direction (if corrector)
+      bool isCorrector,          // true if corrector, false if predictor
       // OUTPUT
-      Residuals& Res  // residuals
+      Residuals &Res // residuals
   );
 
   // ===================================================================================
@@ -156,8 +149,8 @@ class IPM_caller {
   // ===================================================================================
   std::vector<double> ComputeResiduals_7(
       // INPUT
-      const Residuals& Res,     // residuals
-      bool isCorrector = false  // true if corrector, false is predictor
+      const Residuals &Res,    // residuals
+      bool isCorrector = false // true if corrector, false is predictor
   );
 
   // ===================================================================================
@@ -174,11 +167,11 @@ class IPM_caller {
   // ===================================================================================
   std::vector<double> ComputeResiduals_8(
       // INPUT
-      const HighsSparseMatrix& highs_a,    // constraint matrix
-      const std::vector<double>& scaling,  // scaling vector
-      const Residuals& Res,                // residuals
-      const std::vector<double>& res7,     // residual 7
-      bool isCorrector = false  // true if corrector, false is predictor
+      const HighsSparseMatrix &highs_a,   // constraint matrix
+      const std::vector<double> &scaling, // scaling vector
+      const Residuals &Res,               // residuals
+      const std::vector<double> &res7,    // residual 7
+      bool isCorrector = false // true if corrector, false is predictor
   );
 
   // ===================================================================================
@@ -194,7 +187,7 @@ class IPM_caller {
   // ===================================================================================
   void ComputeScaling(
       // OUTPUT
-      std::vector<double>& scaling  // diagonal scaling, length n
+      std::vector<double> &scaling // diagonal scaling, length n
   );
 
   // ===================================================================================
@@ -232,12 +225,12 @@ class IPM_caller {
   // ===================================================================================
   int SolveNewtonSystem(
       // INPUT
-      const HighsSparseMatrix& highs_a,    // constraint matrix
-      const std::vector<double>& scaling,  // diagonal scaling, length n
-      const Residuals& Res,                // current residuals
-      bool isCorrector,  // true if corrector, false if predictor
+      const HighsSparseMatrix &highs_a,   // constraint matrix
+      const std::vector<double> &scaling, // diagonal scaling, length n
+      const Residuals &Res,               // current residuals
+      bool isCorrector, // true if corrector, false if predictor
       // OUTPUT
-      NewtonDir& Delta  // Newton direction
+      NewtonDir &Delta // Newton direction
   );
 
   // ===================================================================================
@@ -253,10 +246,10 @@ class IPM_caller {
   // ===================================================================================
   void RecoverDirection(
       // INPUT
-      const Residuals& Res,  // current residuals
-      bool isCorrector,      // true if corrector, false if predictor
+      const Residuals &Res, // current residuals
+      bool isCorrector,     // true if corrector, false if predictor
       // OUTPUT
-      NewtonDir& Delta  // Newton directions
+      NewtonDir &Delta // Newton directions
   );
 
   // ===================================================================================
@@ -280,10 +273,10 @@ class IPM_caller {
   // ===================================================================================
   void ComputeStepSizes(
       // INPUT
-      const NewtonDir& Delta,  // Newton direction
+      const NewtonDir &Delta, // Newton direction
       // OUTPUT
-      double& alpha_primal,  // primal step-size
-      double& alpha_dual     // dual step-size
+      double &alpha_primal, // primal step-size
+      double &alpha_dual    // dual step-size
   );
 
   // ===================================================================================
@@ -311,11 +304,11 @@ class IPM_caller {
   // ===================================================================================
   double ComputeSigmaCorrector(
       // INPUT
-      const NewtonDir& DeltaAff,  // Predictor Newton direction
-      double mu                   // mu of previous iteration
+      const NewtonDir &DeltaAff, // Predictor Newton direction
+      double mu                  // mu of previous iteration
   );
 
-  void CheckResiduals(const NewtonDir& Delta, const Residuals& Res) const;
+  void CheckResiduals(const NewtonDir &Delta, const Residuals &Res) const;
 };
 
 #endif

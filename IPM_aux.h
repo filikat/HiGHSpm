@@ -1,8 +1,25 @@
 #ifndef IPM_AUX_H
 #define IPM_AUX_H
 
-#include <vector>
+#include "IPM_const.h"
+#include "util/HighsSparseMatrix.h"
 #include <string>
+#include <vector>
+
+enum DecomposerStatus {
+  kDecomposerStatusMin = 0,
+  kDecomposerStatusOk = kDecomposerStatusMin,
+  kDecomposerStatusErrorOom,
+  kDecomposerStatusErrorFactorize,
+  kDecomposerStatusErrorSolve,
+  kDecomposerStatusErrorClear,
+  kDecomposerStatusMax = kDecomposerStatusErrorClear
+};
+
+double getWallTime();
+
+void scaling2theta(const std::vector<double> &scaling,
+                   std::vector<double> &theta);
 
 // =======================================================================
 // RESIDUALS
@@ -23,7 +40,7 @@ class Residuals {
   std::vector<double> res5{};
   std::vector<double> res6{};
 
- public:
+public:
   Residuals(int m, int n);
 
   void print(int iter = 0) const;
@@ -38,7 +55,7 @@ class Residuals {
 // =======================================================================
 // Holds the iterate (x,y,xl,xu,zl,zu)
 class Iterate {
- public:
+public:
   std::vector<double> x{};
   std::vector<double> y{};
   std::vector<double> xl{};
@@ -69,7 +86,7 @@ class NewtonDir {
   std::vector<double> zl{};
   std::vector<double> zu{};
 
- public:
+public:
   NewtonDir() = default;
   NewtonDir(int m, int n);
 
@@ -92,5 +109,15 @@ struct Output {
   double mu{};
   std::string status = "Error";
 };
+
+int computeAThetaAT(const HighsSparseMatrix &matrix,
+                    const std::vector<double> &theta, HighsSparseMatrix &AAT,
+                    const int max_num_nz = 100000000
+                    // Cant exceed kHighsIInf = 2,147,483,647,
+                    // otherwise start_ values may overflow. Even
+                    // 100,000,000 is probably too large, unless the
+                    // matrix is near-full, since fill-in will
+                    // overflow pointers
+);
 
 #endif

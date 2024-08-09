@@ -4,21 +4,14 @@
 #include <cmath>
 #include <iostream>
 
-void scaling2theta(const std::vector<double>& scaling,
-                   std::vector<double>& theta) {
-  const int dim = scaling.size();
-  theta.resize(dim);
-  for (int i = 0; i < dim; i++) theta[i] = 1 / scaling[i];
-}
-
 // =======================================================================
 // LOAD THE PROBLEM
 // =======================================================================
-void IPM_caller::Load(const int num_var, const int num_con, const double* obj,
-                      const double* rhs, const double* lower,
-                      const double* upper, const int* A_colptr,
-                      const int* A_rowind, const double* A_values,
-                      const int* constraints, const std::string& pb_name) {
+void IPM_caller::Load(const int num_var, const int num_con, const double *obj,
+                      const double *rhs, const double *lower,
+                      const double *upper, const int *A_colptr,
+                      const int *A_rowind, const double *A_values,
+                      const int *constraints, const std::string &pb_name) {
   if (!obj || !rhs || !lower || !upper || !A_colptr || !A_rowind || !A_values ||
       !constraints)
     return;
@@ -120,7 +113,8 @@ void IPM_caller::Load(const int num_var, const int num_con, const double* obj,
 // =======================================================================
 Output IPM_caller::Solve() {
   // solve only if model is loaded
-  if (!model_ready) return Output{};
+  if (!model_ready)
+    return Output{};
 
   printf("-----------------------------------------\n");
   printf("Problem %s\n", model.pb_name.c_str());
@@ -135,17 +129,6 @@ Output IPM_caller::Solve() {
   // ---- INITIALIZE --------------------------
   // ------------------------------------------
 
-  if (selectMethod(model.highs_a, Metis_data, option_nla, option_metis)) {
-    return Output{};
-  }
-  printf("Selected %s with Metis %s\n",
-         option_nla == kOptionNlaAugmented ? "Augmented system"
-                                           : "Normal equations",
-         option_metis == kOptionMetisOn ? "On" : "Off");
-  printf("-----------------------------------------\n");
-  bool use_metis = option_metis == kOptionMetisOn;
-  if (use_metis) Metis_data.printInfo();
-
   // iterations counter
   int iter{};
 
@@ -155,6 +138,14 @@ Output IPM_caller::Solve() {
 
   // initialize starting point
   It = Iterate(m, n);
+
+  // initialize linear solver
+  CholmodSolver cholmodsolver;
+  MA86Solver ma86solver;
+  MA87Solver ma87solver;
+  MA97Solver ma97solver;
+  //linsol = &cholmodsolver;
+  linsol =&ma86solver;
 
   // comment the following line to use default starting point
   ComputeStartingPoint();
@@ -176,7 +167,6 @@ Output IPM_caller::Solve() {
   // ------------------------------------------
   // ---- MAIN LOOP ---------------------------
   // ------------------------------------------
-  highs::parallel::initialize_scheduler();
 
   printf("\n");
   while (iter < kMaxIterations) {
@@ -185,10 +175,10 @@ Output IPM_caller::Solve() {
     assert(!It.isInf());
 
     // Stopping criterion
-    if (iter > 0 && pd_gap < kIpmTolerance &&  // primal-dual gap is small
-        mu < kIpmTolerance &&                  // mu
-        primal_infeas < kIpmTolerance &&       // primal feasibility
-        dual_infeas < kIpmTolerance) {         // dual feasibility
+    if (iter > 0 && pd_gap < kIpmTolerance && // primal-dual gap is small
+        mu < kIpmTolerance &&                 // mu
+        primal_infeas < kIpmTolerance &&      // primal feasibility
+        dual_infeas < kIpmTolerance) {        // dual feasibility
       printf("\n===== Optimal solution found =====\n\n");
       status = "optimal";
       break;
@@ -207,20 +197,7 @@ Output IPM_caller::Solve() {
     ComputeScaling(scaling);
 
     // Clear any existing INVERT now that scaling has changed
-    invert.clear();
-
-    if (use_metis) {
-      Metis_data.prepare();
-      std::vector<double> block22(m, kDualRegularization);
-
-      if (option_nla == kOptionNlaAugmented) {
-        Metis_data.getBlocks(scaling, block22);
-      } else {
-        std::vector<double> theta(n);
-        scaling2theta(scaling, theta);
-        Metis_data.getBlocks(theta, block22);
-      }
-    }
+    linsol->Clear();
 
     // Initialize Newton direction
     NewtonDir Delta(m, n);
@@ -251,7 +228,7 @@ Output IPM_caller::Solve() {
       // Compute full Newton direction
       RecoverDirection(Res, isCorrector, Delta);
 
-      CheckResiduals(Delta, Res);
+      // CheckResiduals(Delta, Res);
 
     } else {
       // *********************************************************************
@@ -348,18 +325,18 @@ Output IPM_caller::Solve() {
     pd_gap = std::fabs(primal_obj - dual_obj) /
              (1 + 0.5 * std::fabs(primal_obj + dual_obj));
 
-    printf(
-        "%5d %20.10e %20.10e %10.2e %10.2e %10.2e %10.2f %10.2f %15.2e "
-        "%10.1fs\n",
-        iter, primal_obj, dual_obj, primal_infeas, dual_infeas, mu,
-        alpha_primal, alpha_dual, pd_gap, getWallTime() - timer_iterations);
+    printf("%5d %20.10e %20.10e %10.2e %10.2e %10.2e %10.2f %10.2f %15.2e "
+           "%10.1fs\n",
+           iter, primal_obj, dual_obj, primal_infeas, dual_infeas, mu,
+           alpha_primal, alpha_dual, pd_gap, getWallTime() - timer_iterations);
 
     // It.print(iter);
     // Delta.print(iter);
     // Res.print(iter);
   }
 
-  if (status.empty()) status = "max iter";
+  if (status.empty())
+    status = "max iter";
 
   // output struct
   Output out{};
@@ -369,8 +346,6 @@ Output IPM_caller::Solve() {
   out.dual_infeas = dual_infeas;
   out.mu = mu;
   out.status = status;
-
-  if (use_metis) Metis_data.printTimes();
 
   return out;
 }
@@ -397,7 +372,7 @@ double IPM_caller::ComputeMu() {
 // =======================================================================
 // COMPUTE RESIDUALS
 // =======================================================================
-void IPM_caller::ComputeResiduals_1234(Residuals& Res) {
+void IPM_caller::ComputeResiduals_1234(Residuals &Res) {
   // res1
   Res.res1 = model.rhs;
   model.highs_a.alphaProductPlusY(-1.0, It.x, Res.res1);
@@ -438,8 +413,8 @@ void IPM_caller::ComputeResiduals_1234(Residuals& Res) {
 }
 
 void IPM_caller::ComputeResiduals_56(const double sigmaMu,
-                                     const NewtonDir& DeltaAff,
-                                     bool isCorrector, Residuals& Res) {
+                                     const NewtonDir &DeltaAff,
+                                     bool isCorrector, Residuals &Res) {
   if (!isCorrector) {
     for (int i = 0; i < n; ++i) {
       // res5
@@ -476,7 +451,7 @@ void IPM_caller::ComputeResiduals_56(const double sigmaMu,
   }
 }
 
-std::vector<double> IPM_caller::ComputeResiduals_7(const Residuals& Res,
+std::vector<double> IPM_caller::ComputeResiduals_7(const Residuals &Res,
                                                    bool isCorrector) {
   std::vector<double> res7;
 
@@ -507,8 +482,8 @@ std::vector<double> IPM_caller::ComputeResiduals_7(const Residuals& Res,
 }
 
 std::vector<double> IPM_caller::ComputeResiduals_8(
-    const HighsSparseMatrix& highs_a, const std::vector<double>& scaling,
-    const Residuals& Res, const std::vector<double>& res7, bool isCorrector) {
+    const HighsSparseMatrix &highs_a, const std::vector<double> &scaling,
+    const Residuals &Res, const std::vector<double> &res7, bool isCorrector) {
   std::vector<double> res8;
 
   if (isCorrector) {
@@ -531,7 +506,7 @@ std::vector<double> IPM_caller::ComputeResiduals_8(
 // =======================================================================
 // COMPUTE SCALING
 // =======================================================================
-void IPM_caller::ComputeScaling(std::vector<double>& scaling) {
+void IPM_caller::ComputeScaling(std::vector<double> &scaling) {
   for (int i = 0; i < n; ++i) {
     if (model.has_lb(i)) {
       scaling[i] += It.zl[i] / It.xl[i];
@@ -548,33 +523,17 @@ void IPM_caller::ComputeScaling(std::vector<double>& scaling) {
 // =======================================================================
 // SOLVE NEWTON SYSTEM
 // =======================================================================
-int IPM_caller::SolveNewtonSystem(const HighsSparseMatrix& highs_a,
-                                  const std::vector<double>& scaling,
-                                  const Residuals& Res, bool isCorrector,
-                                  NewtonDir& Delta) {
+int IPM_caller::SolveNewtonSystem(const HighsSparseMatrix &highs_a,
+                                  const std::vector<double> &scaling,
+                                  const Residuals &Res, bool isCorrector,
+                                  NewtonDir &Delta) {
   // Compute residual 7
   std::vector<double> res7{ComputeResiduals_7(Res, isCorrector)};
 
-  // Identify whether CG should be used
-  const bool use_cg = option_nla == kOptionNlaCg ||
-                      option_nla == kOptionNlaAugmentedCg ||
-                      option_nla == kOptionNlaNewtonCg;
   // Identify whether the augmented system should be solved directly
-  const bool use_direct_augmented =
-      option_nla == kOptionNlaAugmented || option_nla == kOptionNlaAugmentedCg;
+  const bool use_direct_augmented = option_nla == kOptionNlaAugmented;
   // Identify whether the Newton system should be solved directly
-  const bool use_direct_newton =
-      option_nla == kOptionNlaNewton || option_nla == kOptionNlaNewtonCg;
-  // Shouldn't be trying to solve both the augmented and Newton system!
-  assert(!use_direct_augmented || !use_direct_newton);
-
-  // Until the direct solvers are implemented correctly, the IPM
-  // solver is driven by CG, so check for this
-  //  assert(use_cg);
-
-  // Identify whether the CG result should be used to check the result
-  // obtained using the direct solver
-  const bool check_with_cg = use_cg && option_nla != kOptionNlaCg;
+  const bool use_direct_newton = option_nla == kOptionNlaNewton;
 
   // Augmented system is
   //
@@ -584,190 +543,58 @@ int IPM_caller::SolveNewtonSystem(const HighsSparseMatrix& highs_a,
   std::vector<double> theta;
   scaling2theta(scaling, theta);
 
-  const bool first_call_with_theta = !invert.valid;
-  ExperimentData experiment_data;
-  experiment_data.reset();
+  const bool first_call_with_theta = !linsol->valid;
 
-  if (option_metis == kOptionMetisOff) {
-    if (use_cg || use_direct_newton) {
-      // Have to solve the Newton system
-      //
-      // A.scaling.A^T Delta.y = res8
-      //
+  if (use_direct_newton) {
+    // Have to solve the Newton system
+    // A.scaling.A^T Delta.y = res8
 
-      // Compute res8
-      std::vector<double> res8{
-          ComputeResiduals_8(highs_a, scaling, Res, res7, isCorrector)};
+    // Compute res8
+    std::vector<double> res8{
+        ComputeResiduals_8(highs_a, scaling, Res, res7, isCorrector)};
 
-      // Solve normal equations
-      if (use_cg) {
-        NormalEquations N(highs_a, scaling);
-        CG_solve(N, res8, kCgTolerance, kCgIterationLimit, Delta.y, nullptr);
-        const bool compute_residual_error = false;
-        if (compute_residual_error) {
-          std::pair<double, double> residual_error =
-              residualErrorNewton(highs_a, theta, res8, Delta.y);
-          if (residual_error.first > 1e-12)
-            printf("CG solve abs (rel) residual error = %g (%g)\n",
-                   residual_error.first, residual_error.second);
-        }
-      }
-      if (use_direct_newton) {
-        // Solve the Newton system directly into newton_delta_y
-        std::vector<double> newton_delta_y;
-        newton_delta_y.assign(m, 0);
-        if (first_call_with_theta) {
-          int newton_invert_status =
-              newtonInvert(highs_a, theta, invert, option_max_dense_col,
-                           option_dense_col_tolerance, experiment_data);
-          if (newton_invert_status) return newton_invert_status;
-        } else {
-          // Just set this to avoid assert when writing out
-          // experiment_data in the event of a solution error
-          experiment_data.system_type = kSystemTypeNewton;
-        }
-        int newton_solve_status = newtonSolve(
-            highs_a, theta, res8, newton_delta_y, invert, experiment_data);
-        if (first_call_with_theta) {
-          experiment_data.condition = newtonCondition(highs_a, theta, invert);
-          experiment_data_record.push_back(experiment_data);
-        }
-        if (newton_solve_status) return newton_solve_status;
-        if (check_with_cg) {
-          double inf_norm_solution_diff = infNormDiff(newton_delta_y, Delta.y);
-          if (inf_norm_solution_diff > kSolutionDiffTolerance) {
-            std::cout << "Newton Direct-CG solution error = "
-                      << inf_norm_solution_diff << "\n";
-            std::cout << experiment_data << "\n";
-            assert(111 == 333);
-          }
-        }
-        if (!use_cg) {
-          // Once CG is not being used, use the Newton solution for dy
-          Delta.y = newton_delta_y;
-        }
-      }
+    if (first_call_with_theta) {
+      int newton_invert_status = linsol->FactorNE(highs_a, theta);
 
-      // Compute Delta.x
-      // *********************************************************************
-      // Deltax = A^T * Deltay - res7;
-      Delta.x = res7;
-      highs_a.alphaProductPlusY(-1.0, Delta.y, Delta.x, true);
-      VectorScale(Delta.x, -1.0);
-
-      // Deltax = Theta * Deltax
-      VectorDivide(Delta.x, scaling);
-      // *********************************************************************
-    }
-    if (use_direct_augmented) {
-      // Solve augmented system directly
-      std::vector<double> augmented_delta_x;
-      augmented_delta_x.assign(n, 0);
-      std::vector<double> augmented_delta_y;
-      augmented_delta_y.assign(m, 0);
-      if (first_call_with_theta) {
-        int augmented_invert_status =
-            augmentedInvert(highs_a, theta, invert, experiment_data);
-        if (augmented_invert_status) return augmented_invert_status;
-      } else {
-        // Just set this to avoid assert when writing out
-        // experiment_data in the event of a solution error
-        experiment_data.system_type = kSystemTypeNewton;
-      }
-      // When solving the augmented system, the right side for the
-      // predictor should be (res7; res1), but for the corrector it
-      // should be (res7; 0)
-      if (isCorrector) {
-        // Check that res1 has been zeroed
-        const double res1_norm = Norm2(Res.res1);
-        assert(!res1_norm);
-      }
-      augmentedSolve(highs_a, theta, res7, Res.res1, augmented_delta_x,
-                     augmented_delta_y, invert, experiment_data);
-      experiment_data.nla_time.total += experiment_data.nla_time.solve;
-      if (first_call_with_theta) {
-        experiment_data.condition = augmentedCondition(highs_a, theta, invert);
-        experiment_data_record.push_back(experiment_data);
-      }
-      if (check_with_cg) {
-        double inf_norm_solution_diff = infNormDiff(augmented_delta_x, Delta.x);
-        if (inf_norm_solution_diff > kSolutionDiffTolerance) {
-          std::cout << "Augmented Direct-CG solution error for Delta.x = "
-                    << inf_norm_solution_diff << "\n";
-          std::cout << experiment_data << "\n";
-          assert(111 == 333);
-        }
-        inf_norm_solution_diff = infNormDiff(augmented_delta_y, Delta.y);
-        if (inf_norm_solution_diff > kSolutionDiffTolerance) {
-          std::cout << "Augmented Direct-CG solution error for Delta.y = "
-                    << inf_norm_solution_diff << "\n";
-          std::cout << experiment_data << "\n";
-          assert(111 == 333);
-        }
-      }
-      if (!use_cg) {
-        // Once CG is not being used, use the augmented solution for dx and dy
-        Delta.x = augmented_delta_x;
-        Delta.y = augmented_delta_y;
-      }
-    }
-  } else {
-    // solve augmented system with metis
-    if (option_nla == kOptionNlaAugmented) {
-      // predictor?
-      if (!Metis_data.valid()) {
-        int status = Metis_data.factor();
-        if (status) return status;
-      }
-
-      // create rhs = [rhs7; rhs1]
-      std::vector<double> rhs(m + n);
-      for (int i = 0; i < n; ++i) {
-        rhs[i] = res7[i];
-      }
-      for (int i = 0; i < m; ++i) {
-        rhs[i + n] = Res.res1[i];
-      }
-
-      // solve
-      int status = Metis_data.solve(rhs);
-      if (status) return status;
-
-      // assign Dx and Dy from lhs
-      for (int i = 0; i < n; ++i) {
-        Delta.x[i] = rhs[i];
-      }
-      for (int i = 0; i < m; ++i) {
-        Delta.y[i] = rhs[n + i];
-      }
+      if (newton_invert_status)
+        return newton_invert_status;
     }
 
-    if (option_nla == kOptionNlaNewton) {
-      // predictor?
-      if (!Metis_data.valid()) {
-        int status = Metis_data.factor();
-        if (status) return status;
-      }
+    int newton_solve_status = linsol->SolveNE(highs_a, theta, res8, Delta.y);
 
-      // Compute res8
-      std::vector<double> rhs{
-          ComputeResiduals_8(highs_a, scaling, Res, res7, isCorrector)};
+    if (newton_solve_status)
+      return newton_solve_status;
 
-      int status = Metis_data.solve(rhs);
-      if (status) return status;
-      Delta.y = rhs;
+    // Compute Delta.x
+    // *********************************************************************
+    // Deltax = A^T * Deltay - res7;
+    Delta.x = res7;
+    highs_a.alphaProductPlusY(-1.0, Delta.y, Delta.x, true);
+    VectorScale(Delta.x, -1.0);
 
-      // Compute Delta.x
-      // *********************************************************************
-      // Deltax = A^T * Deltay - res7;
-      Delta.x = res7;
-      highs_a.alphaProductPlusY(-1.0, Delta.y, Delta.x, true);
-      VectorScale(Delta.x, -1.0);
+    // Deltax = Theta * Deltax
+    VectorDivide(Delta.x, scaling);
+    // *********************************************************************
+  }
 
-      // Deltax = Theta * Deltax
-      VectorDivide(Delta.x, scaling);
-      // *********************************************************************
+  if (use_direct_augmented) {
+
+    if (first_call_with_theta) {
+      int augmented_invert_status = linsol->FactorAS(highs_a, theta);
+      if (augmented_invert_status)
+        return augmented_invert_status;
     }
+
+    // When solving the augmented system, the right side for the
+    // predictor should be (res7; res1), but for the corrector it
+    // should be (res7; 0)
+    if (isCorrector) {
+      // Check that res1 has been zeroed
+      const double res1_norm = Norm2(Res.res1);
+      assert(!res1_norm);
+    }
+
+    linsol->SolveAS(highs_a, theta, res7, Res.res1, Delta.x, Delta.y);
   }
 
   return 0;
@@ -776,8 +603,8 @@ int IPM_caller::SolveNewtonSystem(const HighsSparseMatrix& highs_a,
 // =======================================================================
 // FULL NEWTON DIRECTION
 // =======================================================================
-void IPM_caller::RecoverDirection(const Residuals& Res, bool isCorrector,
-                                  NewtonDir& Delta) {
+void IPM_caller::RecoverDirection(const Residuals &Res, bool isCorrector,
+                                  NewtonDir &Delta) {
   if (!isCorrector) {
     // Deltaxl
     Delta.xl = Delta.x;
@@ -813,8 +640,8 @@ void IPM_caller::RecoverDirection(const Residuals& Res, bool isCorrector,
 // =======================================================================
 // COMPUTE STEP-SIZES
 // =======================================================================
-void IPM_caller::ComputeStepSizes(const NewtonDir& Delta, double& alpha_primal,
-                                  double& alpha_dual) {
+void IPM_caller::ComputeStepSizes(const NewtonDir &Delta, double &alpha_primal,
+                                  double &alpha_dual) {
   alpha_primal = 1.0;
   for (int i = 0; i < n; ++i) {
     if (Delta.xl[i] < 0 && model.has_lb(i)) {
@@ -845,8 +672,6 @@ void IPM_caller::ComputeStepSizes(const NewtonDir& Delta, double& alpha_primal,
 // COMPUTE STARTING POINT
 // ===================================================================================
 void IPM_caller::ComputeStartingPoint() {
-  // solutions with A*A^T is done differently depending on the use of metis
-  bool use_metis = option_metis == kOptionMetisOn;
 
   // *********************************************************************
   // x starting point
@@ -858,78 +683,46 @@ void IPM_caller::ComputeStartingPoint() {
     It.x[i] = std::min(It.x[i], model.upper[i]);
   }
 
-  IpmInvert startPointInvert;
-  ExperimentData startPointExpData;
   const std::vector<double> temp_scaling(n, 1.0);
   std::vector<double> temp_m(m);
 
-  if (!use_metis) {
-    // factorize and solve with the full matrices
+  if (option_nla == kOptionNlaNewton) {
+    // use y to store b-A*x
+    It.y = model.rhs;
+    model.highs_a.alphaProductPlusY(-1.0, It.x, It.y);
 
-    if (option_nla == kOptionNlaNewton) {
-      // use y to store b-A*x
-      It.y = model.rhs;
-      model.highs_a.alphaProductPlusY(-1.0, It.x, It.y);
+    // solve A*A^T * dx = b-A*x with factorization and store the result in
+    // temp_m
 
-      // solve A*A^T * dx = b-A*x with factorization and store the result in
-      // temp_m
+    // factorize A*A^T
 
-      // factorize A*A^T
-      startPointExpData.reset();
-      int newton_invert_status =
-          newtonInvert(model.highs_a, temp_scaling, startPointInvert, 0, 0,
-                       startPointExpData);
-      if (newton_invert_status)
-        std::cerr << "Error in factorization of A*A^T\n";
-      // solve
-      int newton_solve_status =
-          newtonSolve(model.highs_a, temp_scaling, It.y, temp_m,
-                      startPointInvert, startPointExpData);
-      if (newton_solve_status) std::cerr << "Error in solution of A*A^T\n";
-    } else if (option_nla == kOptionNlaAugmented) {
-      // obtain solution of A*A^T * dx = b-A*x by solving
-      // [ -I  A^T] [...] = [ -x]
-      // [  A   0 ] [ dx] = [ b ]
-      startPointExpData.reset();
-      int augmented_invert_status = augmentedInvert(
-          model.highs_a, temp_scaling, startPointInvert, startPointExpData);
-      if (augmented_invert_status)
-        std::cerr << "Error in factorization of A*A^T\n";
+    int newton_invert_status = linsol->FactorNE(model.highs_a, temp_scaling);
+    if (newton_invert_status)
+      std::cerr << "Error in factorization of A*A^T\n";
 
-      std::vector<double> rhs_x(n);
-      for (int i = 0; i < n; ++i) rhs_x[i] = -It.x[i];
-      std::vector<double> lhs_x(n);
-      augmentedSolve(model.highs_a, temp_scaling, rhs_x, model.rhs, lhs_x,
-                     temp_m, startPointInvert, startPointExpData);
-    }
+    int newton_solve_status =
+        linsol->SolveNE(model.highs_a, temp_scaling, It.y, temp_m);
+    if (newton_solve_status)
+      std::cerr << "Error in solution of A*A^T\n";
 
-  } else {
-    Metis_data.prepare();
-    std::fill(temp_m.begin(), temp_m.end(), 0.0);
-    Metis_data.getBlocks(temp_scaling, temp_m);
-    Metis_data.factor();
+  } else if (option_nla == kOptionNlaAugmented) {
+    // obtain solution of A*A^T * dx = b-A*x by solving
+    // [ -I  A^T] [...] = [ -x]
+    // [  A   0 ] [ dx] = [ b ]
 
-    if (option_nla == kOptionNlaNewton) {
-      // solve A*A^T * dx = b-A*x using metis blocks
+    int augmented_invert_status = linsol->FactorAS(model.highs_a, temp_scaling);
+    if (augmented_invert_status)
+      std::cerr << "Error in factorization of A*A^T\n";
 
-      // use y to store b-A*x
-      temp_m = model.rhs;
-      model.highs_a.alphaProductPlusY(-1.0, It.x, temp_m);
+    std::vector<double> rhs_x(n);
+    for (int i = 0; i < n; ++i)
+      rhs_x[i] = -It.x[i];
+    std::vector<double> lhs_x(n);
+    int augmented_solve_status = linsol->SolveAS(
+        model.highs_a, temp_scaling, rhs_x, model.rhs, lhs_x, temp_m);
 
-      // solve and store result in temp_m
-      Metis_data.solve(temp_m);
-
-    } else {
-      // obtain solution of A*A^T * dx = b-A*x by solving
-      // [ -I  A^T] [...] = [ -x]
-      // [  A   0 ] [ dx] = [ b ]
-
-      std::vector<double> temp_mn(m + n);
-      for (int i = 0; i < n; ++i) temp_mn[i] = -It.x[i];
-      for (int i = 0; i < m; ++i) temp_mn[i + n] = model.rhs[i];
-      Metis_data.solve(temp_mn);
-      for (int i = 0; i < m; ++i) temp_m[i] = temp_mn[n + i];
-    }
+    if (augmented_solve_status)
+      std::cerr << "Error in solution of A*A^T\n";
   }
 
   // compute dx = A^T * (A*A^T)^{-1} * (b-A*x) and store the result in xl
@@ -969,44 +762,29 @@ void IPM_caller::ComputeStartingPoint() {
   // *********************************************************************
   // y starting point
   // *********************************************************************
-  if (!use_metis) {
-    if (option_nla == kOptionNlaNewton) {
-      // compute A*c
-      std::fill(temp_m.begin(), temp_m.end(), 0.0);
-      model.highs_a.alphaProductPlusY(1.0, model.obj, temp_m);
 
-      // compute (A*A^T)^{-1} * A*c and store in y
-      int newton_solve_status =
-          newtonSolve(model.highs_a, temp_scaling, temp_m, It.y,
-                      startPointInvert, startPointExpData);
-      if (newton_solve_status) std::cerr << "Error in solution of A*A^T\n";
-    } else if (option_nla == kOptionNlaAugmented) {
-      // obtain solution of A*A^T * y = A*c by solving
-      // [ -I  A^T] [...] = [ c ]
-      // [  A   0 ] [ y ] = [ 0 ]
-      std::vector<double> rhs_y(m, 0.0);
-      std::vector<double> lhs_x(n);
-      augmentedSolve(model.highs_a, temp_scaling, model.obj, rhs_y, lhs_x, It.y,
-                     startPointInvert, startPointExpData);
-    }
-  } else if (option_nla == kOptionNlaNewton) {
-    // solve A*A^T * y = A*c using metis blocks
+  if (option_nla == kOptionNlaNewton) {
     // compute A*c
     std::fill(temp_m.begin(), temp_m.end(), 0.0);
     model.highs_a.alphaProductPlusY(1.0, model.obj, temp_m);
 
-    // solve and store result in temp_m
-    Metis_data.solve(temp_m);
-    It.y = temp_m;
-  } else {
+    int newton_solve_status =
+        linsol->SolveNE(model.highs_a, temp_scaling, temp_m, It.y);
+    if (newton_solve_status)
+      std::cerr << "Error in solution of A*A^T\n";
+
+  } else if (option_nla == kOptionNlaAugmented) {
     // obtain solution of A*A^T * y = A*c by solving
     // [ -I  A^T] [...] = [ c ]
     // [  A   0 ] [ y ] = [ 0 ]
 
-    std::vector<double> temp_mn(m + n, 0.0);
-    for (int i = 0; i < n; ++i) temp_mn[i] = model.obj[i];
-    Metis_data.solve(temp_mn);
-    for (int i = 0; i < m; ++i) It.y[i] = temp_mn[n + i];
+    std::vector<double> rhs_y(m, 0.0);
+    std::vector<double> lhs_x(n);
+
+    int augmented_solve_status = linsol->SolveAS(model.highs_a, temp_scaling,
+                                                 model.obj, rhs_y, lhs_x, It.y);
+    if (augmented_solve_status)
+      std::cerr << "Error in solution of A*A^T\n";
   }
   // *********************************************************************
 
@@ -1085,7 +863,7 @@ void IPM_caller::ComputeStartingPoint() {
   // *********************************************************************
 }
 
-double IPM_caller::ComputeSigmaCorrector(const NewtonDir& DeltaAff, double mu) {
+double IPM_caller::ComputeSigmaCorrector(const NewtonDir &DeltaAff, double mu) {
   // stepsizes of predictor direction
   double alpha_p{};
   double alpha_d{};
@@ -1114,8 +892,8 @@ double IPM_caller::ComputeSigmaCorrector(const NewtonDir& DeltaAff, double mu) {
   return ratio * ratio * ratio;
 }
 
-void IPM_caller::CheckResiduals(const NewtonDir& Delta,
-                                const Residuals& Res) const {
+void IPM_caller::CheckResiduals(const NewtonDir &Delta,
+                                const Residuals &Res) const {
   std::vector<double> temp_m(m, 0.0);
   std::vector<double> temp_n(n, 0.0);
 

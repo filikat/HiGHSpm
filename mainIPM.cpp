@@ -1,5 +1,5 @@
 #include <cassert>
-#include <cstring>  // For strchr
+#include <cstring> // For strchr
 #include <iostream>
 #include <regex>
 
@@ -11,19 +11,14 @@ enum ArgC {
   kMinArgC = 2,
   kModelFileArg = 1,
   kOptionNlaArg,
-  kOptionMetisArg,
   kOptionPredCorArg,
-  kOptionMaxDenseColArg,
-  kOptionDenseColToleranceArg,
   kMaxArgC
 };
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
   if (argc < kMinArgC || argc > kMaxArgC) {
-    std::cerr
-        << "======= How to use: ./ipm LP_name.mps(.gz) nla_option metis_option "
-           "predcor_option max_dense_col_option dense_col_tolerance_option "
-           "=======\n";
+    std::cerr << "======= How to use: ./ipm LP_name.mps(.gz) nla_option "
+                 "predcor_option =======\n";
     return 1;
   }
 
@@ -86,7 +81,8 @@ int main(int argc, char** argv) {
 
   int num_free_col = 0;
   for (int i = 0; i < n; ++i) {
-    if (lower[i] <= -kHighsInf && upper[i] >= kHighsInf) num_free_col++;
+    if (lower[i] <= -kHighsInf && upper[i] >= kHighsInf)
+      num_free_col++;
   }
   if (num_free_col) {
     const double bound_on_free = 2e3;
@@ -191,16 +187,6 @@ int main(int argc, char** argv) {
     return 1;
   }
 
-  ipm.option_metis = argc > kOptionMetisArg ? atoi(argv[kOptionMetisArg])
-                                            : kOptionMetisDefault;
-  if (ipm.option_metis < kOptionMetisMin ||
-      ipm.option_metis > kOptionMetisMax) {
-    std::cerr << "Illegal value of " << ipm.option_metis
-              << " for option_metis: must be in [" << kOptionMetisMin << ", "
-              << kOptionMetisMax << "]\n";
-    return 1;
-  }
-
   ipm.option_predcor = argc > kOptionPredCorArg ? atoi(argv[kOptionPredCorArg])
                                                 : kOptionPredCorDefault;
   if (ipm.option_predcor < kOptionPredCorMin ||
@@ -208,30 +194,6 @@ int main(int argc, char** argv) {
     std::cerr << "Illegal value of " << ipm.option_predcor
               << " for option_predcor: must be in [" << kOptionPredCorMin
               << ", " << kOptionPredCorMax << "]\n";
-    return 1;
-  }
-
-  ipm.option_max_dense_col = argc > kOptionMaxDenseColArg
-                                 ? atoi(argv[kOptionMaxDenseColArg])
-                                 : kOptionMaxDenseColDefault;
-  if (ipm.option_max_dense_col < kOptionMaxDenseColMin ||
-      ipm.option_max_dense_col > kOptionMaxDenseColMax) {
-    std::cerr << "Illegal value of " << ipm.option_max_dense_col
-              << " for option_max_dense_col: must be in ["
-              << kOptionMaxDenseColMin << ", " << kOptionMaxDenseColMax
-              << "]\n";
-    return 1;
-  }
-
-  ipm.option_dense_col_tolerance = argc > kOptionDenseColToleranceArg
-                                       ? atoi(argv[kOptionDenseColToleranceArg])
-                                       : kOptionDenseColToleranceDefault;
-  if (ipm.option_dense_col_tolerance < kOptionDenseColToleranceMin ||
-      ipm.option_dense_col_tolerance > kOptionDenseColToleranceMax) {
-    std::cerr << "Illegal value of " << ipm.option_dense_col_tolerance
-              << " for option_dense_col_tolerance: must be in ["
-              << kOptionDenseColToleranceMin << ", "
-              << kOptionDenseColToleranceMax << "]\n";
     return 1;
   }
 
@@ -255,35 +217,6 @@ int main(int argc, char** argv) {
 
   double run_time = getWallTime() - start_time0;
 
-  if (!ipm.experiment_data_record.empty()) {
-    NlaTime sum_nla_time = sumNlaTime(ipm.experiment_data_record);
-    if (sum_nla_time.total > 1e-3) {
-      double sum_time = sum_nla_time.form + sum_nla_time.setup +
-                        sum_nla_time.analysis + sum_nla_time.factorization +
-                        sum_nla_time.solve;
-      assert(sum_time > 0);
-      if (sum_time > 0) {
-        printf("NLA time profile\n");
-        printf("Form      %5.2f (%5.1f%% sum)\n", sum_nla_time.form,
-               100 * sum_nla_time.form / sum_time);
-        printf("Setup     %5.2f (%5.1f%% sum)\n", sum_nla_time.setup,
-               100 * sum_nla_time.setup / sum_time);
-        printf("Analyse   %5.2f (%5.1f%% sum)\n", sum_nla_time.analysis,
-               100 * sum_nla_time.analysis / sum_time);
-        printf("Factorize %5.2f (%5.1f%% sum)\n", sum_nla_time.factorization,
-               100 * sum_nla_time.factorization / sum_time);
-        printf("Solve     %5.2f (%5.1f%% sum)\n", sum_nla_time.solve,
-               100 * sum_nla_time.solve / sum_nla_time.total);
-        printf("Total     %5.2f (%5.1f%% optimize)\n", sum_nla_time.total,
-               100 * sum_nla_time.total / optimize_time);
-      }
-    }
-    ipm.experiment_data_record[0].model_name = model;
-    ipm.experiment_data_record[0].model_num_col = lp.num_col_;
-    ipm.experiment_data_record[0].model_num_row = lp.num_row_;
-    std::string csv_file_name = model + "_direct.csv";
-    writeDataToCSV(ipm.experiment_data_record, csv_file_name);
-  }
   if (run_time > 1e-3) {
     double sum_time =
         read_time + presolve_time + setup_time + load_time + optimize_time;
