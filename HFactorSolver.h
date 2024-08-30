@@ -1,19 +1,14 @@
-#ifndef CHOLMOD_SOLVER_H
-#define CHOLMOD_SOLVER_H
+#ifndef HFACTOR_SOLVER_H
+#define HFACTOR_SOLVER_H
 
 #include "LinearSolver.h"
-#include "cholmod.h"
-#include <algorithm>
+#include "Highs.h"
 
-class CholmodSolver : public LinearSolver {
+class HFactorSolver : public LinearSolver {
 public:
-  // Cholmod data
-  cholmod_common c_;
-  cholmod_triplet *T_;
-  cholmod_sparse *a_;
-  cholmod_factor *L_;
-  cholmod_dense *x_;
-  cholmod_dense *b_;
+  // HFactor data
+  std::vector<HighsInt> basic_index_;
+  HFactor factor_;
 
   // Functions
   int factorAS(const HighsSparseMatrix &highs_a,

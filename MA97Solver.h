@@ -7,30 +7,30 @@
 class MA97Solver : public LinearSolver {
 public:
   // MA97 data
-  void *akeep;
-  void *fkeep;
-  ma97_control_d control;
-  ma97_info_d info;
+  void *akeep_;
+  void *fkeep_;
+  ma97_control_d control_;
+  ma97_info_d info_;
 
   // MC68 data
-  mc68_control control_perm;
-  mc68_info info_perm;
-  std::vector<int> order;
+  mc68_control control_perm_;
+  mc68_info info_perm_;
+  std::vector<int> order_;
 
   // Functions
-  int FactorAS(const HighsSparseMatrix &highs_a,
+  int factorAS(const HighsSparseMatrix &highs_a,
                const std::vector<double> &theta) override;
-  int FactorNE(const HighsSparseMatrix &highs_a,
+  int factorNE(const HighsSparseMatrix &highs_a,
                const std::vector<double> &theta) override;
-  int SolveNE(const HighsSparseMatrix &highs_a,
+  int solveNE(const HighsSparseMatrix &highs_a,
               const std::vector<double> &theta, const std::vector<double> &rhs,
               std::vector<double> &lhs) override;
-  int SolveAS(const HighsSparseMatrix &highs_a,
+  int solveAS(const HighsSparseMatrix &highs_a,
               const std::vector<double> &theta,
               const std::vector<double> &rhs_x,
               const std::vector<double> &rhs_y, std::vector<double> &lhs_x,
               std::vector<double> &lhs_y) override;
-  void Clear() override;
+  void clear() override;
 };
 
 #endif

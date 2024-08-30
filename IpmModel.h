@@ -1,10 +1,11 @@
 #ifndef IPM_MODEL_H
 #define IPM_MODEL_H
 
-#include "util/HighsSparseMatrix.h"
 #include <limits>
-#include <vector>
 #include <string>
+#include <vector>
+
+#include "util/HighsSparseMatrix.h"
 
 // Optimization problem:
 // min obj^T * x
@@ -22,41 +23,40 @@
 //
 
 // double infinity
-const double INF = std::numeric_limits<double>::infinity();
+const double kInf = std::numeric_limits<double>::infinity();
 
 // Constraint types
 const double kConstraintTypeLower = 1;
 const double kConstraintTypeEqual = 0;
 const double kConstraintTypeUpper = -1;
 
-class IPM_model {
+class IpmModel {
+  int num_var_{};
+  int num_con_{};
+  std::vector<double> obj_{};
+  std::vector<double> rhs_{};
+  std::vector<double> lower_{};
+  std::vector<double> upper_{};
+  HighsSparseMatrix A_{};
+  std::string pb_name_{};
 
-  int num_var{};
-  int num_con{};
-  std::vector<double> obj{};
-  std::vector<double> rhs{};
-  std::vector<double> lower{};
-  std::vector<double> upper{};
-  HighsSparseMatrix highs_a{};
-  std::string pb_name{};
-
-public:
+ public:
   // =======================================================================
   // RESIZE THE MODEL
   // =======================================================================
   // Allocate space for model with given number of variables and constraints
-  void resize(int input_var, // number of variables in the model
-              int input_con  // number of constraints in the model
+  void resize(int num_var,  // number of variables in the model
+              int num_con   // number of constraints in the model
   );
 
   // =======================================================================
   // FIND FINITE BOUNDS
   // =======================================================================
   // check if variable has finite lower/upper bound
-  bool has_lb(int j) const { return lower[j] != -INF; }
-  bool has_ub(int j) const { return upper[j] != INF; }
+  bool hasLb(int j) const { return lower_[j] != -kInf; }
+  bool hasUb(int j) const { return upper_[j] != kInf; }
 
-  friend class IPM_caller;
+  friend class Ipm;
 };
 
 #endif

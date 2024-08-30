@@ -3,46 +3,46 @@
 #include <cassert>
 #include <cmath>
 
-void VectorAdd(std::vector<double>& v1, const std::vector<double>& v2,
+void vectorAdd(std::vector<double>& v1, const std::vector<double>& v2,
                double alpha) {
   for (int i = 0; i < v1.size(); ++i) {
     v1[i] += alpha * v2[i];
   }
 }
 
-void VectorAdd(std::vector<double>& v1, const double alpha) {
+void vectorAdd(std::vector<double>& v1, const double alpha) {
   for (int i = 0; i < v1.size(); ++i) {
     v1[i] += alpha;
   }
 }
 
-void VectorMultiply(std::vector<double>& v1, const std::vector<double>& v2,
+void vectorMultiply(std::vector<double>& v1, const std::vector<double>& v2,
                     double alpha, double beta) {
   for (int i = 0; i < v1.size(); ++i) {
     v1[i] = alpha * v1[i] * v2[i] + beta;
   }
 }
 
-void VectorAddMult(std::vector<double>& v1, const std::vector<double>& v2,
+void vectorAddMult(std::vector<double>& v1, const std::vector<double>& v2,
                    const std::vector<double>& v3, double alpha) {
   for (int i = 0; i < v1.size(); ++i) {
     v1[i] += alpha * v2[i] * v3[i];
   }
 }
 
-void VectorDivide(std::vector<double>& v1, const std::vector<double>& v2) {
+void vectorDivide(std::vector<double>& v1, const std::vector<double>& v2) {
   for (int i = 0; i < v1.size(); ++i) {
     v1[i] /= v2[i];
   }
 }
 
-void VectorScale(std::vector<double>& v1, double alpha) {
+void vectorScale(std::vector<double>& v1, double alpha) {
   for (int i = 0; i < v1.size(); ++i) {
     v1[i] *= alpha;
   }
 }
 
-double DotProd(const std::vector<double>& v1, const std::vector<double>& v2) {
+double dotProd(const std::vector<double>& v1, const std::vector<double>& v2) {
   double result{};
   for (int i = 0; i < v1.size(); ++i) {
     result += v1[i] * v2[i];
@@ -50,7 +50,7 @@ double DotProd(const std::vector<double>& v1, const std::vector<double>& v2) {
   return result;
 }
 
-double Norm2(const std::vector<double>& x) {
+double norm2(const std::vector<double>& x) {
   double norm{};
   for (int i = 0; i < x.size(); ++i) {
     norm += (x[i] * x[i]);
@@ -58,7 +58,7 @@ double Norm2(const std::vector<double>& x) {
   return std::sqrt(norm);
 }
 
-double Norm2(const std::vector<double>& x0, const std::vector<double>& x1) {
+double norm2(const std::vector<double>& x0, const std::vector<double>& x1) {
   double norm{};
   for (int i = 0; i < x0.size(); ++i) {
     norm += (x0[i] * x0[i]);
@@ -87,14 +87,14 @@ double infNormDiff(const std::vector<double>& x, const std::vector<double>& y) {
   return inf_norm_diff;
 }
 
-bool isnan(const std::vector<double>& x) {
+bool isNanVector(const std::vector<double>& x) {
   for (int i = 0; i < x.size(); ++i) {
     if (std::isnan(x[i])) return true;
   }
   return false;
 }
 
-bool isinf(const std::vector<double>& x) {
+bool isInfVector(const std::vector<double>& x) {
   for (int i = 0; i < x.size(); ++i) {
     if (std::isinf(x[i])) return true;
   }

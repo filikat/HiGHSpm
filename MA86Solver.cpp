@@ -1,17 +1,17 @@
 #include "MA86Solver.h"
 
-void MA86Solver::Clear() {
-  if (this->keep) {
-    wrapper_ma86_finalise(&this->keep, &this->control);
+void MA86Solver::clear() {
+  if (this->keep_) {
+    wrapper_ma86_finalise(&this->keep_, &this->control_);
   }
-  valid = false;
+  valid_ = false;
 }
 
-int MA86Solver::FactorAS(const HighsSparseMatrix &matrix,
+int MA86Solver::factorAS(const HighsSparseMatrix &matrix,
                          const std::vector<double> &theta) {
 
   // only execute factorization if it has not been done yet
-  assert(!this->valid);
+  assert(!this->valid_);
 
   int n = matrix.num_col_;
   int m = matrix.num_row_;
@@ -47,36 +47,36 @@ int MA86Solver::FactorAS(const HighsSparseMatrix &matrix,
   ptr.push_back(val.size());
 
   // ordering with MC68
-  order.resize(m + n);
-  wrapper_mc68_default_control(&this->control_perm);
+  order_.resize(m + n);
+  wrapper_mc68_default_control(&this->control_perm_);
   int ord = 1;
-  wrapper_mc68_order(ord, n + m, ptr.data(), row.data(), this->order.data(),
-                     &this->control_perm, &this->info_perm);
-  if (this->info_perm.flag < 0)
+  wrapper_mc68_order(ord, n + m, ptr.data(), row.data(), this->order_.data(),
+                     &this->control_perm_, &this->info_perm_);
+  if (this->info_perm_.flag < 0)
     return kDecomposerStatusErrorFactorize;
 
   // factorization with MA86
-  wrapper_ma86_default_control(&this->control);
-  wrapper_ma86_analyse(n + m, ptr.data(), row.data(), this->order.data(),
-                       &this->keep, &this->control, &this->info);
-  if (this->info.flag < 0)
+  wrapper_ma86_default_control(&this->control_);
+  wrapper_ma86_analyse(n + m, ptr.data(), row.data(), this->order_.data(),
+                       &this->keep_, &this->control_, &this->info_);
+  if (this->info_.flag < 0)
     return kDecomposerStatusErrorFactorize;
 
   wrapper_ma86_factor(n + m, ptr.data(), row.data(), val.data(),
-                      this->order.data(), &this->keep, &this->control,
-                      &this->info);
-  if (this->info.flag < 0)
+                      this->order_.data(), &this->keep_, &this->control_,
+                      &this->info_);
+  if (this->info_.flag < 0)
     return kDecomposerStatusErrorFactorize;
 
-  this->valid = true;
+  this->valid_ = true;
   return kDecomposerStatusOk;
 }
 
-int MA86Solver::FactorNE(const HighsSparseMatrix &highs_a,
+int MA86Solver::factorNE(const HighsSparseMatrix &highs_a,
                          const std::vector<double> &theta) {
 
   // only execute factorization if it has not been done yet
-  assert(!this->valid);
+  assert(!this->valid_);
 
   // compute normal equations matrix
   HighsSparseMatrix AThetaAT;
@@ -106,51 +106,51 @@ int MA86Solver::FactorNE(const HighsSparseMatrix &highs_a,
   ptr.push_back(val.size());
 
   // ordering with MC68
-  this->order.resize(AThetaAT.num_row_);
-  wrapper_mc68_default_control(&this->control_perm);
+  this->order_.resize(AThetaAT.num_row_);
+  wrapper_mc68_default_control(&this->control_perm_);
   int ord = 1;
-  wrapper_mc68_order(ord, n, ptr.data(), row.data(), this->order.data(),
-                     &this->control_perm, &this->info_perm);
-  if (this->info_perm.flag < 0)
+  wrapper_mc68_order(ord, n, ptr.data(), row.data(), this->order_.data(),
+                     &this->control_perm_, &this->info_perm_);
+  if (this->info_perm_.flag < 0)
     return kDecomposerStatusErrorFactorize;
 
   // factorize with MA86
-  wrapper_ma86_default_control(&this->control);
-  wrapper_ma86_analyse(n, ptr.data(), row.data(), this->order.data(),
-                       &this->keep, &this->control, &this->info);
-  if (this->info.flag < 0)
+  wrapper_ma86_default_control(&this->control_);
+  wrapper_ma86_analyse(n, ptr.data(), row.data(), this->order_.data(),
+                       &this->keep_, &this->control_, &this->info_);
+  if (this->info_.flag < 0)
     return kDecomposerStatusErrorFactorize;
 
-  wrapper_ma86_factor(n, ptr.data(), row.data(), val.data(), this->order.data(),
-                      &this->keep, &this->control, &this->info);
-  if (this->info.flag < 0)
+  wrapper_ma86_factor(n, ptr.data(), row.data(), val.data(), this->order_.data(),
+                      &this->keep_, &this->control_, &this->info_);
+  if (this->info_.flag < 0)
     return kDecomposerStatusErrorFactorize;
 
-  this->valid = true;
+  this->valid_ = true;
   return kDecomposerStatusOk;
 }
 
-int MA86Solver::SolveNE(const HighsSparseMatrix &highs_a,
+int MA86Solver::solveNE(const HighsSparseMatrix &highs_a,
                         const std::vector<double> &theta,
                         const std::vector<double> &rhs,
                         std::vector<double> &lhs) {
   // only execute the solve if factorization is valid
-  assert(this->valid);
+  assert(this->valid_);
 
   // initialize lhs with rhs
   lhs = rhs;
   int system_size = lhs.size();
 
   // solve with ma86
-  wrapper_ma86_solve(0, 1, system_size, lhs.data(), this->order.data(),
-                     &this->keep, &this->control, &this->info);
-  if (this->info.flag < 0)
+  wrapper_ma86_solve(0, 1, system_size, lhs.data(), this->order_.data(),
+                     &this->keep_, &this->control_, &this->info_);
+  if (this->info_.flag < 0)
     return kDecomposerStatusErrorFactorize;
 
   return kDecomposerStatusOk;
 }
 
-int MA86Solver::SolveAS(const HighsSparseMatrix &highs_a,
+int MA86Solver::solveAS(const HighsSparseMatrix &highs_a,
                         const std::vector<double> &theta,
                         const std::vector<double> &rhs_x,
                         const std::vector<double> &rhs_y,
@@ -158,7 +158,7 @@ int MA86Solver::SolveAS(const HighsSparseMatrix &highs_a,
                         std::vector<double> &lhs_y) {
 
   // only execute the solve if factorization is valid
-  assert(this->valid);
+  assert(this->valid_);
 
   // create single rhs
   std::vector<double> rhs;
@@ -168,9 +168,9 @@ int MA86Solver::SolveAS(const HighsSparseMatrix &highs_a,
   int system_size = highs_a.num_col_ + highs_a.num_row_;
 
   // solve using ma86
-  wrapper_ma86_solve(0, 1, system_size, rhs.data(), this->order.data(),
-                     &this->keep, &this->control, &this->info);
-  if (this->info.flag < 0)
+  wrapper_ma86_solve(0, 1, system_size, rhs.data(), this->order_.data(),
+                     &this->keep_, &this->control_, &this->info_);
+  if (this->info_.flag < 0)
     return kDecomposerStatusErrorFactorize;
 
   // split lhs

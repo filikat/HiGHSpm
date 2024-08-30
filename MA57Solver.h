@@ -1,19 +1,22 @@
-#ifndef CHOLMOD_SOLVER_H
-#define CHOLMOD_SOLVER_H
+#ifndef MA57_SOLVER_H
+#define MA57_SOLVER_H
 
 #include "LinearSolver.h"
-#include "cholmod.h"
-#include <algorithm>
+#include "hsl_wrapper.h"
 
-class CholmodSolver : public LinearSolver {
+class MA57Solver : public LinearSolver {
 public:
-  // Cholmod data
-  cholmod_common c_;
-  cholmod_triplet *T_;
-  cholmod_sparse *a_;
-  cholmod_factor *L_;
-  cholmod_dense *x_;
-  cholmod_dense *b_;
+  // MA57 data
+  void* factors_;
+  ma57_control_d control_;
+  ma57_ainfo_d ainfo_;
+  ma57_finfo_d finfo_;
+  ma57_sinfo_d sinfo_;
+  std::vector<int> order_;
+  
+  std::vector<int> col_;
+  std::vector<int> row_;
+  std::vector<double> val_;
 
   // Functions
   int factorAS(const HighsSparseMatrix &highs_a,

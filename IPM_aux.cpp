@@ -1,4 +1,4 @@
-#include "IPM_aux.h"
+#include "Ipm_aux.h"
 
 #include <fstream>
 #include <iostream>
@@ -66,15 +66,15 @@ void Residuals::print(int iter) const {
 }
 
 bool Residuals::isNaN() const {
-  if (isnan(res1) || isnan(res2) || isnan(res3) || isnan(res4) || isnan(res5) ||
-      isnan(res6))
+  if (isNanVector(res1) || isNanVector(res2) || isNanVector(res3) || isNanVector(res4) || isNanVector(res5) ||
+      isNanVector(res6))
     return true;
   return false;
 }
 
 bool Residuals::isInf() const {
-  if (isinf(res1) || isinf(res2) || isinf(res3) || isinf(res4) || isinf(res5) ||
-      isinf(res6))
+  if (isInfVector(res1) || isInfVector(res2) || isInfVector(res3) || isInfVector(res4) || isInfVector(res5) ||
+      isInfVector(res6))
     return true;
   return false;
 }
@@ -83,13 +83,13 @@ Iterate::Iterate(int m, int n)
     : x(n, 0.0), y(m, 0.0), xl(n, 1.0), xu(n, 1.0), zl(n, 1.0), zu(n, 1.0) {}
 
 bool Iterate::isNaN() const {
-  if (isnan(x) || isnan(xl) || isnan(xu) || isnan(y) || isnan(zl) || isnan(zu))
+  if (isNanVector(x) || isNanVector(xl) || isNanVector(xu) || isNanVector(y) || isNanVector(zl) || isNanVector(zu))
     return true;
   return false;
 }
 
 bool Iterate::isInf() const {
-  if (isinf(x) || isinf(xl) || isinf(xu) || isinf(y) || isinf(zl) || isinf(zu))
+  if (isInfVector(x) || isInfVector(xl) || isInfVector(xu) || isInfVector(y) || isInfVector(zl) || isInfVector(zu))
     return true;
   return false;
 }
@@ -146,13 +146,13 @@ NewtonDir::NewtonDir(int m, int n)
     : x(n, 0.0), y(m, 0.0), xl(n, 0.0), xu(n, 0.0), zl(n, 0.0), zu(n, 0.0) {}
 
 bool NewtonDir::isNaN() const {
-  if (isnan(x) || isnan(xl) || isnan(xu) || isnan(y) || isnan(zl) || isnan(zu))
+  if (isNanVector(x) || isNanVector(xl) || isNanVector(xu) || isNanVector(y) || isNanVector(zl) || isNanVector(zu))
     return true;
   return false;
 }
 
 bool NewtonDir::isInf() const {
-  if (isinf(x) || isinf(xl) || isinf(xu) || isinf(y) || isinf(zl) || isinf(zu))
+  if (isInfVector(x) || isInfVector(xl) || isInfVector(xu) || isInfVector(y) || isInfVector(zl) || isInfVector(zu))
     return true;
   return false;
 }

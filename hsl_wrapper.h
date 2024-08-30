@@ -24,7 +24,7 @@ void wrapper_ma57_factorize(int n, int ne, int *row, int *col, double *val,
 void wrapper_ma57_solve(int n, int ne, int *row, int *col, double *val,
                         void **factors, double *x, struct ma57_control *control,
                         struct ma57_sinfo *sinfo);
-void wrapper_ma57_finalize(void **factors, struct ma57_control *control,
+void wrapper_ma57_finalise(void **factors, struct ma57_control *control,
                            int *info);
 
 // MA86

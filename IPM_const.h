@@ -4,17 +4,17 @@
 enum OptionNla {
   kOptionNlaMin = 0,
   kOptionNlaAugmented = kOptionNlaMin,
-  kOptionNlaNewton, // 1
-  kOptionNlaMax = kOptionNlaNewton,
-  kOptionNlaDefault = kOptionNlaNewton
+  kOptionNlaNormEq,
+  kOptionNlaMax = kOptionNlaNormEq,
+  kOptionNlaDefault = kOptionNlaNormEq
 };
 
 enum OptionPredCor {
-  kOptionPredCorMin = 0,
-  kOptionPredCorAvoid = kOptionPredCorMin,
-  kOptionPredCorUse = 1,
-  kOptionPredCorMax = kOptionPredCorUse,
-  kOptionPredCorDefault = kOptionPredCorUse
+  kOptionPredcorMin = 0,
+  kOptionPredcorOff = kOptionPredcorMin,
+  kOptionPredcorOn = 1,
+  kOptionPredcorMax = kOptionPredcorOn,
+  kOptionPredcorDefault = kOptionPredcorOn
 };
 
 const int kMaxIterations = 100;

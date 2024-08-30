@@ -1,7 +1,7 @@
 #ifndef IPM_AUX_H
 #define IPM_AUX_H
 
-#include "IPM_const.h"
+#include "Ipm_const.h"
 #include "util/HighsSparseMatrix.h"
 #include <string>
 #include <vector>
@@ -47,7 +47,7 @@ public:
   bool isNaN() const;
   bool isInf() const;
 
-  friend class IPM_caller;
+  friend class Ipm;
 };
 
 // =======================================================================
@@ -71,7 +71,7 @@ public:
 
   void print(int iter = 0) const;
 
-  friend class IPM_caller;
+  friend class Ipm;
 };
 
 // =======================================================================
@@ -95,14 +95,14 @@ public:
 
   void print(int iter = 0) const;
 
-  friend class IPM_caller;
+  friend class Ipm;
 };
 
 // =======================================================================
 // OUTPUT
 // =======================================================================
 struct Output {
-  Iterate It{};
+  Iterate it{};
   int iterations{};
   double primal_infeas{};
   double dual_infeas{};

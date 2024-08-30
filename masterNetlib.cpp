@@ -178,16 +178,16 @@ int main() {
     start_time = getWallTime();
 
     // create instance of IPM
-    IPM_caller ipm{};
+    Ipm ipm{};
 
     // ===================================================================================
     // Identify the option values and check their validity
     // ===================================================================================
-    ipm.option_nla = 2;
+    ipm.option_nla_ = 2;
 
     ipm.option_metis = 0;
 
-    ipm.option_predcor = 1;
+    ipm.option_predcor_ = 1;
 
     ipm.option_max_dense_col = 0;
 

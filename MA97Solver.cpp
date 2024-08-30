@@ -1,24 +1,24 @@
 #include "MA97Solver.h"
 
-void MA97Solver::Clear() {
-  if (this->akeep && this->fkeep) {
-    wrapper_ma97_finalise(&this->akeep, &this->fkeep);
+void MA97Solver::clear() {
+  if (this->akeep_ && this->fkeep_) {
+    wrapper_ma97_finalise(&this->akeep_, &this->fkeep_);
   }
-  valid = false;
+  valid_ = false;
 }
 
-int MA97Solver::FactorAS(const HighsSparseMatrix &matrix,
+int MA97Solver::factorAS(const HighsSparseMatrix &matrix,
                          const std::vector<double> &theta) {
 
-  std::cerr << "MA87 does not factorize indefinite matrices\n";
+  std::cerr << "MA97 does not factorize indefinite matrices\n";
   return kDecomposerStatusErrorFactorize;
 }
 
-int MA97Solver::FactorNE(const HighsSparseMatrix &highs_a,
+int MA97Solver::factorNE(const HighsSparseMatrix &highs_a,
                          const std::vector<double> &theta) {
 
   // only execute factorization if it has not been done yet
-  assert(!this->valid);
+  assert(!this->valid_);
 
   // compute normal equations matrix
   HighsSparseMatrix AThetaAT;
@@ -48,57 +48,57 @@ int MA97Solver::FactorNE(const HighsSparseMatrix &highs_a,
   ptr.push_back(val.size());
 
   // ordering with MC68
-  this->order.resize(AThetaAT.num_row_);
-  wrapper_mc68_default_control(&this->control_perm);
+  this->order_.resize(AThetaAT.num_row_);
+  wrapper_mc68_default_control(&this->control_perm_);
   int ord = 1;
-  wrapper_mc68_order(ord, n, ptr.data(), row.data(), this->order.data(),
-                     &this->control_perm, &this->info_perm);
-  if (this->info_perm.flag < 0)
+  wrapper_mc68_order(ord, n, ptr.data(), row.data(), this->order_.data(),
+                     &this->control_perm_, &this->info_perm_);
+  if (this->info_perm_.flag < 0)
     return kDecomposerStatusErrorFactorize;
 
   // factorize with MA97
-  wrapper_ma97_default_control(&this->control);
-  wrapper_ma97_analyse(n, ptr.data(), row.data(), this->order.data(),
-                       &this->akeep, &this->control, &this->info);
-  if (this->info.flag < 0)
+  wrapper_ma97_default_control(&this->control_);
+  wrapper_ma97_analyse(n, ptr.data(), row.data(), this->order_.data(),
+                       &this->akeep_, &this->control_, &this->info_);
+  if (this->info_.flag < 0)
     return kDecomposerStatusErrorFactorize;
 
-  wrapper_ma97_factor(3, n, ptr.data(), row.data(), val.data(), &this->akeep,
-                      &this->fkeep, &this->control, &this->info);
-  if (this->info.flag < 0)
+  wrapper_ma97_factor(3, n, ptr.data(), row.data(), val.data(), &this->akeep_,
+                      &this->fkeep_, &this->control_, &this->info_);
+  if (this->info_.flag < 0)
     return kDecomposerStatusErrorFactorize;
 
-  this->valid = true;
+  this->valid_ = true;
   return kDecomposerStatusOk;
 }
 
-int MA97Solver::SolveNE(const HighsSparseMatrix &highs_a,
+int MA97Solver::solveNE(const HighsSparseMatrix &highs_a,
                         const std::vector<double> &theta,
                         const std::vector<double> &rhs,
                         std::vector<double> &lhs) {
   // only execute the solve if factorization is valid
-  assert(this->valid);
+  assert(this->valid_);
 
   // initialize lhs with rhs
   lhs = rhs;
   int system_size = lhs.size();
 
   // solve with ma97
-  wrapper_ma97_solve(0, 1, system_size, lhs.data(), &this->akeep, &this->fkeep,
-                     &this->control, &this->info);
-  if (this->info.flag < 0)
+  wrapper_ma97_solve(0, 1, system_size, lhs.data(), &this->akeep_, &this->fkeep_,
+                     &this->control_, &this->info_);
+  if (this->info_.flag < 0)
     return kDecomposerStatusErrorFactorize;
 
   return kDecomposerStatusOk;
 }
 
-int MA97Solver::SolveAS(const HighsSparseMatrix &highs_a,
+int MA97Solver::solveAS(const HighsSparseMatrix &highs_a,
                         const std::vector<double> &theta,
                         const std::vector<double> &rhs_x,
                         const std::vector<double> &rhs_y,
                         std::vector<double> &lhs_x,
                         std::vector<double> &lhs_y) {
 
-  std::cerr << "MA87 does not factorize indefinite matrices\n";
+  std::cerr << "MA97 does not factorize indefinite matrices\n";
   return kDecomposerStatusErrorFactorize;
 }

@@ -1,43 +1,45 @@
-#ifndef IPM_CALLER
-#define IPM_CALLER
+#ifndef IPM_H
+#define IPM_H
 
 #include <string>
 
 #include "CholmodSolver.h"
-#include "IPM_aux.h"
-#include "IPM_const.h"
-#include "IPM_model.h"
+#include "HFactorSolver.h"
+#include "Ipm_aux.h"
+#include "Ipm_const.h"
+#include "IpmModel.h"
 #include "LinearSolver.h"
+#include "MA57Solver.h"
 #include "MA86Solver.h"
 #include "MA87Solver.h"
 #include "MA97Solver.h"
 #include "VectorOperations.h"
 #include "util/HighsSparseMatrix.h"
 
-class IPM_caller {
-  IPM_model model;
+class Ipm {
+  IpmModel model_;
 
-  int m{};
-  int n{};
-  bool model_ready{false};
+  int m_{};
+  int n_{};
+  bool model_ready_{false};
 
   // IPM parameters
-  const double sigma_i = 0.5;
-  const double sigma_min = 0.05;
-  const double sigma_max = 0.95;
-  const double alpha_interior_scaling = 0.99;
+  const double sigma_initial_ = 0.5;
+  const double sigma_min_ = 0.05;
+  const double sigma_max_ = 0.95;
+  const double interior_scaling_ = 0.99;
 
   // IPM iterate
-  Iterate It{};
+  Iterate it_{};
 
-  LinearSolver *linsol;
+  LinearSolver* linsol_;
 
-public:
+ public:
   // ===================================================================================
   // Run-time options
   // ===================================================================================
-  int option_nla = kOptionNlaDefault;
-  int option_predcor = kOptionPredCorDefault;
+  int option_nla_ = kOptionNlaDefault;
+  int option_predcor_ = kOptionPredcorDefault;
 
   // ===================================================================================
   // LOAD THE PROBLEM
@@ -53,27 +55,27 @@ public:
   //  >= : add slack -inf <= s_i <=    0
   //
   // ===================================================================================
-  void Load(               // - - - - - - - - - - - - - - -  length
-                           // INPUT
-      const int num_var,   // number of variables
-      const int num_con,   // number of constraints
-      const double *obj,   // objective function c           num_var
-      const double *rhs,   // rhs vector b                   num_con
-      const double *lower, // lower bound vector             num_var
-      const double *upper, // upper bound vector             num_var
-      const int *A_colptr, // column pointers of A           num_var + 1
-      const int *A_rowind, // row indices of A               A_colptr[num_var]
-      const double *A_values, // values of A A_colptr[num_var]
-      const int *constraints, // type of constraints            num_con
-                              // 1: >=, 0: =, -1: <=
-      const std::string &pb_name);
+  void load(                // - - - - - - - - - - - - - - -  length
+                            // INPUT
+      const int num_var,    // number of variables
+      const int num_con,    // number of constraints
+      const double* obj,    // objective function c           num_var
+      const double* rhs,    // rhs vector b                   num_con
+      const double* lower,  // lower bound vector             num_var
+      const double* upper,  // upper bound vector             num_var
+      const int* A_colptr,  // column pointers of A           num_var + 1
+      const int* A_rowind,  // row indices of A               A_colptr[num_var]
+      const double* A_values,  // values of A A_colptr[num_var]
+      const int* constraints,  // type of constraints            num_con
+                               // 1: >=, 0: =, -1: <=
+      const std::string& pb_name);
 
   // ===================================================================================
   // SOLVE THE LP
   // ===================================================================================
-  Output Solve();
+  Output solve();
 
-private:
+ private:
   // ===================================================================================
   // COMPUTE MU
   // ===================================================================================
@@ -85,7 +87,7 @@ private:
   //                j with a finite upper bound
   //
   // ===================================================================================
-  double ComputeMu();
+  double computeMu();
 
   // ===================================================================================
   // COMPUTE RESIDUALS 1,2,3,4
@@ -101,9 +103,9 @@ private:
   // upper/lower bound is not finite.
   //
   // ===================================================================================
-  void ComputeResiduals_1234(
+  void computeResiduals1234(
       // OUTPUT
-      Residuals &Res // residuals
+      Residuals& res  // residuals
   );
 
   // ===================================================================================
@@ -123,13 +125,13 @@ private:
   // upper/lower bound is not finite.
   //
   // ===================================================================================
-  void ComputeResiduals_56(
+  void computeResiduals56(
       // INPUT
-      const double sigmaMu,      // sigma * mu
-      const NewtonDir &DeltaAff, // affine scaling direction (if corrector)
-      bool isCorrector,          // true if corrector, false if predictor
+      const double sigmaMu,        // sigma * mu
+      const NewtonDir& delta_aff,  // affine scaling direction (if corrector)
+      bool is_corrector,           // true if corrector, false if predictor
       // OUTPUT
-      Residuals &Res // residuals
+      Residuals& res  // residuals
   );
 
   // ===================================================================================
@@ -147,10 +149,10 @@ private:
   // the correspoding upper/lower bounds are finite)
   //
   // ===================================================================================
-  std::vector<double> ComputeResiduals_7(
+  std::vector<double> computeResiduals7(
       // INPUT
-      const Residuals &Res,    // residuals
-      bool isCorrector = false // true if corrector, false is predictor
+      const Residuals& res,     // residuals
+      bool is_corrector = false  // true if corrector, false is predictor
   );
 
   // ===================================================================================
@@ -165,13 +167,13 @@ private:
   //  res8 = A * Theta * res7
   //
   // ===================================================================================
-  std::vector<double> ComputeResiduals_8(
+  std::vector<double> computeResiduals8(
       // INPUT
-      const HighsSparseMatrix &highs_a,   // constraint matrix
-      const std::vector<double> &scaling, // scaling vector
-      const Residuals &Res,               // residuals
-      const std::vector<double> &res7,    // residual 7
-      bool isCorrector = false // true if corrector, false is predictor
+      const HighsSparseMatrix& highs_a,    // constraint matrix
+      const std::vector<double>& scaling,  // scaling vector
+      const Residuals& res,                // residuals
+      const std::vector<double>& res7,     // residual 7
+      bool is_corrector = false  // true if corrector, false is predictor
   );
 
   // ===================================================================================
@@ -185,9 +187,9 @@ private:
   // bound is finite.
   //
   // ===================================================================================
-  void ComputeScaling(
+  void computeScaling(
       // OUTPUT
-      std::vector<double> &scaling // diagonal scaling, length n
+      std::vector<double>& scaling  // diagonal scaling, length n
   );
 
   // ===================================================================================
@@ -223,14 +225,14 @@ private:
   //  Do not form Theta = diag( scaling )^{-1} in this case.
   //
   // ===================================================================================
-  int SolveNewtonSystem(
+  int solveNewtonSystem(
       // INPUT
-      const HighsSparseMatrix &highs_a,   // constraint matrix
-      const std::vector<double> &scaling, // diagonal scaling, length n
-      const Residuals &Res,               // current residuals
-      bool isCorrector, // true if corrector, false if predictor
+      const HighsSparseMatrix& highs_a,    // constraint matrix
+      const std::vector<double>& scaling,  // diagonal scaling, length n
+      const Residuals& res,                // current residuals
+      bool is_corrector,  // true if corrector, false if predictor
       // OUTPUT
-      NewtonDir &Delta // Newton direction
+      NewtonDir& delta  // Newton direction
   );
 
   // ===================================================================================
@@ -244,12 +246,12 @@ private:
   //  Deltazu = Xu^{-1} * (res6 - zu * Deltaxu)
   //
   // ===================================================================================
-  void RecoverDirection(
+  void recoverDirection(
       // INPUT
-      const Residuals &Res, // current residuals
-      bool isCorrector,     // true if corrector, false if predictor
+      const Residuals& res,  // current residuals
+      bool is_corrector,      // true if corrector, false if predictor
       // OUTPUT
-      NewtonDir &Delta // Newton directions
+      NewtonDir& delta  // Newton directions
   );
 
   // ===================================================================================
@@ -271,12 +273,12 @@ private:
   // no component of the new iterate is equal to zero.
   //
   // ===================================================================================
-  void ComputeStepSizes(
+  void computeStepSizes(
       // INPUT
-      const NewtonDir &Delta, // Newton direction
+      const NewtonDir& delta,  // Newton direction
       // OUTPUT
-      double &alpha_primal, // primal step-size
-      double &alpha_dual    // dual step-size
+      double& alpha_primal,  // primal step-size
+      double& alpha_dual     // dual step-size
   );
 
   // ===================================================================================
@@ -288,7 +290,7 @@ private:
   // these linear systems are very easy to solve with CG.
   //
   // ===================================================================================
-  void ComputeStartingPoint();
+  void computeStartingPoint();
 
   // ===================================================================================
   // COMPUTE SIGMA FOR CORRECTOR
@@ -302,13 +304,13 @@ private:
   //    sigma = ( mu_aff / mu )^3
   //
   // ===================================================================================
-  double ComputeSigmaCorrector(
+  double computeSigmaCorrector(
       // INPUT
-      const NewtonDir &DeltaAff, // Predictor Newton direction
-      double mu                  // mu of previous iteration
+      const NewtonDir& delta_aff,  // Predictor Newton direction
+      double mu                   // mu of previous iteration
   );
 
-  void CheckResiduals(const NewtonDir &Delta, const Residuals &Res) const;
+  void checkResiduals(const NewtonDir& delta, const Residuals& res) const;
 };
 
 #endif

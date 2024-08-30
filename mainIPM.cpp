@@ -4,14 +4,14 @@
 #include <regex>
 
 #include "Highs.h"
-#include "IPM_caller.h"
+#include "Ipm.h"
 #include "io/Filereader.h"
 
 enum ArgC {
   kMinArgC = 2,
   kModelFileArg = 1,
   kOptionNlaArg,
-  kOptionPredCorArg,
+  kOptionPredcorArg,
   kMaxArgC
 };
 
@@ -173,27 +173,27 @@ int main(int argc, char **argv) {
   start_time = getWallTime();
 
   // create instance of IPM
-  IPM_caller ipm{};
+  Ipm ipm{};
 
   // ===================================================================================
   // Identify the option values and check their validity
   // ===================================================================================
-  ipm.option_nla =
+  ipm.option_nla_ =
       argc > kOptionNlaArg ? atoi(argv[kOptionNlaArg]) : kOptionNlaDefault;
-  if (ipm.option_nla < kOptionNlaMin || ipm.option_nla > kOptionNlaMax) {
-    std::cerr << "Illegal value of " << ipm.option_nla
+  if (ipm.option_nla_ < kOptionNlaMin || ipm.option_nla_ > kOptionNlaMax) {
+    std::cerr << "Illegal value of " << ipm.option_nla_
               << " for option_nla: must be in [" << kOptionNlaMin << ", "
               << kOptionNlaMax << "]\n";
     return 1;
   }
 
-  ipm.option_predcor = argc > kOptionPredCorArg ? atoi(argv[kOptionPredCorArg])
-                                                : kOptionPredCorDefault;
-  if (ipm.option_predcor < kOptionPredCorMin ||
-      ipm.option_predcor > kOptionPredCorMax) {
-    std::cerr << "Illegal value of " << ipm.option_predcor
-              << " for option_predcor: must be in [" << kOptionPredCorMin
-              << ", " << kOptionPredCorMax << "]\n";
+  ipm.option_predcor_ = argc > kOptionPredcorArg ? atoi(argv[kOptionPredcorArg])
+                                                : kOptionPredcorDefault;
+  if (ipm.option_predcor_ < kOptionPredcorMin ||
+      ipm.option_predcor_ > kOptionPredcorMax) {
+    std::cerr << "Illegal value of " << ipm.option_predcor_
+              << " for option_predcor: must be in [" << kOptionPredcorMin
+              << ", " << kOptionPredcorMax << "]\n";
     return 1;
   }
 
@@ -205,14 +205,14 @@ int main(int argc, char **argv) {
   pb_name = match[1];
 
   // load the problem
-  ipm.Load(n, m, obj.data(), rhs.data(), lower.data(), upper.data(),
+  ipm.load(n, m, obj.data(), rhs.data(), lower.data(), upper.data(),
            colptr.data(), rowind.data(), values.data(), constraints.data(),
            pb_name);
   double load_time = getWallTime() - start_time;
 
   // solve LP
   start_time = getWallTime();
-  ipm.Solve();
+  ipm.solve();
   double optimize_time = getWallTime() - start_time;
 
   double run_time = getWallTime() - start_time0;
