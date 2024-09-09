@@ -8,10 +8,9 @@
 // LOAD THE PROBLEM
 // =======================================================================
 void Ipm::load(const int num_var, const int num_con, const double* obj,
-                      const double* rhs, const double* lower,
-                      const double* upper, const int* A_colptr,
-                      const int* A_rowind, const double* A_values,
-                      const int* constraints, const std::string& pb_name) {
+               const double* rhs, const double* lower, const double* upper,
+               const int* A_colptr, const int* A_rowind, const double* A_values,
+               const int* constraints, const std::string& pb_name) {
   if (!obj || !rhs || !lower || !upper || !A_colptr || !A_rowind || !A_values ||
       !constraints)
     return;
@@ -116,9 +115,12 @@ Output Ipm::solve() {
 
   printf("-----------------------------------------\n");
   printf("Problem %s\n", model_.pb_name_.c_str());
-  printf("A rows %d\n", model_.A_.num_row_);
-  printf("A cols %d\n", model_.A_.num_col_);
-  printf("A nnz  %d\n", model_.A_.numNz());
+  printf("\trows %d\n", model_.A_.num_row_);
+  printf("\tcols %d\n", model_.A_.num_col_);
+  printf("\tnnz  %d\n", model_.A_.numNz());
+  printf("\tusing %s\n", option_nla_ == kOptionNlaAugmented
+                             ? "augmented system"
+                             : "normal equations");
   printf("-----------------------------------------\n");
 
   double timer_iterations = getWallTime();
@@ -147,6 +149,12 @@ Output Ipm::solve() {
   // linsol_ = &cholmod_solver;
   linsol_ = &ma86_solver;
   // linsol_ = &hfactor_solver;
+
+  linsol2_ = &hfactor_solver;
+
+  // perform any preliminary calculations for the linear solver
+  linsol_->setup(model_.A_, option_nla_);
+  linsol2_->setup(model_.A_, option_nla_);
 
   // comment the following line to use default starting point
   computeStartingPoint();
@@ -199,6 +207,7 @@ Output Ipm::solve() {
 
     // Clear any existing data in the linear solver now that scaling has changed
     linsol_->clear();
+    linsol2_->clear();
 
     // Initialize Newton direction
     NewtonDir delta(m_, n_);
@@ -209,11 +218,11 @@ Output Ipm::solve() {
       // Heuristic to choose sigma
       double sigma{};
       if (iter == 1) {
-        sigma = sigma_initial_;
+        sigma = kSigmaInitial;
       } else {
         sigma = pow(std::max(1.0 - alpha_primal, 1.0 - alpha_dual), 5.0);
-        sigma = std::max(sigma, sigma_min_);
-        sigma = std::min(sigma, sigma_max_);
+        sigma = std::max(sigma, kSigmaMin);
+        sigma = std::min(sigma, kSigmaMax);
       }
 
       // Compute last two residuals with correct value of sigma
@@ -410,9 +419,8 @@ void Ipm::computeResiduals1234(Residuals& res) {
   assert(!res.isInf());
 }
 
-void Ipm::computeResiduals56(const double sigma_mu,
-                                    const NewtonDir& delta_aff,
-                                    bool is_corrector, Residuals& res) {
+void Ipm::computeResiduals56(const double sigma_mu, const NewtonDir& delta_aff,
+                             bool is_corrector, Residuals& res) {
   if (!is_corrector) {
     for (int i = 0; i < n_; ++i) {
       // res5
@@ -450,7 +458,7 @@ void Ipm::computeResiduals56(const double sigma_mu,
 }
 
 std::vector<double> Ipm::computeResiduals7(const Residuals& res,
-                                                  bool is_corrector) {
+                                           bool is_corrector) {
   std::vector<double> res7;
 
   if (!is_corrector) {
@@ -479,9 +487,11 @@ std::vector<double> Ipm::computeResiduals7(const Residuals& res,
   return res7;
 }
 
-std::vector<double> Ipm::computeResiduals8(
-    const HighsSparseMatrix& A, const std::vector<double>& scaling,
-    const Residuals& res, const std::vector<double>& res7, bool is_corrector) {
+std::vector<double> Ipm::computeResiduals8(const HighsSparseMatrix& A,
+                                           const std::vector<double>& scaling,
+                                           const Residuals& res,
+                                           const std::vector<double>& res7,
+                                           bool is_corrector) {
   std::vector<double> res8;
 
   if (is_corrector) {
@@ -522,9 +532,9 @@ void Ipm::computeScaling(std::vector<double>& scaling) {
 // SOLVE NEWTON SYSTEM
 // =======================================================================
 int Ipm::solveNewtonSystem(const HighsSparseMatrix& A,
-                                  const std::vector<double>& scaling,
-                                  const Residuals& res, bool is_corrector,
-                                  NewtonDir& delta) {
+                           const std::vector<double>& scaling,
+                           const Residuals& res, bool is_corrector,
+                           NewtonDir& delta) {
   // Compute residual 7
   std::vector<double> res7{computeResiduals7(res, is_corrector)};
 
@@ -553,6 +563,7 @@ int Ipm::solveNewtonSystem(const HighsSparseMatrix& A,
 
     if (first_call_with_theta) {
       int newton_invert_status = linsol_->factorNE(A, theta);
+      linsol2_->factorNE(A, theta);
 
       if (newton_invert_status) return newton_invert_status;
     }
@@ -560,6 +571,22 @@ int Ipm::solveNewtonSystem(const HighsSparseMatrix& A,
     int newton_solve_status = linsol_->solveNE(A, theta, res8, delta.y);
 
     if (newton_solve_status) return newton_solve_status;
+
+    {
+      std::vector<double> temp(m_, 0.0);
+      linsol2_->solveNE(A, theta, res8, temp);
+
+      double diff{};
+      double normy{};
+      for (int i = 0; i < m_; ++i) {
+        diff += (temp[i] - delta.y[i]) * (temp[i] - delta.y[i]);
+        normy += delta.y[i] * delta.y[i];
+      }
+      diff = sqrt(diff);
+      normy = sqrt(normy);
+
+      printf("Error: %e\n", diff / normy);
+    }
 
     // Compute delta.x
     // *********************************************************************
@@ -576,6 +603,7 @@ int Ipm::solveNewtonSystem(const HighsSparseMatrix& A,
   if (use_direct_augmented) {
     if (first_call_with_theta) {
       int augmented_invert_status = linsol_->factorAS(A, theta);
+      linsol2_->factorAS(A, theta);
       if (augmented_invert_status) return augmented_invert_status;
     }
 
@@ -589,6 +617,27 @@ int Ipm::solveNewtonSystem(const HighsSparseMatrix& A,
     }
 
     linsol_->solveAS(A, theta, res7, res.res1, delta.x, delta.y);
+
+    {
+      std::vector<double> tempx(n_, 0.0);
+      std::vector<double> tempy(m_, 0.0);
+      linsol2_->solveAS(A, theta, res7, res.res1, tempx, tempy);
+
+      double diff{};
+      double normy{};
+      for (int i = 0; i < m_; ++i) {
+        diff += (tempy[i] - delta.y[i]) * (tempy[i] - delta.y[i]);
+        normy += delta.y[i] * delta.y[i];
+      }
+      for (int i = 0; i < n_; ++i) {
+        diff += (tempx[i] - delta.x[i]) * (tempx[i] - delta.x[i]);
+        normy += delta.x[i] * delta.x[i];
+      }
+      diff = sqrt(diff);
+      normy = sqrt(normy);
+
+      printf("Error: %e\n", diff / normy);
+    }
   }
 
   return 0;
@@ -598,7 +647,7 @@ int Ipm::solveNewtonSystem(const HighsSparseMatrix& A,
 // FULL NEWTON DIRECTION
 // =======================================================================
 void Ipm::recoverDirection(const Residuals& res, bool is_corrector,
-                                  NewtonDir& delta) {
+                           NewtonDir& delta) {
   if (!is_corrector) {
     // Deltaxl
     delta.xl = delta.x;
@@ -635,7 +684,7 @@ void Ipm::recoverDirection(const Residuals& res, bool is_corrector,
 // COMPUTE STEP-SIZES
 // =======================================================================
 void Ipm::computeStepSizes(const NewtonDir& delta, double& alpha_primal,
-                                  double& alpha_dual) {
+                           double& alpha_dual) {
   alpha_primal = 1.0;
   for (int i = 0; i < n_; ++i) {
     if (delta.xl[i] < 0 && model_.hasLb(i)) {
@@ -645,7 +694,7 @@ void Ipm::computeStepSizes(const NewtonDir& delta, double& alpha_primal,
       alpha_primal = std::min(alpha_primal, -it_.xu[i] / delta.xu[i]);
     }
   }
-  alpha_primal *= interior_scaling_;
+  alpha_primal *= kInteriorScaling;
 
   alpha_dual = 1.0;
   for (int i = 0; i < n_; ++i) {
@@ -656,7 +705,7 @@ void Ipm::computeStepSizes(const NewtonDir& delta, double& alpha_primal,
       alpha_dual = std::min(alpha_dual, -it_.zu[i] / delta.zu[i]);
     }
   }
-  alpha_dual *= interior_scaling_;
+  alpha_dual *= kInteriorScaling;
 
   assert(alpha_primal > 0 && alpha_primal < 1 && alpha_dual > 0 &&
          alpha_dual < 1);
@@ -707,8 +756,8 @@ void Ipm::computeStartingPoint() {
     std::vector<double> rhs_x(n_);
     for (int i = 0; i < n_; ++i) rhs_x[i] = -it_.x[i];
     std::vector<double> lhs_x(n_);
-    int augmented_solve_status = linsol_->solveAS(model_.A_, temp_scaling, rhs_x,
-                                                  model_.rhs_, lhs_x, temp_m);
+    int augmented_solve_status = linsol_->solveAS(
+        model_.A_, temp_scaling, rhs_x, model_.rhs_, lhs_x, temp_m);
 
     if (augmented_solve_status) std::cerr << "Error in solution of A*A^T\n";
   }
@@ -768,8 +817,8 @@ void Ipm::computeStartingPoint() {
     std::vector<double> rhs_y(m_, 0.0);
     std::vector<double> lhs_x(n_);
 
-    int augmented_solve_status =
-        linsol_->solveAS(model_.A_, temp_scaling, model_.obj_, rhs_y, lhs_x, it_.y);
+    int augmented_solve_status = linsol_->solveAS(
+        model_.A_, temp_scaling, model_.obj_, rhs_y, lhs_x, it_.y);
     if (augmented_solve_status) std::cerr << "Error in solution of A*A^T\n";
   }
   // *********************************************************************
@@ -849,8 +898,7 @@ void Ipm::computeStartingPoint() {
   // *********************************************************************
 }
 
-double Ipm::computeSigmaCorrector(const NewtonDir& delta_aff,
-                                         double mu) {
+double Ipm::computeSigmaCorrector(const NewtonDir& delta_aff, double mu) {
   // stepsizes of predictor direction
   double alpha_p{};
   double alpha_d{};
@@ -879,8 +927,7 @@ double Ipm::computeSigmaCorrector(const NewtonDir& delta_aff,
   return ratio * ratio * ratio;
 }
 
-void Ipm::checkResiduals(const NewtonDir& delta,
-                                const Residuals& res) const {
+void Ipm::checkResiduals(const NewtonDir& delta, const Residuals& res) const {
   std::vector<double> temp_m(m_, 0.0);
   std::vector<double> temp_n(n_, 0.0);
 

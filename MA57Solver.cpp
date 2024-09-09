@@ -9,7 +9,7 @@ void MA57Solver::clear() {
 
 int MA57Solver::factorAS(const HighsSparseMatrix& matrix,
                          const std::vector<double>& theta) {
-  std::cerr << "MA97 does not factorize indefinite matrices\n";
+  std::cerr << "MA57 does not factorize indefinite matrices\n";
   return kDecomposerStatusErrorFactorize;
 }
 
@@ -25,11 +25,10 @@ int MA57Solver::factorNE(const HighsSparseMatrix& highs_a,
 
   // initialize data to extract lower triangle
   int n = AThetaAT.num_col_;
-  const int array_base = 0;
   std::vector<int> ptr;
 
   // Extract lower triangular part of AAT
-  for (int c = 0; c < AThetaAT.num_col_; c++) {
+  for (int c = 0; c < n; c++) {
     ptr.push_back(val_.size());
     for (int idx = AThetaAT.start_[c]; idx < AThetaAT.start_[c + 1];
          idx++) {
@@ -96,6 +95,6 @@ int MA57Solver::solveAS(const HighsSparseMatrix& highs_a,
                         const std::vector<double>& rhs_y,
                         std::vector<double>& lhs_x,
                         std::vector<double>& lhs_y) {
-  std::cerr << "MA97 does not factorize indefinite matrices\n";
+  std::cerr << "MA57 does not factorize indefinite matrices\n";
   return kDecomposerStatusErrorFactorize;
 }

@@ -5,9 +5,9 @@
 #include "hsl_wrapper.h"
 
 class MA87Solver : public LinearSolver {
-public:
+ public:
   // MA87 data
-  void *keep_;
+  void* keep_;
   ma87_control_d control_;
   ma87_info_d info_;
 
@@ -17,18 +17,19 @@ public:
   std::vector<int> order_;
 
   // Functions
-  int factorAS(const HighsSparseMatrix &highs_a,
-               const std::vector<double> &theta) override;
-  int factorNE(const HighsSparseMatrix &highs_a,
-               const std::vector<double> &theta) override;
-  int solveNE(const HighsSparseMatrix &highs_a,
-              const std::vector<double> &theta, const std::vector<double> &rhs,
-              std::vector<double> &lhs) override;
-  int solveAS(const HighsSparseMatrix &highs_a,
-              const std::vector<double> &theta,
-              const std::vector<double> &rhs_x,
-              const std::vector<double> &rhs_y, std::vector<double> &lhs_x,
-              std::vector<double> &lhs_y) override;
+  int factorAS(const HighsSparseMatrix& highs_a,
+               const std::vector<double>& theta) override;
+  int factorNE(const HighsSparseMatrix& highs_a,
+               const std::vector<double>& theta) override;
+  int solveNE(const HighsSparseMatrix& highs_a,
+              const std::vector<double>& theta, const std::vector<double>& rhs,
+              std::vector<double>& lhs) override;
+  int solveAS(const HighsSparseMatrix& highs_a,
+              const std::vector<double>& theta,
+              const std::vector<double>& rhs_x,
+              const std::vector<double>& rhs_y, std::vector<double>& lhs_x,
+              std::vector<double>& lhs_y) override;
+  void setup(const HighsSparseMatrix& A, int type) override{};
   void clear() override;
 };
 

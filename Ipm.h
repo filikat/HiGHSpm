@@ -23,16 +23,12 @@ class Ipm {
   int n_{};
   bool model_ready_{false};
 
-  // IPM parameters
-  const double sigma_initial_ = 0.5;
-  const double sigma_min_ = 0.05;
-  const double sigma_max_ = 0.95;
-  const double interior_scaling_ = 0.99;
-
   // IPM iterate
   Iterate it_{};
 
   LinearSolver* linsol_;
+
+  LinearSolver* linsol2_;
 
  public:
   // ===================================================================================
