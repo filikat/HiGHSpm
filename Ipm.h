@@ -4,10 +4,11 @@
 #include <string>
 
 #include "CholmodSolver.h"
+#include "FactorHiGHSSolver.h"
 #include "HFactorSolver.h"
+#include "IpmModel.h"
 #include "Ipm_aux.h"
 #include "Ipm_const.h"
-#include "IpmModel.h"
 #include "LinearSolver.h"
 #include "MA57Solver.h"
 #include "MA86Solver.h"
@@ -147,7 +148,7 @@ class Ipm {
   // ===================================================================================
   std::vector<double> computeResiduals7(
       // INPUT
-      const Residuals& res,     // residuals
+      const Residuals& res,      // residuals
       bool is_corrector = false  // true if corrector, false is predictor
   );
 
@@ -245,7 +246,7 @@ class Ipm {
   void recoverDirection(
       // INPUT
       const Residuals& res,  // current residuals
-      bool is_corrector,      // true if corrector, false if predictor
+      bool is_corrector,     // true if corrector, false if predictor
       // OUTPUT
       NewtonDir& delta  // Newton directions
   );
@@ -303,7 +304,7 @@ class Ipm {
   double computeSigmaCorrector(
       // INPUT
       const NewtonDir& delta_aff,  // Predictor Newton direction
-      double mu                   // mu of previous iteration
+      double mu                    // mu of previous iteration
   );
 
   void checkResiduals(const NewtonDir& delta, const Residuals& res) const;

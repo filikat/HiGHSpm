@@ -2,7 +2,6 @@
 # paths
 HIGHS_PATH = $(HOME)/Documents/HiGHS
 CHOLMOD_PATH = $(HOME)/Documents/SuiteSparse
-QDLDL_PATH = $(HOME)/Documents/qdldl
 METIS_PATH = $(HOME)/Documents/METIS
 LOCAL_PATH = $(HOME)/local
 
@@ -18,8 +17,15 @@ cpp_sources = \
 		MA87Solver.cpp \
 		MA97Solver.cpp \
 		CholmodSolver.cpp \
-		HFactorSolver.cpp
-c_sources = hsl_wrapper.c
+		HFactorSolver.cpp \
+		FactorHiGHSSolver.cpp \
+		../FactorHiGHS/Analyse.cpp \
+		../FactorHiGHS/Auxiliary.cpp \
+		../FactorHiGHS/Factorise.cpp \
+		../FactorHiGHS/Numeric.cpp \
+		../FactorHiGHS/Symbolic.cpp 
+c_sources = hsl_wrapper.c \
+			../FactorHiGHS/DenseFact.c
 
 # binary file name
 binary_name = ipm
@@ -39,12 +45,12 @@ CFLAGS = -pthread -O3
 OPENMP_FLAGS = -Xclang -fopenmp -I/opt/homebrew/opt/libomp/include -L/opt/homebrew/opt/libomp/lib -lomp
 
 # rpaths for shared libraries
-rpaths = -rpath $(CHOLMOD_PATH)/lib/ -rpath $(QDLDL_PATH)/build/out/ -rpath $(LOCAL_PATH)/lib/
+rpaths = -rpath $(CHOLMOD_PATH)/lib/ -rpath $(LOCAL_PATH)/lib/
 
 # includes and libraries
-includes = -I$(HIGHS_PATH)/build -I$(HIGHS_PATH)/src/ -I$(CHOLMOD_PATH)/include -I$(QDLDL_PATH)/include -I$(METIS_PATH)/include -I$(LOCAL_PATH)/include
-libs_path = -L$(HIGHS_PATH)/build/lib -L$(CHOLMOD_PATH)/lib -L$(QDLDL_PATH)/build/out -L$(METIS_PATH)/build/libmetis -L$(LOCAL_PATH)/lib
-libs = -lhighs -lcholmod -lqdldl -lmetis -lhsl_ma57 -lhsl_ma86 -lhsl_ma87 -lhsl_ma97 -lhsl_mc68 -lfakemetis -lGKlib
+includes = -I$(HIGHS_PATH)/build -I$(HIGHS_PATH)/src/ -I$(CHOLMOD_PATH)/include -I$(METIS_PATH)/include -I$(LOCAL_PATH)/include
+libs_path = -L$(HIGHS_PATH)/build/lib -L$(CHOLMOD_PATH)/lib -L$(METIS_PATH)/build/libmetis -L$(LOCAL_PATH)/lib
+libs = -lhighs -lcholmod -lmetis -lhsl_ma57 -lhsl_ma86 -lhsl_ma87 -lhsl_ma97 -lhsl_mc68 -lfakemetis -lGKlib -llapack -lblas
 
 # name of objects
 cpp_objects = $(cpp_sources:%.cpp=$(OBJDIR)/%.o)

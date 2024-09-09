@@ -146,11 +146,13 @@ Output Ipm::solve() {
   MA87Solver ma87_solver;
   MA97Solver ma97_solver;
   HFactorSolver hfactor_solver;
+  FactorHiGHSSolver factorHiGHS_solver;
   // linsol_ = &cholmod_solver;
-  linsol_ = &ma86_solver;
+  linsol_ = &factorHiGHS_solver;
   // linsol_ = &hfactor_solver;
 
-  linsol2_ = &hfactor_solver;
+  linsol2_ = &cholmod_solver;
+  // linsol2_ = &hfactor_solver;
 
   // perform any preliminary calculations for the linear solver
   linsol_->setup(model_.A_, option_nla_);
