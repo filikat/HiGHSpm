@@ -38,8 +38,8 @@ CC=clang
 CPP=clang++
 
 # compiler flags
-CPPFLAGS = -pthread -std=c++11 -O3 -Wno-deprecated
-CFLAGS = -pthread -O3
+CPPFLAGS = -std=c++11 -O3 -g3 -Wno-deprecated
+CFLAGS = -O3 -g3
 
 # mess to link openmp on mac
 OPENMP_FLAGS = -Xclang -fopenmp -I/opt/homebrew/opt/libomp/include -L/opt/homebrew/opt/libomp/lib -lomp

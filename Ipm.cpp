@@ -151,15 +151,16 @@ Output Ipm::solve() {
   linsol_ = &factorHiGHS_solver;
   // linsol_ = &hfactor_solver;
 
-  linsol2_ = &cholmod_solver;
-  // linsol2_ = &hfactor_solver;
+   //linsol2_ = &ma87_solver;
+  linsol2_ = &hfactor_solver;
 
   // perform any preliminary calculations for the linear solver
   linsol_->setup(model_.A_, option_nla_);
   linsol2_->setup(model_.A_, option_nla_);
 
   // comment the following line to use default starting point
-  computeStartingPoint();
+  int startStatus = computeStartingPoint();
+  if (startStatus) return {};
 
   // initialize residuals
   Residuals res(m_, n_);
@@ -716,7 +717,7 @@ void Ipm::computeStepSizes(const NewtonDir& delta, double& alpha_primal,
 // ===================================================================================
 // COMPUTE STARTING POINT
 // ===================================================================================
-void Ipm::computeStartingPoint() {
+int Ipm::computeStartingPoint() {
   // *********************************************************************
   // x starting point
   // *********************************************************************
@@ -740,11 +741,11 @@ void Ipm::computeStartingPoint() {
 
     // factorize A*A^T
     int newton_invert_status = linsol_->factorNE(model_.A_, temp_scaling);
-    if (newton_invert_status) std::cerr << "Error in factorization of A*A^T\n";
+    if (newton_invert_status) return newton_invert_status;
 
     int newton_solve_status =
         linsol_->solveNE(model_.A_, temp_scaling, it_.y, temp_m);
-    if (newton_solve_status) std::cerr << "Error in solution of A*A^T\n";
+    if (newton_solve_status) return newton_solve_status;
 
   } else if (option_nla_ == kOptionNlaAugmented) {
     // obtain solution of A*A^T * dx = b-A*x by solving
@@ -752,8 +753,7 @@ void Ipm::computeStartingPoint() {
     // [  A   0 ] [ dx] = [ b ]
 
     int augmented_invert_status = linsol_->factorAS(model_.A_, temp_scaling);
-    if (augmented_invert_status)
-      std::cerr << "Error in factorization of A*A^T\n";
+    if (augmented_invert_status) return augmented_invert_status;
 
     std::vector<double> rhs_x(n_);
     for (int i = 0; i < n_; ++i) rhs_x[i] = -it_.x[i];
@@ -761,7 +761,7 @@ void Ipm::computeStartingPoint() {
     int augmented_solve_status = linsol_->solveAS(
         model_.A_, temp_scaling, rhs_x, model_.rhs_, lhs_x, temp_m);
 
-    if (augmented_solve_status) std::cerr << "Error in solution of A*A^T\n";
+    if (augmented_solve_status) return augmented_solve_status;
   }
 
   // compute dx = A^T * (A*A^T)^{-1} * (b-A*x) and store the result in xl
@@ -809,7 +809,7 @@ void Ipm::computeStartingPoint() {
 
     int newton_solve_status =
         linsol_->solveNE(model_.A_, temp_scaling, temp_m, it_.y);
-    if (newton_solve_status) std::cerr << "Error in solution of A*A^T\n";
+    if (newton_solve_status) return newton_solve_status;
 
   } else if (option_nla_ == kOptionNlaAugmented) {
     // obtain solution of A*A^T * y = A*c by solving
@@ -821,7 +821,7 @@ void Ipm::computeStartingPoint() {
 
     int augmented_solve_status = linsol_->solveAS(
         model_.A_, temp_scaling, model_.obj_, rhs_y, lhs_x, it_.y);
-    if (augmented_solve_status) std::cerr << "Error in solution of A*A^T\n";
+    if (augmented_solve_status) return augmented_solve_status;
   }
   // *********************************************************************
 
@@ -898,6 +898,8 @@ void Ipm::computeStartingPoint() {
     }
   }
   // *********************************************************************
+
+  return kDecomposerStatusOk;
 }
 
 double Ipm::computeSigmaCorrector(const NewtonDir& delta_aff, double mu) {

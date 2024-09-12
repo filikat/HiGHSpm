@@ -287,7 +287,7 @@ class Ipm {
   // these linear systems are very easy to solve with CG.
   //
   // ===================================================================================
-  void computeStartingPoint();
+  int computeStartingPoint();
 
   // ===================================================================================
   // COMPUTE SIGMA FOR CORRECTOR

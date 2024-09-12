@@ -26,10 +26,12 @@ void FactorHiGHSSolver::setup(const HighsSparseMatrix& A, int type) {
     for (int i = 0; i < nA; ++i) {
       // diagonal element
       rowsLower[next] = i;
+      ++next;
 
       // column of A
       for (int el = A.start_[i]; el < A.start_[i + 1]; ++el) {
         rowsLower[next] = A.index_[el] + nA;
+        ++next;
       }
 
       ptrLower[i + 1] = next;
@@ -38,6 +40,7 @@ void FactorHiGHSSolver::setup(const HighsSparseMatrix& A, int type) {
     // 2,2 block
     for (int i = 0; i < mA; ++i) {
       rowsLower[next] = nA + i;
+      ++next;
       ptrLower[nA + i + 1] = ptrLower[nA + i] + 1;
     }
 
@@ -63,7 +66,7 @@ void FactorHiGHSSolver::setup(const HighsSparseMatrix& A, int type) {
   // Perform analyse phase
   Analyse analyse(rowsLower, ptrLower, fact_type);
   analyse.run(S_);
-  // S_.print();
+  //S_.print();
 }
 
 int FactorHiGHSSolver::factorAS(const HighsSparseMatrix& A,
@@ -90,7 +93,7 @@ int FactorHiGHSSolver::factorAS(const HighsSparseMatrix& A,
   for (int i = 0; i < nA; ++i) {
     // diagonal element
     rowsLower[next] = i;
-    valLower[next++] = -1 / theta[i];
+    valLower[next++] = -1.0 / theta[i];
 
     // column of A
     for (int el = A.start_[i]; el < A.start_[i + 1]; ++el) {
@@ -104,7 +107,7 @@ int FactorHiGHSSolver::factorAS(const HighsSparseMatrix& A,
   // 2,2 block
   for (int i = 0; i < mA; ++i) {
     rowsLower[next] = nA + i;
-    valLower[next++] = 1e-6;
+    valLower[next++] = 0.0;
     ptrLower[nA + i + 1] = ptrLower[nA + i] + 1;
   }
 
