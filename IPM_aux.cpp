@@ -5,16 +5,19 @@
 
 #include "VectorOperations.h"
 
-void scaling2theta(const std::vector<double> &scaling,
-                   std::vector<double> &theta) {
+void scaling2theta(const std::vector<double>& scaling,
+                   std::vector<double>& theta) {
   const int dim = scaling.size();
   theta.resize(dim);
-  for (int i = 0; i < dim; i++)
-    theta[i] = 1 / scaling[i];
+  for (int i = 0; i < dim; i++) theta[i] = 1 / scaling[i];
 }
 
 Residuals::Residuals(int m, int n)
-    : res1(m, 0.0), res2(n, 0.0), res3(n, 0.0), res4(n, 0.0), res5(n, 0.0),
+    : res1(m, 0.0),
+      res2(n, 0.0),
+      res3(n, 0.0),
+      res4(n, 0.0),
+      res5(n, 0.0),
       res6(n, 0.0) {}
 
 void Residuals::print(int iter) const {
@@ -66,15 +69,15 @@ void Residuals::print(int iter) const {
 }
 
 bool Residuals::isNaN() const {
-  if (isNanVector(res1) || isNanVector(res2) || isNanVector(res3) || isNanVector(res4) || isNanVector(res5) ||
-      isNanVector(res6))
+  if (isNanVector(res1) || isNanVector(res2) || isNanVector(res3) ||
+      isNanVector(res4) || isNanVector(res5) || isNanVector(res6))
     return true;
   return false;
 }
 
 bool Residuals::isInf() const {
-  if (isInfVector(res1) || isInfVector(res2) || isInfVector(res3) || isInfVector(res4) || isInfVector(res5) ||
-      isInfVector(res6))
+  if (isInfVector(res1) || isInfVector(res2) || isInfVector(res3) ||
+      isInfVector(res4) || isInfVector(res5) || isInfVector(res6))
     return true;
   return false;
 }
@@ -83,13 +86,15 @@ Iterate::Iterate(int m, int n)
     : x(n, 0.0), y(m, 0.0), xl(n, 1.0), xu(n, 1.0), zl(n, 1.0), zu(n, 1.0) {}
 
 bool Iterate::isNaN() const {
-  if (isNanVector(x) || isNanVector(xl) || isNanVector(xu) || isNanVector(y) || isNanVector(zl) || isNanVector(zu))
+  if (isNanVector(x) || isNanVector(xl) || isNanVector(xu) || isNanVector(y) ||
+      isNanVector(zl) || isNanVector(zu))
     return true;
   return false;
 }
 
 bool Iterate::isInf() const {
-  if (isInfVector(x) || isInfVector(xl) || isInfVector(xu) || isInfVector(y) || isInfVector(zl) || isInfVector(zu))
+  if (isInfVector(x) || isInfVector(xl) || isInfVector(xu) || isInfVector(y) ||
+      isInfVector(zl) || isInfVector(zu))
     return true;
   return false;
 }
@@ -146,13 +151,15 @@ NewtonDir::NewtonDir(int m, int n)
     : x(n, 0.0), y(m, 0.0), xl(n, 0.0), xu(n, 0.0), zl(n, 0.0), zu(n, 0.0) {}
 
 bool NewtonDir::isNaN() const {
-  if (isNanVector(x) || isNanVector(xl) || isNanVector(xu) || isNanVector(y) || isNanVector(zl) || isNanVector(zu))
+  if (isNanVector(x) || isNanVector(xl) || isNanVector(xu) || isNanVector(y) ||
+      isNanVector(zl) || isNanVector(zu))
     return true;
   return false;
 }
 
 bool NewtonDir::isInf() const {
-  if (isInfVector(x) || isInfVector(xl) || isInfVector(xu) || isInfVector(y) || isInfVector(zl) || isInfVector(zu))
+  if (isInfVector(x) || isInfVector(xl) || isInfVector(xu) || isInfVector(y) ||
+      isInfVector(zl) || isInfVector(zu))
     return true;
   return false;
 }
@@ -205,8 +212,8 @@ void NewtonDir::print(int iter) const {
   out_file.close();
 }
 
-int computeAThetaAT(const HighsSparseMatrix &matrix,
-                    const std::vector<double> &theta, HighsSparseMatrix &AAT,
+int computeAThetaAT(const HighsSparseMatrix& matrix,
+                    const std::vector<double>& theta, HighsSparseMatrix& AAT,
                     const int max_num_nz) {
   // Create a row-wise copy of the matrix
   HighsSparseMatrix AT = matrix;
@@ -232,14 +239,12 @@ int computeAThetaAT(const HighsSparseMatrix &matrix,
     for (int iRowEl = AT.start_[iRow]; iRowEl < AT.start_[iRow + 1]; iRowEl++) {
       int iCol = AT.index_[iRowEl];
       const double theta_value = !theta.empty() ? theta[iCol] : 1;
-      if (!theta_value)
-        continue;
+      if (!theta_value) continue;
       const double row_value = theta_value * AT.value_[iRowEl];
       for (int iColEl = matrix.start_[iCol]; iColEl < matrix.start_[iCol + 1];
            iColEl++) {
         int iRow1 = matrix.index_[iColEl];
-        if (iRow1 < iRow)
-          continue;
+        if (iRow1 < iRow) continue;
         double term = row_value * matrix.value_[iColEl];
         if (!AAT_col_in_index[iRow1]) {
           // This entry is not yet in the list of possible nonzeros
@@ -256,25 +261,23 @@ int computeAThetaAT(const HighsSparseMatrix &matrix,
       int iCol = AAT_col_index[iEl];
       assert(iCol >= iRow);
       const double value = AAT_col_value[iCol];
-      if (std::abs(value) > 1e-10) {
-        non_zero_values.emplace_back(iRow, iCol, value);
-        const int num_new_nz = iRow != iCol ? 2 : 1;
-        if (AAT_num_nz + num_new_nz >= max_num_nz)
-          return kDecomposerStatusErrorOom;
-        AAT.start_[iRow + 1]++;
-        if (iRow != iCol)
-          AAT.start_[iCol + 1]++;
-        AAT_num_nz += num_new_nz;
-      }
+
+      non_zero_values.emplace_back(iRow, iCol, value);
+      const int num_new_nz = iRow != iCol ? 2 : 1;
+      if (AAT_num_nz + num_new_nz >= max_num_nz)
+        return kDecomposerStatusErrorOom;
+      AAT.start_[iRow + 1]++;
+      if (iRow != iCol) AAT.start_[iCol + 1]++;
+      AAT_num_nz += num_new_nz;
+
       AAT_col_value[iCol] =
-          0; // Not strictly necessary, but simplifies debugging
+          0;  // Not strictly necessary, but simplifies debugging
       AAT_col_in_index[iCol] = false;
     }
   }
 
   // Prefix sum to get the correct column pointers
-  for (int i = 0; i < AAT_dim; ++i)
-    AAT.start_[i + 1] += AAT.start_[i];
+  for (int i = 0; i < AAT_dim; ++i) AAT.start_[i + 1] += AAT.start_[i];
 
   AAT.index_.resize(AAT.start_.back());
   AAT.value_.resize(AAT.start_.back());
@@ -284,14 +287,13 @@ int computeAThetaAT(const HighsSparseMatrix &matrix,
   std::vector<int> current_positions = AAT.start_;
 
   // Second pass to actually fill in the indices and values
-  for (const auto &val : non_zero_values) {
+  for (const auto& val : non_zero_values) {
     int i = std::get<0>(val);
     int j = std::get<1>(val);
     double dot = std::get<2>(val);
 
     // add dual regularization
-    if (i == j)
-      dot += kDualRegularization;
+    if (i == j) dot += kDualRegularization;
 
     AAT.index_[current_positions[i]] = j;
     AAT.value_[current_positions[i]] = dot;
@@ -314,4 +316,30 @@ double getWallTime() {
   using wall_clock = std::chrono::high_resolution_clock;
   return duration_cast<duration<double>>(wall_clock::now().time_since_epoch())
       .count();
+}
+
+void debug_print(std::string& filestr, const std::vector<int>& data) {
+  char filename[100];
+  snprintf(filename, 100, "../FactorHiGHS/matlab/%s", filestr.c_str());
+
+  FILE* out_file = fopen(filename, "w+");
+
+  for (int i : data) {
+    fprintf(out_file, "%d\n", i);
+  }
+
+  fclose(out_file);
+}
+
+void debug_print(std::string& filestr, const std::vector<double>& data) {
+  char filename[100];
+  snprintf(filename, 100, "../FactorHiGHS/matlab/%s", filestr.c_str());
+
+  FILE* out_file = fopen(filename, "w+");
+
+  for (double d : data) {
+    fprintf(out_file, "%.10e\n", d);
+  }
+
+  fclose(out_file);
 }

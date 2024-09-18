@@ -4,7 +4,7 @@
 #include <regex>
 
 #include "Highs.h"
-#include "IPM_caller.h"
+#include "Ipm.h"
 #include "io/Filereader.h"
 
 int main() {
@@ -183,15 +183,8 @@ int main() {
     // ===================================================================================
     // Identify the option values and check their validity
     // ===================================================================================
-    ipm.option_nla_ = 2;
-
-    ipm.option_metis = 0;
-
+    ipm.option_nla_ = 1;
     ipm.option_predcor_ = 1;
-
-    ipm.option_max_dense_col = 0;
-
-    ipm.option_dense_col_tolerance = kOptionDenseColToleranceDefault;
 
     // extract problem name without mps
     std::regex rgx("(.+)\\.mps");
@@ -200,14 +193,14 @@ int main() {
     pb_name = match[1];
 
     // load the problem
-    ipm.Load(n, m, obj.data(), rhs.data(), lower.data(), upper.data(),
+    ipm.load(n, m, obj.data(), rhs.data(), lower.data(), upper.data(),
              colptr.data(), rowind.data(), values.data(), constraints.data(),
              pb_name);
     double load_time = getWallTime() - start_time;
 
     // solve LP
     start_time = getWallTime();
-    Output out = ipm.Solve();
+    Output out = ipm.solve();
     double optimize_time = getWallTime() - start_time;
     if (out.status == "optimal") {
       ++converged;

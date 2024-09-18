@@ -66,7 +66,7 @@ void FactorHiGHSSolver::setup(const HighsSparseMatrix& A, int type) {
   // Perform analyse phase
   Analyse analyse(rowsLower, ptrLower, fact_type);
   analyse.run(S_);
-  //S_.print();
+  // S_.print();
 }
 
 int FactorHiGHSSolver::factorAS(const HighsSparseMatrix& A,

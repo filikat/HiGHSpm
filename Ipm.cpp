@@ -4,6 +4,8 @@
 #include <cmath>
 #include <iostream>
 
+//#define COMPARE_LINEAR_SOLVER
+
 // =======================================================================
 // LOAD THE PROBLEM
 // =======================================================================
@@ -147,16 +149,19 @@ Output Ipm::solve() {
   MA97Solver ma97_solver;
   HFactorSolver hfactor_solver;
   FactorHiGHSSolver factorHiGHS_solver;
-  // linsol_ = &cholmod_solver;
+  // linsol_ = &ma86_solver;
   linsol_ = &factorHiGHS_solver;
-  // linsol_ = &hfactor_solver;
 
-   //linsol2_ = &ma87_solver;
+#ifdef COMPARE_LINEAR_SOLVER
   linsol2_ = &hfactor_solver;
+#endif
 
   // perform any preliminary calculations for the linear solver
   linsol_->setup(model_.A_, option_nla_);
+
+#ifdef COMPARE_LINEAR_SOLVER
   linsol2_->setup(model_.A_, option_nla_);
+#endif
 
   // comment the following line to use default starting point
   int startStatus = computeStartingPoint();
@@ -210,7 +215,10 @@ Output Ipm::solve() {
 
     // Clear any existing data in the linear solver now that scaling has changed
     linsol_->clear();
+
+#ifdef COMPARE_LINEAR_SOLVER
     linsol2_->clear();
+#endif
 
     // Initialize Newton direction
     NewtonDir delta(m_, n_);
@@ -566,7 +574,10 @@ int Ipm::solveNewtonSystem(const HighsSparseMatrix& A,
 
     if (first_call_with_theta) {
       int newton_invert_status = linsol_->factorNE(A, theta);
+
+#ifdef COMPARE_LINEAR_SOLVER
       linsol2_->factorNE(A, theta);
+#endif
 
       if (newton_invert_status) return newton_invert_status;
     }
@@ -575,6 +586,7 @@ int Ipm::solveNewtonSystem(const HighsSparseMatrix& A,
 
     if (newton_solve_status) return newton_solve_status;
 
+#ifdef COMPARE_LINEAR_SOLVER
     {
       std::vector<double> temp(m_, 0.0);
       linsol2_->solveNE(A, theta, res8, temp);
@@ -590,6 +602,7 @@ int Ipm::solveNewtonSystem(const HighsSparseMatrix& A,
 
       printf("Error: %e\n", diff / normy);
     }
+#endif
 
     // Compute delta.x
     // *********************************************************************
@@ -606,7 +619,11 @@ int Ipm::solveNewtonSystem(const HighsSparseMatrix& A,
   if (use_direct_augmented) {
     if (first_call_with_theta) {
       int augmented_invert_status = linsol_->factorAS(A, theta);
+
+#ifdef COMPARE_LINEAR_SOLVER
       linsol2_->factorAS(A, theta);
+#endif
+
       if (augmented_invert_status) return augmented_invert_status;
     }
 
@@ -621,6 +638,7 @@ int Ipm::solveNewtonSystem(const HighsSparseMatrix& A,
 
     linsol_->solveAS(A, theta, res7, res.res1, delta.x, delta.y);
 
+#ifdef COMPARE_LINEAR_SOLVER
     {
       std::vector<double> tempx(n_, 0.0);
       std::vector<double> tempy(m_, 0.0);
@@ -641,6 +659,7 @@ int Ipm::solveNewtonSystem(const HighsSparseMatrix& A,
 
       printf("Error: %e\n", diff / normy);
     }
+#endif
   }
 
   return 0;

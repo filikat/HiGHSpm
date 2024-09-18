@@ -23,7 +23,11 @@ cpp_sources = \
 		../FactorHiGHS/Auxiliary.cpp \
 		../FactorHiGHS/Factorise.cpp \
 		../FactorHiGHS/Numeric.cpp \
-		../FactorHiGHS/Symbolic.cpp 
+		../FactorHiGHS/Symbolic.cpp \
+		../FactorHiGHS/FormatHandler.cpp \
+		../FactorHiGHS/FullFormatHandler.cpp \
+		../FactorHiGHS/HybridPackedFormatHandler.cpp \
+		../FactorHiGHS/HybridHybridFormatHandler.cpp 
 c_sources = hsl_wrapper.c \
 			../FactorHiGHS/DenseFact.c
 
