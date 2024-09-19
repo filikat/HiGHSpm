@@ -37,6 +37,7 @@ class Ipm {
   // ===================================================================================
   int option_nla_ = kOptionNlaDefault;
   int option_predcor_ = kOptionPredcorDefault;
+  int option_format_ = kOptionFormatDefault;
 
   // ===================================================================================
   // LOAD THE PROBLEM

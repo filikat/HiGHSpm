@@ -9,6 +9,15 @@ enum OptionNla {
   kOptionNlaDefault = kOptionNlaNormEq
 };
 
+enum OptionFormat{
+  kOptionFormatMin = 0,
+  kOptionFormatFull = kOptionFormatMin,
+  kOptionFormatHybridPacked,
+  kOptionFormatHybridHybrid,
+  kOptionFormatMax = kOptionFormatHybridHybrid,
+  kOptionFormatDefault = kOptionFormatHybridPacked
+};
+
 enum OptionPredCor {
   kOptionPredcorMin = 0,
   kOptionPredcorOff = kOptionPredcorMin,

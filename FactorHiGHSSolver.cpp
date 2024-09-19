@@ -1,10 +1,11 @@
 #include "FactorHiGHSSolver.h"
 
-#include "MA86Solver.h"
+enum Parameters { kParamType, kParamFormat };
 
 void FactorHiGHSSolver::clear() { valid_ = false; }
 
-void FactorHiGHSSolver::setup(const HighsSparseMatrix& A, int type) {
+void FactorHiGHSSolver::setup(const HighsSparseMatrix& A,
+                              const std::vector<int>& parameters) {
   std::vector<int> ptrLower;
   std::vector<int> rowsLower;
 
@@ -12,7 +13,9 @@ void FactorHiGHSSolver::setup(const HighsSparseMatrix& A, int type) {
   int mA = A.num_row_;
   int nzA = A.numNz();
 
-  FactType fact_type = (type == 0) ? AugSys : NormEq;
+  S_.setPackType(parameters[kParamFormat]);
+
+  FactType fact_type = (parameters[kParamType] == 0) ? AugSys : NormEq;
 
   // Build the matrix
   if (fact_type == FactType::AugSys) {

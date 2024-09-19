@@ -43,7 +43,7 @@ class LinearSolver {
                       const std::vector<double>& rhs,
                       std::vector<double>& lhs) = 0;
 
-  virtual void setup(const HighsSparseMatrix& A, int type) = 0;
+  virtual void setup(const HighsSparseMatrix& A, const std::vector<int>& parameters) = 0;
 
   virtual void clear() = 0;
 };

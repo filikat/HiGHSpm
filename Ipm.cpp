@@ -157,7 +157,10 @@ Output Ipm::solve() {
 #endif
 
   // perform any preliminary calculations for the linear solver
-  linsol_->setup(model_.A_, option_nla_);
+  std::vector<int> parameters(2);
+  parameters[0] = option_nla_;
+  parameters[1] = option_format_;
+  linsol_->setup(model_.A_, parameters);
 
 #ifdef COMPARE_LINEAR_SOLVER
   linsol2_->setup(model_.A_, option_nla_);

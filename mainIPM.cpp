@@ -1,5 +1,5 @@
 #include <cassert>
-#include <cstring> // For strchr
+#include <cstring>  // For strchr
 #include <iostream>
 #include <regex>
 
@@ -11,14 +11,14 @@ enum ArgC {
   kMinArgC = 2,
   kModelFileArg = 1,
   kOptionNlaArg,
-  kOptionPredcorArg,
+  kOptionFormat,
   kMaxArgC
 };
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
   if (argc < kMinArgC || argc > kMaxArgC) {
     std::cerr << "======= How to use: ./ipm LP_name.mps(.gz) nla_option "
-                 "predcor_option =======\n";
+                 "format_option =======\n";
     return 1;
   }
 
@@ -81,8 +81,7 @@ int main(int argc, char **argv) {
 
   int num_free_col = 0;
   for (int i = 0; i < n; ++i) {
-    if (lower[i] <= -kHighsInf && upper[i] >= kHighsInf)
-      num_free_col++;
+    if (lower[i] <= -kHighsInf && upper[i] >= kHighsInf) num_free_col++;
   }
   if (num_free_col) {
     const double bound_on_free = 2e3;
@@ -187,13 +186,13 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  ipm.option_predcor_ = argc > kOptionPredcorArg ? atoi(argv[kOptionPredcorArg])
-                                                : kOptionPredcorDefault;
-  if (ipm.option_predcor_ < kOptionPredcorMin ||
-      ipm.option_predcor_ > kOptionPredcorMax) {
-    std::cerr << "Illegal value of " << ipm.option_predcor_
-              << " for option_predcor: must be in [" << kOptionPredcorMin
-              << ", " << kOptionPredcorMax << "]\n";
+  ipm.option_format_ =
+      argc > kOptionFormat ? atoi(argv[kOptionFormat]) : kOptionFormatDefault;
+  if (ipm.option_format_ < kOptionFormatMin ||
+      ipm.option_format_ > kOptionFormatMax) {
+    std::cerr << "Illegal value of " << ipm.option_format_
+              << " for option_format: must be in [" << kOptionFormatMin << ", "
+              << kOptionFormatMax << "]\n";
     return 1;
   }
 
