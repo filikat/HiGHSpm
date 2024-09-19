@@ -36,8 +36,10 @@ class Ipm {
   // Run-time options
   // ===================================================================================
   int option_nla_ = kOptionNlaDefault;
-  int option_predcor_ = kOptionPredcorDefault;
+  int option_fact_ = kOptionFactDefault;
   int option_format_ = kOptionFormatDefault;
+  int option_predcor_ = kOptionPredcorDefault;
+  
 
   // ===================================================================================
   // LOAD THE PROBLEM

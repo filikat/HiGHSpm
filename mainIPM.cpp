@@ -11,14 +11,19 @@ enum ArgC {
   kMinArgC = 2,
   kModelFileArg = 1,
   kOptionNlaArg,
+  kOptionFactArg,
   kOptionFormat,
   kMaxArgC
 };
 
 int main(int argc, char** argv) {
   if (argc < kMinArgC || argc > kMaxArgC) {
-    std::cerr << "======= How to use: ./ipm LP_name.mps(.gz) nla_option "
-                 "format_option =======\n";
+    std::cerr
+        << "======= How to use: ./ipm LP_name.mps(.gz) nla_option fact_option "
+           "format_option =======\n";
+    std::cerr << "nla_option   : 0 aug sys, 1 norm eq\n";
+    std::cerr << "fact_option  : 0 Chol, 1 LDLt\n";
+    std::cerr << "format_option: 0 full, 1 hybrid packed, 2 hybrid hybrid\n";
     return 1;
   }
 
@@ -177,6 +182,8 @@ int main(int argc, char** argv) {
   // ===================================================================================
   // Identify the option values and check their validity
   // ===================================================================================
+
+  // option to choose normal equations or augmented system
   ipm.option_nla_ =
       argc > kOptionNlaArg ? atoi(argv[kOptionNlaArg]) : kOptionNlaDefault;
   if (ipm.option_nla_ < kOptionNlaMin || ipm.option_nla_ > kOptionNlaMax) {
@@ -186,6 +193,17 @@ int main(int argc, char** argv) {
     return 1;
   }
 
+  // option to choose Cholesky or LDLt
+  ipm.option_fact_ =
+      argc > kOptionFactArg ? atoi(argv[kOptionFactArg]) : kOptionFactDefault;
+  if (ipm.option_fact_ < kOptionFactMin || ipm.option_fact_ > kOptionFactMax) {
+    std::cerr << "Illegal value of " << ipm.option_fact_
+              << " for option_fact: must be in [" << kOptionFactMin << ", "
+              << kOptionFactMax << "]\n";
+    return 1;
+  }
+
+  // option to choose storage format inside FactorHiGHS
   ipm.option_format_ =
       argc > kOptionFormat ? atoi(argv[kOptionFormat]) : kOptionFormatDefault;
   if (ipm.option_format_ < kOptionFormatMin ||

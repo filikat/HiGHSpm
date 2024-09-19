@@ -1,7 +1,5 @@
 #include "FactorHiGHSSolver.h"
 
-enum Parameters { kParamType, kParamFormat };
-
 void FactorHiGHSSolver::clear() { valid_ = false; }
 
 void FactorHiGHSSolver::setup(const HighsSparseMatrix& A,
@@ -13,12 +11,16 @@ void FactorHiGHSSolver::setup(const HighsSparseMatrix& A,
   int mA = A.num_row_;
   int nzA = A.numNz();
 
-  S_.setPackType(parameters[kParamFormat]);
+  int negative_pivots{};
 
-  FactType fact_type = (parameters[kParamType] == 0) ? AugSys : NormEq;
+  printf("fact type %d\n", parameters[kParamFact]);
+  S_.setFact((FactType)parameters[kParamFact]);
+  S_.setFormat((FormatType)parameters[kParamFormat]);
+
+  int nla_type = parameters[kParamNla];
 
   // Build the matrix
-  if (fact_type == FactType::AugSys) {
+  if (nla_type == kOptionNlaAugmented) {
     // Augmented system, lower triangular
 
     ptrLower.resize(nA + mA + 1);
@@ -47,6 +49,8 @@ void FactorHiGHSSolver::setup(const HighsSparseMatrix& A,
       ptrLower[nA + i + 1] = ptrLower[nA + i] + 1;
     }
 
+    negative_pivots = nA;
+
   } else {
     // Normal equations, full matrix
     std::vector<double> theta;
@@ -67,7 +71,7 @@ void FactorHiGHSSolver::setup(const HighsSparseMatrix& A,
   }
 
   // Perform analyse phase
-  Analyse analyse(rowsLower, ptrLower, fact_type);
+  Analyse analyse(rowsLower, ptrLower, {}, negative_pivots);
   analyse.run(S_);
   // S_.print();
 }
@@ -110,7 +114,7 @@ int FactorHiGHSSolver::factorAS(const HighsSparseMatrix& A,
   // 2,2 block
   for (int i = 0; i < mA; ++i) {
     rowsLower[next] = nA + i;
-    valLower[next++] = 0.0;
+    valLower[next++] = kDualRegularization;
     ptrLower[nA + i + 1] = ptrLower[nA + i] + 1;
   }
 

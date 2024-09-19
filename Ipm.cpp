@@ -4,7 +4,7 @@
 #include <cmath>
 #include <iostream>
 
-//#define COMPARE_LINEAR_SOLVER
+// #define COMPARE_LINEAR_SOLVER
 
 // =======================================================================
 // LOAD THE PROBLEM
@@ -156,10 +156,15 @@ Output Ipm::solve() {
   linsol2_ = &hfactor_solver;
 #endif
 
+  // augmented system cannot be factorized with cholesky
+  assert(
+      !(option_nla_ == kOptionNlaAugmented && option_fact_ == kOptionFactChol));
+
   // perform any preliminary calculations for the linear solver
-  std::vector<int> parameters(2);
-  parameters[0] = option_nla_;
-  parameters[1] = option_format_;
+  std::vector<int> parameters(kParamSize);
+  parameters[kParamNla] = option_nla_;
+  parameters[kParamFact] = option_fact_;
+  parameters[kParamFormat] = option_format_;
   linsol_->setup(model_.A_, parameters);
 
 #ifdef COMPARE_LINEAR_SOLVER

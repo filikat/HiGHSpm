@@ -292,9 +292,6 @@ int computeAThetaAT(const HighsSparseMatrix& matrix,
     int j = std::get<1>(val);
     double dot = std::get<2>(val);
 
-    // add dual regularization
-    if (i == j) dot += kDualRegularization;
-
     AAT.index_[current_positions[i]] = j;
     AAT.value_[current_positions[i]] = dot;
     current_positions[i]++;
