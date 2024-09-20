@@ -9,8 +9,12 @@
 
 class FactorHiGHSSolver : public LinearSolver {
  public:
+  // symbolic and numeric factorization objects
   Symbolic S_;
   Numeric N_;
+
+  // keep track of whether as or ne is being factorized
+  bool use_as_ = true;
 
   // Functions
   int factorAS(const HighsSparseMatrix& highs_a,
@@ -25,8 +29,17 @@ class FactorHiGHSSolver : public LinearSolver {
               const std::vector<double>& rhs_x,
               const std::vector<double>& rhs_y, std::vector<double>& lhs_x,
               std::vector<double>& lhs_y) override;
-  void setup(const HighsSparseMatrix& A, const std::vector<int>& parameters) override;
+  void setup(const HighsSparseMatrix& A,
+             const std::vector<int>& parameters) override;
   void clear() override;
+  void refine(const HighsSparseMatrix& A, const std::vector<double>& theta,
+              const std::vector<double>& rhs_x,
+              const std::vector<double>& rhs_y, std::vector<double>& lhs_x,
+              std::vector<double>& lhs_y) override;
+
+  void solveForRefineNE(const HighsSparseMatrix& A,
+                        const std::vector<double>& theta,
+                        std::vector<double>& res_x, std::vector<double>& res_y);
 };
 
 #endif

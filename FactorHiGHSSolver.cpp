@@ -13,7 +13,6 @@ void FactorHiGHSSolver::setup(const HighsSparseMatrix& A,
 
   int negative_pivots{};
 
-  printf("fact type %d\n", parameters[kParamFact]);
   S_.setFact((FactType)parameters[kParamFact]);
   S_.setFormat((FormatType)parameters[kParamFormat]);
 
@@ -126,6 +125,7 @@ int FactorHiGHSSolver::factorAS(const HighsSparseMatrix& A,
   }
 
   this->valid_ = true;
+  use_as_ = true;
   return kDecomposerStatusOk;
 }
 
@@ -168,6 +168,7 @@ int FactorHiGHSSolver::factorNE(const HighsSparseMatrix& A,
   }
 
   this->valid_ = true;
+  use_as_ = false;
   return kDecomposerStatusOk;
 }
 
@@ -207,4 +208,104 @@ int FactorHiGHSSolver::solveAS(const HighsSparseMatrix& A,
   lhs_y = std::vector<double>(rhs.begin() + A.num_col_, rhs.end());
 
   return kDecomposerStatusOk;
+}
+
+void FactorHiGHSSolver::solveForRefineNE(const HighsSparseMatrix& A,
+                                         const std::vector<double>& theta,
+                                         std::vector<double>& res_x,
+                                         std::vector<double>& res_y) {
+  // size of the matrix
+  int n = A.num_col_;
+  int m = A.num_row_;
+
+  std::vector<double> temp(n);
+
+  // build rhs = res_y + A Theta res_x
+  for (int i = 0; i < n; ++i) {
+    temp[i] = res_x[i] * theta[i];
+  }
+  A.alphaProductPlusY(1.0, temp, res_y);
+
+  // solve to find cor_y
+  N_.solve(res_y);
+
+  // compute cor_x = Theta (A^T cor_y - res_x) into res_x
+  A.alphaProductPlusY(-1.0, res_y, res_x, true);
+  for (int i = 0; i < n; ++i) {
+    res_x[i] *= -theta[i];
+  }
+}
+
+void FactorHiGHSSolver::refine(const HighsSparseMatrix& A,
+                               const std::vector<double>& theta,
+                               const std::vector<double>& rhs_x,
+                               const std::vector<double>& rhs_y,
+                               std::vector<double>& delta_x,
+                               std::vector<double>& delta_y) {
+  // Apply iterative refinement to the augmented system (even if solution was
+  // computed with normal equations).
+
+  assert(this->valid_);
+
+  // size of the matrix
+  int n = A.num_col_;
+  int m = A.num_row_;
+
+  // initialize residual/correction
+  std::vector<double> res_x(rhs_x);
+  std::vector<double> res_y(rhs_y);
+
+  // residual norm
+  double norm_res{};
+  double norm_rhs = norm2(rhs_x, rhs_y);
+
+  // compute residual x
+  // res_x = rhs_x + theta^-1 Dx - A^T Dy
+  for (int i = 0; i < n; ++i) {
+    res_x[i] += delta_x[i] / theta[i];
+  }
+  A.alphaProductPlusY(-1.0, delta_y, res_x, true);
+
+  // compute residual y
+  // res_y = rhs_y - A Dx
+  A.alphaProductPlusY(-1.0, delta_x, res_y);
+
+  for (int iter = 0; iter < 1; ++iter) {
+    norm_res = norm2(res_x, res_y);
+    //printf("%e  --> ", norm_res / norm_rhs);
+
+    // compute correction
+    // cor = M^-1 res
+    if (use_as_) {
+      // create single residual
+      std::vector<double> res;
+      res.insert(res.end(), res_x.begin(), res_x.end());
+      res.insert(res.end(), res_y.begin(), res_y.end());
+
+      N_.solve(res);
+
+      // split correction into components
+      res_x = std::vector<double>(res.begin(), res.begin() + n);
+      res_y = std::vector<double>(res.begin() + n, res.end());
+    } else {
+      solveForRefineNE(A, theta, res_x, res_y);
+    }
+
+    // add correction to direction
+    vectorAdd(delta_x, res_x);
+    vectorAdd(delta_y, res_y);
+
+    // compute new residual
+    res_x = rhs_x;
+    for (int i = 0; i < n; ++i) {
+      res_x[i] += delta_x[i] / theta[i];
+    }
+    A.alphaProductPlusY(-1.0, delta_y, res_x, true);
+
+    res_y = rhs_y;
+    A.alphaProductPlusY(-1.0, delta_x, res_y);
+  }
+
+  norm_res = norm2(res_x, res_y);
+  //printf("%e\n", norm_res / norm_rhs);
 }

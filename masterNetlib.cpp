@@ -183,7 +183,9 @@ int main() {
     // ===================================================================================
     // Identify the option values and check their validity
     // ===================================================================================
-    ipm.option_nla_ = 1;
+    ipm.option_nla_ = 0;
+    ipm.option_fact_ = 1;
+    ipm.option_format_ = 1;
     ipm.option_predcor_ = 1;
 
     // extract problem name without mps
@@ -202,7 +204,7 @@ int main() {
     start_time = getWallTime();
     Output out = ipm.solve();
     double optimize_time = getWallTime() - start_time;
-    if (out.status == "optimal") {
+    if (out.status == "Optimal") {
       ++converged;
     }
 

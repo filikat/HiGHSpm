@@ -246,7 +246,7 @@ class Ipm {
   //  Deltazu = Xu^{-1} * (res6 - zu * Deltaxu)
   //
   // ===================================================================================
-  void recoverDirection(
+  int recoverDirection(
       // INPUT
       const Residuals& res,  // current residuals
       bool is_corrector,     // true if corrector, false if predictor

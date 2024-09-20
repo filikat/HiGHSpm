@@ -196,8 +196,15 @@ Output Ipm::solve() {
   printf("\n");
   while (iter < kMaxIterations) {
     // Check that iterate is not NaN or Inf
-    assert(!it_.isNaN());
-    assert(!it_.isInf());
+    if (it_.isNaN()) {
+      std::cerr << "iterate is nan\n";
+      status = "Error";
+      break;
+    } else if (it_.isInf()) {
+      std::cerr << "iterate is inf\n";
+      status = "Error";
+      break;
+    }
 
     // Stopping criterion
     if (iter > 0 && pd_gap < kIpmTolerance &&  // primal-dual gap is small
@@ -205,7 +212,7 @@ Output Ipm::solve() {
         primal_infeas < kIpmTolerance &&       // primal feasibility
         dual_infeas < kIpmTolerance) {         // dual feasibility
       printf("\n===== Optimal solution found =====\n\n");
-      status = "optimal";
+      status = "Optimal";
       break;
     }
 
@@ -302,7 +309,10 @@ Output Ipm::solve() {
       }
 
       // Compute full Newton direction for corrector
-      recoverDirection(res, is_corrector, delta_cor);
+      if (recoverDirection(res, is_corrector, delta_cor)) {
+        status = "Error";
+        break;
+      }
 
       // Add corrector to predictor
       vectorAdd(delta.x, delta_cor.x, 1.0);
@@ -362,7 +372,7 @@ Output Ipm::solve() {
     // res.print(iter);
   }
 
-  if (status.empty()) status = "max iter";
+  if (status.empty()) status = "Max iter";
 
   // output struct
   Output out{};
@@ -670,14 +680,17 @@ int Ipm::solveNewtonSystem(const HighsSparseMatrix& A,
 #endif
   }
 
+  // apply iterative refinement
+  linsol_->refine(A, theta, res7, res.res1, delta.x, delta.y);
+
   return 0;
 }
 
 // =======================================================================
 // FULL NEWTON DIRECTION
 // =======================================================================
-void Ipm::recoverDirection(const Residuals& res, bool is_corrector,
-                           NewtonDir& delta) {
+int Ipm::recoverDirection(const Residuals& res, bool is_corrector,
+                          NewtonDir& delta) {
   if (!is_corrector) {
     // Deltaxl
     delta.xl = delta.x;
@@ -706,8 +719,15 @@ void Ipm::recoverDirection(const Residuals& res, bool is_corrector,
   vectorDivide(delta.zu, it_.xu);
 
   // Check for NaN of Inf
-  assert(!delta.isNaN());
-  assert(!delta.isInf());
+  if (delta.isNaN()) {
+    std::cerr << "direction is nan\n";
+    return kRetGeneric;
+  } else if (delta.isInf()) {
+    std::cerr << "direciton is inf\n";
+    return kRetGeneric;
+  }
+
+  return kRetOk;
 }
 
 // =======================================================================
