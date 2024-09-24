@@ -36,7 +36,7 @@ int MA86Solver::factorAS(const HighsSparseMatrix &matrix,
     }
   }
 
-  const double diagonal = kDualRegularization;
+  const double diagonal = 0.0;
   for (int iRow = 0; iRow < matrix.num_row_; iRow++) {
     ptr.push_back(val.size());
     if (diagonal) {

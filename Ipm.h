@@ -27,9 +27,9 @@ class Ipm {
   // IPM iterate
   Iterate it_{};
 
-  LinearSolver* linsol_;
+  LinearSolver* LS_;
 
-  LinearSolver* linsol2_;
+  LinearSolver* LS2_;
 
  public:
   // ===================================================================================

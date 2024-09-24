@@ -149,11 +149,11 @@ Output Ipm::solve() {
   MA97Solver ma97_solver;
   HFactorSolver hfactor_solver;
   FactorHiGHSSolver factorHiGHS_solver;
-  // linsol_ = &ma86_solver;
-  linsol_ = &factorHiGHS_solver;
+  // LS_ = &ma86_solver;
+  LS_ = &factorHiGHS_solver;
 
 #ifdef COMPARE_LINEAR_SOLVER
-  linsol2_ = &hfactor_solver;
+  LS2_ = &hfactor_solver;
 #endif
 
   // augmented system cannot be factorized with cholesky
@@ -165,10 +165,10 @@ Output Ipm::solve() {
   parameters[kParamNla] = option_nla_;
   parameters[kParamFact] = option_fact_;
   parameters[kParamFormat] = option_format_;
-  linsol_->setup(model_.A_, parameters);
+  LS_->setup(model_.A_, parameters);
 
 #ifdef COMPARE_LINEAR_SOLVER
-  linsol2_->setup(model_.A_, option_nla_);
+  LS2_->setup(model_.A_, option_nla_);
 #endif
 
   // comment the following line to use default starting point
@@ -229,10 +229,10 @@ Output Ipm::solve() {
     computeScaling(scaling);
 
     // Clear any existing data in the linear solver now that scaling has changed
-    linsol_->clear();
+    LS_->clear();
 
 #ifdef COMPARE_LINEAR_SOLVER
-    linsol2_->clear();
+    LS2_->clear();
 #endif
 
     // Initialize Newton direction
@@ -371,6 +371,8 @@ Output Ipm::solve() {
     // delta.print(iter);
     // res.print(iter);
   }
+
+  LS_->finalise();
 
   if (status.empty()) status = "Max iter";
 
@@ -553,7 +555,7 @@ void Ipm::computeScaling(std::vector<double>& scaling) {
     }
 
     // add primal regularization
-    scaling[i] += kPrimalRegularization;
+    scaling[i] += kPrimalStaticRegularization;
   }
 }
 
@@ -580,7 +582,7 @@ int Ipm::solveNewtonSystem(const HighsSparseMatrix& A,
   std::vector<double> theta;
   scaling2theta(scaling, theta);
 
-  const bool first_call_with_theta = !linsol_->valid_;
+  const bool first_call_with_theta = !LS_->valid_;
 
   if (use_direct_newton) {
     // Have to solve the Newton system
@@ -591,23 +593,23 @@ int Ipm::solveNewtonSystem(const HighsSparseMatrix& A,
         computeResiduals8(A, scaling, res, res7, is_corrector)};
 
     if (first_call_with_theta) {
-      int newton_invert_status = linsol_->factorNE(A, theta);
+      int newton_invert_status = LS_->factorNE(A, theta);
 
 #ifdef COMPARE_LINEAR_SOLVER
-      linsol2_->factorNE(A, theta);
+      LS2_->factorNE(A, theta);
 #endif
 
       if (newton_invert_status) return newton_invert_status;
     }
 
-    int newton_solve_status = linsol_->solveNE(A, theta, res8, delta.y);
+    int newton_solve_status = LS_->solveNE(A, theta, res8, delta.y);
 
     if (newton_solve_status) return newton_solve_status;
 
 #ifdef COMPARE_LINEAR_SOLVER
     {
       std::vector<double> temp(m_, 0.0);
-      linsol2_->solveNE(A, theta, res8, temp);
+      LS2_->solveNE(A, theta, res8, temp);
 
       double diff{};
       double normy{};
@@ -636,10 +638,10 @@ int Ipm::solveNewtonSystem(const HighsSparseMatrix& A,
 
   if (use_direct_augmented) {
     if (first_call_with_theta) {
-      int augmented_invert_status = linsol_->factorAS(A, theta);
+      int augmented_invert_status = LS_->factorAS(A, theta);
 
 #ifdef COMPARE_LINEAR_SOLVER
-      linsol2_->factorAS(A, theta);
+      LS2_->factorAS(A, theta);
 #endif
 
       if (augmented_invert_status) return augmented_invert_status;
@@ -654,13 +656,13 @@ int Ipm::solveNewtonSystem(const HighsSparseMatrix& A,
       assert(!res1_norm);
     }
 
-    linsol_->solveAS(A, theta, res7, res.res1, delta.x, delta.y);
+    LS_->solveAS(A, theta, res7, res.res1, delta.x, delta.y);
 
 #ifdef COMPARE_LINEAR_SOLVER
     {
       std::vector<double> tempx(n_, 0.0);
       std::vector<double> tempy(m_, 0.0);
-      linsol2_->solveAS(A, theta, res7, res.res1, tempx, tempy);
+      LS2_->solveAS(A, theta, res7, res.res1, tempx, tempy);
 
       double diff{};
       double normy{};
@@ -681,7 +683,7 @@ int Ipm::solveNewtonSystem(const HighsSparseMatrix& A,
   }
 
   // apply iterative refinement
-  linsol_->refine(A, theta, res7, res.res1, delta.x, delta.y);
+  LS_->refine(A, theta, res7, res.res1, delta.x, delta.y);
 
   return 0;
 }
@@ -787,11 +789,11 @@ int Ipm::computeStartingPoint() {
     // temp_m
 
     // factorize A*A^T
-    int newton_invert_status = linsol_->factorNE(model_.A_, temp_scaling);
+    int newton_invert_status = LS_->factorNE(model_.A_, temp_scaling);
     if (newton_invert_status) return newton_invert_status;
 
     int newton_solve_status =
-        linsol_->solveNE(model_.A_, temp_scaling, it_.y, temp_m);
+        LS_->solveNE(model_.A_, temp_scaling, it_.y, temp_m);
     if (newton_solve_status) return newton_solve_status;
 
   } else if (option_nla_ == kOptionNlaAugmented) {
@@ -799,13 +801,13 @@ int Ipm::computeStartingPoint() {
     // [ -I  A^T] [...] = [ -x]
     // [  A   0 ] [ dx] = [ b ]
 
-    int augmented_invert_status = linsol_->factorAS(model_.A_, temp_scaling);
+    int augmented_invert_status = LS_->factorAS(model_.A_, temp_scaling);
     if (augmented_invert_status) return augmented_invert_status;
 
     std::vector<double> rhs_x(n_);
     for (int i = 0; i < n_; ++i) rhs_x[i] = -it_.x[i];
     std::vector<double> lhs_x(n_);
-    int augmented_solve_status = linsol_->solveAS(
+    int augmented_solve_status = LS_->solveAS(
         model_.A_, temp_scaling, rhs_x, model_.rhs_, lhs_x, temp_m);
 
     if (augmented_solve_status) return augmented_solve_status;
@@ -855,7 +857,7 @@ int Ipm::computeStartingPoint() {
     model_.A_.alphaProductPlusY(1.0, model_.obj_, temp_m);
 
     int newton_solve_status =
-        linsol_->solveNE(model_.A_, temp_scaling, temp_m, it_.y);
+        LS_->solveNE(model_.A_, temp_scaling, temp_m, it_.y);
     if (newton_solve_status) return newton_solve_status;
 
   } else if (option_nla_ == kOptionNlaAugmented) {
@@ -866,7 +868,7 @@ int Ipm::computeStartingPoint() {
     std::vector<double> rhs_y(m_, 0.0);
     std::vector<double> lhs_x(n_);
 
-    int augmented_solve_status = linsol_->solveAS(
+    int augmented_solve_status = LS_->solveAS(
         model_.A_, temp_scaling, model_.obj_, rhs_y, lhs_x, it_.y);
     if (augmented_solve_status) return augmented_solve_status;
   }

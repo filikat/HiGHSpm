@@ -27,9 +27,11 @@ cpp_sources = \
 		../FactorHiGHS/FormatHandler.cpp \
 		../FactorHiGHS/FullFormatHandler.cpp \
 		../FactorHiGHS/HybridPackedFormatHandler.cpp \
-		../FactorHiGHS/HybridHybridFormatHandler.cpp 
+		../FactorHiGHS/HybridHybridFormatHandler.cpp
 c_sources = hsl_wrapper.c \
-			../FactorHiGHS/DenseFact.c
+			../FactorHiGHS/DenseFact.c \
+			../FactorHiGHS/CallAndTimeBlas.c \
+			../FactorHiGHS/timing.c
 
 # binary file name
 binary_name = ipm

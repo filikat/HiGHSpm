@@ -20,6 +20,7 @@
 // The linear solver may also define functions:
 // - setup: perform any preliminary calculation (e.g. symbolic factorization)
 // - refine: apply iterative refinement to the solution
+// - finalise: perform any final action
 //
 // NB: forming the normal equations or augmented system is delegated to the
 // linear solver chosen, so that only the appropriate data (upper triangle,
@@ -66,6 +67,7 @@ class LinearSolver {
                       const std::vector<double>& rhs_x,
                       const std::vector<double>& rhs_y,
                       std::vector<double>& lhs_x, std::vector<double>& lhs_y) {}
+  virtual void finalise() {}
   // =================================================================
 };
 

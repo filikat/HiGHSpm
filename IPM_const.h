@@ -37,14 +37,14 @@ enum OptionPredCor {
 enum Parameters { kParamNla, kParamFact, kParamFormat, kParamSize };
 
 const int kMaxIterations = 100;
-const double kIpmTolerance = 1e-6;
+const double kIpmTolerance = 1e-8;
 
 const double kSigmaInitial = 0.5;
 const double kSigmaMin = 0.05;
 const double kSigmaMax = 0.95;
-const double kInteriorScaling = 0.99;
+const double kInteriorScaling = 0.999;
 
-const double kPrimalRegularization = 1e-10;
-const double kDualRegularization = 1e-8;
+const double kPrimalStaticRegularization = 1e-12;
+const double kDualStaticRegularization = 1e-8;
 
 #endif
