@@ -29,6 +29,9 @@ class Ipm {
 
   LinearSolver* LS_;
 
+  double max_theta_{};
+  double min_theta_{};
+
   LinearSolver* LS2_;
 
  public:

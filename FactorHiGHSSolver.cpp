@@ -2,7 +2,7 @@
 
 void FactorHiGHSSolver::clear() { valid_ = false; }
 
-void FactorHiGHSSolver::setup(const HighsSparseMatrix& A,
+int FactorHiGHSSolver::setup(const HighsSparseMatrix& A,
                               const std::vector<int>& parameters) {
   std::vector<int> ptrLower;
   std::vector<int> rowsLower;
@@ -55,6 +55,10 @@ void FactorHiGHSSolver::setup(const HighsSparseMatrix& A,
     std::vector<double> theta;
     HighsSparseMatrix AAt;
     int status = computeAThetaAT(A, theta, AAt);
+    if (status){
+      printf("Failure: AAt is too large\n");
+      return kRetOutOfMemory;
+    }
 
     // extract lower triangle
     for (int col = 0; col < mA; ++col) {
@@ -73,6 +77,8 @@ void FactorHiGHSSolver::setup(const HighsSparseMatrix& A,
   Analyse analyse(rowsLower, ptrLower, {}, negative_pivots);
   analyse.run(S_);
   // S_.print();
+
+  return kRetOk;
 }
 
 int FactorHiGHSSolver::factorAS(const HighsSparseMatrix& A,
@@ -296,11 +302,10 @@ void FactorHiGHSSolver::refine(const HighsSparseMatrix& A,
   for (int iter = 0; iter < 5; ++iter) {
     // stop refinement if residual is small
     if (norm_res / norm_rhs < 1e-8){
-      printf("\n");
-      return;
+      break;
     }
 
-    printf("%e  --> ", norm_res / norm_rhs);
+    //printf("%e  --> ", norm_res / norm_rhs);
 
     // compute correction
     // cor = M^-1 res
@@ -351,13 +356,13 @@ void FactorHiGHSSolver::refine(const HighsSparseMatrix& A,
       delta_x = temp_x;
       delta_y = temp_y;
     } else {
-      printf("rejected\n");
+      //printf("rejected\n");
       return;
     }
   }
 
   norm_res = norm2(res_x, res_y);
-  printf("%e\n", norm_res / norm_rhs);
+  //printf("%e\n", norm_res / norm_rhs);
 }
 
 void FactorHiGHSSolver::finalise() { S_.printTimes(); }

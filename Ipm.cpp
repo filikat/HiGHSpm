@@ -20,7 +20,6 @@ void Ipm::load(const int num_var, const int num_con, const double* obj,
   model_.init(num_var, num_con, obj, rhs, lower, upper, A_colptr, A_rowind,
               A_values, constraints, pb_name);
 
-  model_.checkCoefficients();
   model_.reformulate();
   model_.scale();
   model_.checkCoefficients();
@@ -56,6 +55,9 @@ Output Ipm::solve() {
   // iterations counter
   int iter{};
 
+  // count number of "bad" iterations
+  int bad_iter{};
+
   // initialize stepsize
   double alpha_primal{};
   double alpha_dual{};
@@ -87,11 +89,8 @@ Output Ipm::solve() {
   parameters[kParamNla] = option_nla_;
   parameters[kParamFact] = option_fact_;
   parameters[kParamFormat] = option_format_;
-  LS_->setup(model_.A_, parameters);
-
-#ifdef COMPARE_LINEAR_SOLVER
-  LS2_->setup(model_.A_, option_nla_);
-#endif
+  int setup_status = LS_->setup(model_.A_, parameters);
+  if (setup_status) return Output{};
 
   // comment the following line to use default starting point
   int startStatus = computeStartingPoint();
@@ -128,6 +127,13 @@ Output Ipm::solve() {
       break;
     }
 
+    // If too many bad iterations, stop
+    if (bad_iter >= 5) {
+      printf("\n Failuer: no progress\n");
+      status = "No progress";
+      break;
+    }
+
     // Stopping criterion
     if (iter > 0 && pd_gap < kIpmTolerance &&  // primal-dual gap is small
         mu < kIpmTolerance &&                  // mu
@@ -142,7 +148,7 @@ Output Ipm::solve() {
     if (iter % 20 == 0)
       printf(
           " iter         primal obj            dual obj        pinf       dinf "
-          "       mu        alpha_p    alpha_d      p/d rel gap      time\n");
+          "       mu        alpha_p    alpha_d      p/d rel gap      time   min diag   max diag\n");
 
     ++iter;
 
@@ -249,6 +255,11 @@ Output Ipm::solve() {
     // Find step-sizes
     computeStepSizes(delta, alpha_primal, alpha_dual);
 
+    if (std::min(alpha_primal, alpha_dual) < 0.05)
+      ++bad_iter;
+    else
+      bad_iter = 0;
+
     // Make the step
     vectorAdd(it_.x, delta.x, alpha_primal);
     vectorAdd(it_.xl, delta.xl, alpha_primal);
@@ -285,9 +296,9 @@ Output Ipm::solve() {
 
     printf(
         "%5d %20.10e %20.10e %10.2e %10.2e %10.2e %10.2f %10.2f %15.2e "
-        "%10.1fs\n",
+        "%10.1fs %10.2e %10.2e\n",
         iter, primal_obj, dual_obj, primal_infeas, dual_infeas, mu,
-        alpha_primal, alpha_dual, pd_gap, getWallTime() - timer_iterations);
+        alpha_primal, alpha_dual, pd_gap, getWallTime() - timer_iterations,min_theta_,max_theta_);
 
     // it.print(iter);
     // delta.print(iter);
@@ -480,6 +491,14 @@ void Ipm::computeScaling(std::vector<double>& scaling) {
 
     // add primal regularization
     scaling[i] += kPrimalStaticRegularization;
+  }
+
+  min_theta_ = kInf;
+  max_theta_ = 0.0;
+
+  for (int i = 0; i < n_; ++i) {
+    min_theta_ = std::min(min_theta_, 1.0 / scaling[i]);
+    max_theta_ = std::max(max_theta_, 1.0 / scaling[i]);
   }
 }
 

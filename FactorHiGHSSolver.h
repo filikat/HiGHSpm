@@ -29,7 +29,7 @@ class FactorHiGHSSolver : public LinearSolver {
               const std::vector<double>& rhs_x,
               const std::vector<double>& rhs_y, std::vector<double>& lhs_x,
               std::vector<double>& lhs_y) override;
-  void setup(const HighsSparseMatrix& A,
+  int setup(const HighsSparseMatrix& A,
              const std::vector<int>& parameters) override;
   void clear() override;
   void refine(const HighsSparseMatrix& A, const std::vector<double>& theta,
