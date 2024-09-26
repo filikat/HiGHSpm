@@ -4,6 +4,7 @@
 #include <limits>
 #include <string>
 #include <vector>
+#include "Ipm_aux.h"
 
 #include "util/HighsSparseMatrix.h"
 
@@ -41,6 +42,9 @@ class IpmModel {
   std::vector<int> constraints_{};
   std::string pb_name_{};
 
+  std::vector<double> colscale_{};
+  std::vector<double> rowscale_{};
+
  public:
   // Check if variable has finite lower/upper bound
   bool hasLb(int j) const { return lower_[j] != -kInf; }
@@ -58,7 +62,10 @@ class IpmModel {
   // Compute range of coefficients
   void checkCoefficients();
 
-  
+  // Scale the matrix
+  void scale();
+  void unscale(Iterate& it);
+  bool equilibrate();
 
   friend class Ipm;
 };

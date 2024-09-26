@@ -63,7 +63,7 @@ void IpmModel::checkCoefficients() {
   double Amax = 0.0;
   for (int col = 0; col < A_.num_col_; ++col) {
     for (int el = A_.start_[col]; el < A_.start_[col + 1]; ++el) {
-      double val = std::fabs(A_.value_[el]);
+      double val = std::abs(A_.value_[el]);
       if (val != 0.0) {
         Amin = std::min(Amin, val);
         Amax = std::max(Amax, val);
@@ -77,8 +77,8 @@ void IpmModel::checkCoefficients() {
   double cmax = 0.0;
   for (int i = 0; i < num_var_; ++i) {
     if (obj_[i] != 0.0) {
-      cmin = std::min(cmin, std::fabs(obj_[i]));
-      cmax = std::max(cmax, std::fabs(obj_[i]));
+      cmin = std::min(cmin, std::abs(obj_[i]));
+      cmax = std::max(cmax, std::abs(obj_[i]));
     }
   }
   if (cmin == kInf) cmin = 0.0;
@@ -88,8 +88,8 @@ void IpmModel::checkCoefficients() {
   double bmax = 0.0;
   for (int i = 0; i < num_con_; ++i) {
     if (rhs_[i] != 0.0) {
-      bmin = std::min(bmin, std::fabs(rhs_[i]));
-      bmax = std::max(bmax, std::fabs(rhs_[i]));
+      bmin = std::min(bmin, std::abs(rhs_[i]));
+      bmax = std::max(bmax, std::abs(rhs_[i]));
     }
   }
   if (bmin == kInf) bmin = 0.0;
@@ -99,12 +99,12 @@ void IpmModel::checkCoefficients() {
   double boundmax = 0.0;
   for (int i = 0; i < num_var_; ++i) {
     if (lower_[i] != 0.0 && std::isfinite(lower_[i])) {
-      boundmin = std::min(boundmin, std::fabs(lower_[i]));
-      boundmax = std::max(boundmax, std::fabs(lower_[i]));
+      boundmin = std::min(boundmin, std::abs(lower_[i]));
+      boundmax = std::max(boundmax, std::abs(lower_[i]));
     }
     if (upper_[i] != 0.0 && std::isfinite(upper_[i])) {
-      boundmin = std::min(boundmin, std::fabs(upper_[i]));
-      boundmax = std::max(boundmax, std::fabs(upper_[i]));
+      boundmin = std::min(boundmin, std::abs(upper_[i]));
+      boundmax = std::max(boundmax, std::abs(upper_[i]));
     }
   }
   if (boundmin == kInf) boundmin = 0.0;
@@ -116,4 +116,150 @@ void IpmModel::checkCoefficients() {
   printf("Range of c     : [%5.1e, %5.1e]\n", cmin, cmax);
   printf("Range of bounds: [%5.1e, %5.1e]\n", boundmin, boundmax);
   printf("\n");
+}
+
+void IpmModel::scale() {
+  // Apply matrix equilibration and scale the problem accordingly
+
+  if (equilibrate()) {
+    // Matrix has been scaled
+
+    for (int col = 0; col < num_var_; ++col) {
+      // Column has been scaled up by colscale_[col], so cost is scaled up and
+      // bounds are scaled down
+      obj_[col] *= colscale_[col];
+      lower_[col] /= colscale_[col];
+      upper_[col] /= colscale_[col];
+    }
+
+    for (int row = 0; row < num_con_; ++row) {
+      // Row has been scaled up by rowscale_[row], so rhs is scaled up
+      rhs_[row] *= rowscale_[row];
+    }
+  }
+}
+
+void IpmModel::unscale(Iterate& it) {
+  // Undo the scaling
+
+  if (colscale_.size() > 0) {
+    for (int i = 0; i < num_var_; ++i) {
+      it.x[i] *= colscale_[i];
+      it.xl[i] *= colscale_[i];
+      it.xu[i] *= colscale_[i];
+      it.zl[i] /= colscale_[i];
+      it.zu[i] /= colscale_[i];
+    }
+  }
+  if (rowscale_.size() > 0) {
+    for (int i = 0; i < num_con_; ++i) {
+      it.y[i] *= rowscale_[i];
+    }
+  }
+}
+
+double equilFactor(int exp, int min, int max) {
+  // Equilibration factor needed by matrix equilibration
+  if (exp < min) {
+    return std::ldexp(1.0, (min - exp + 1) / 2);
+  }
+  if (exp > max) {
+    return std::ldexp(1.0, -((exp - max + 1) / 2));
+  }
+  return 1.0;
+}
+
+bool IpmModel::equilibrate() {
+  // Iterative procedure to get better scaled matrix A:
+  // ideally, each entry of A should be written as x * 2^exp,
+  // with x \in [0.5,1.0) and exp \in [expmin,expmax].
+  // Taken from IPX Model::EquilibrateMatrix().
+
+  const int expmin = 0;
+  const int expmax = 3;
+  const int maxiter = 10;
+
+  bool out_of_range = false;
+
+  colscale_.resize(0);
+  rowscale_.resize(0);
+
+  // check if matrix needs equilibration
+  for (int el = 0; el < A_.numNz(); ++el) {
+    int exp;
+    std::frexp(std::abs(A_.value_[el]), &exp);
+    if (exp < expmin || exp > expmax) {
+      out_of_range = true;
+      break;
+    }
+  }
+  if (!out_of_range) return false;
+
+  // initialize equilibration factors
+  colscale_.resize(num_var_, 1.0);
+  rowscale_.resize(num_con_, 1.0);
+
+  // initialize vectors for max entry in rows and cols
+  std::vector<double> colmax(num_var_);
+  std::vector<double> rowmax(num_con_);
+
+  // iterate
+  for (int iter = 0; iter < maxiter; ++iter) {
+    // compute \infty norm of rows and cols
+    rowmax.assign(num_con_, 0.0);
+    colmax.assign(num_var_, 0.0);
+    for (int col = 0; col < num_var_; ++col) {
+      for (int el = A_.start_[col]; el < A_.start_[col + 1]; ++el) {
+        int row = A_.index_[el];
+        double val = std::abs(A_.value_[el]);
+        colmax[col] = std::max(colmax[col], val);
+        rowmax[row] = std::max(rowmax[row], val);
+      }
+    }
+
+    out_of_range = false;
+
+    int count_rows{};
+    int count_cols{};
+
+    // compute scaling factors for rows
+    for (int row = 0; row < num_con_; ++row) {
+      int exp;
+      std::frexp(rowmax[row], &exp);
+      rowmax[row] = equilFactor(exp, expmin, expmax);
+      if (rowmax[row] != 1.0) {
+        out_of_range = true;
+        rowscale_[row] *= rowmax[row];
+        ++count_rows;
+      }
+    }
+
+    // compute scaling factors for columns
+    for (int col = 0; col < num_var_; ++col) {
+      int exp;
+      std::frexp(colmax[col], &exp);
+      colmax[col] = equilFactor(exp, expmin, expmax);
+      if (colmax[col] != 1.0) {
+        out_of_range = true;
+        colscale_[col] *= colmax[col];
+        ++count_cols;
+      }
+    }
+
+    // matrix has been equilibrated, no need to keep iterating
+    if (!out_of_range) break;
+
+    // apply scaling to matrix
+    for (int col = 0; col < num_var_; ++col) {
+      for (int el = A_.start_[col]; el < A_.start_[col + 1]; ++el) {
+        int row = A_.index_[el];
+        A_.value_[el] *= colmax[col];
+        A_.value_[el] *= rowmax[row];
+      }
+    }
+
+    printf("Scaled %d rows, %d cols\n", count_rows, count_cols);
+  }
+
+  return true;
 }

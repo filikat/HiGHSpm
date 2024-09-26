@@ -22,6 +22,8 @@ void Ipm::load(const int num_var, const int num_con, const double* obj,
 
   model_.checkCoefficients();
   model_.reformulate();
+  model_.scale();
+  model_.checkCoefficients();
 
   m_ = model_.num_con_;
   n_ = model_.num_var_;
@@ -295,6 +297,8 @@ Output Ipm::solve() {
   LS_->finalise();
 
   if (status.empty()) status = "Max iter";
+
+  model_.unscale(it_);
 
   // output struct
   Output out{};
