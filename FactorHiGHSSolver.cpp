@@ -293,9 +293,12 @@ void FactorHiGHSSolver::refine(const HighsSparseMatrix& A,
 
   norm_res = norm2(res_x, res_y);
 
-  for (int iter = 0; iter < 1; ++iter) {
+  for (int iter = 0; iter < 5; ++iter) {
     // stop refinement if residual is small
-    if (norm_res / norm_rhs < 1e-8) return;
+    if (norm_res / norm_rhs < 1e-8){
+      printf("\n");
+      return;
+    }
 
     printf("%e  --> ", norm_res / norm_rhs);
 

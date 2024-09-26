@@ -17,94 +17,14 @@ void Ipm::load(const int num_var, const int num_con, const double* obj,
       !constraints)
     return;
 
-  // count how many slacks are needed
-  int num_slacks{};
-  for (int i = 0; i < num_con; ++i) {
-    if (constraints[i] != kConstraintTypeEqual) {
-      ++num_slacks;
+  model_.init(num_var, num_con, obj, rhs, lower, upper, A_colptr, A_rowind,
+              A_values, constraints, pb_name);
 
-      if (constraints[i] != kConstraintTypeLower &&
-          constraints[i] != kConstraintTypeUpper) {
-        std::cerr << "Wrong constraint type\n";
-        return;
-      }
-    }
-  }
-
-  // create model with correct size
-  model_.resize(num_var + num_slacks, num_con);
-
-  // temporary storage of matrix A
-  std::vector<int> temp_colptr(num_var + num_slacks + 1, 0);
-  std::vector<int> temp_rowind(A_colptr[num_var] + num_slacks, 0);
-  std::vector<double> temp_values(A_colptr[num_var] + num_slacks, 0.0);
-
-  for (int i = 0; i < num_var; ++i) {
-    // copy vector c
-    model_.obj_[i] = obj[i];
-
-    // copy original lower bound
-    model_.lower_[i] = lower[i];
-
-    // copy original upper bound
-    model_.upper_[i] = upper[i];
-
-    // copy original column pointers
-    temp_colptr[i] = A_colptr[i];
-  }
-  // copy last column pointer
-  temp_colptr[num_var] = A_colptr[num_var];
-
-  int A_nnz{A_colptr[num_var]};
-
-  for (int i = 0; i < A_nnz; ++i) {
-    // copy original row indices
-    temp_rowind[i] = A_rowind[i];
-
-    // copy original values
-    temp_values[i] = A_values[i];
-  }
-
-  // index of the current slack
-  int slack_ind{num_var};
-
-  for (int i = 0; i < num_con; ++i) {
-    // copy vector b
-    model_.rhs_[i] = rhs[i];
-
-    // if constraint is inequality, add a slack variable
-    if (constraints[i] != kConstraintTypeEqual) {
-      // lower/upper bound for new slack
-      if (constraints[i] == kConstraintTypeLower) {
-        model_.lower_[slack_ind] = -kInf;
-        model_.upper_[slack_ind] = 0.0;
-      } else {
-        model_.lower_[slack_ind] = 0.0;
-        model_.upper_[slack_ind] = kInf;
-      }
-
-      // add column of identity to A
-      temp_colptr[slack_ind + 1] = temp_colptr[slack_ind] + 1;
-      temp_rowind[A_nnz] = i;
-      temp_values[A_nnz] = 1.0;
-      ++A_nnz;
-
-      model_.obj_[slack_ind] = 0.0;
-
-      ++slack_ind;
-    }
-  }
-
-  model_.A_.num_col_ = num_var + num_slacks;
-  model_.A_.num_row_ = num_con;
-  model_.A_.start_ = temp_colptr;
-  model_.A_.index_ = temp_rowind;
-  model_.A_.value_ = temp_values;
+  model_.checkCoefficients();
+  model_.reformulate();
 
   m_ = model_.num_con_;
   n_ = model_.num_var_;
-
-  model_.pb_name_ = pb_name;
   model_ready_ = true;
 }
 
@@ -807,8 +727,8 @@ int Ipm::computeStartingPoint() {
     std::vector<double> rhs_x(n_);
     for (int i = 0; i < n_; ++i) rhs_x[i] = -it_.x[i];
     std::vector<double> lhs_x(n_);
-    int augmented_solve_status = LS_->solveAS(
-        model_.A_, temp_scaling, rhs_x, model_.rhs_, lhs_x, temp_m);
+    int augmented_solve_status = LS_->solveAS(model_.A_, temp_scaling, rhs_x,
+                                              model_.rhs_, lhs_x, temp_m);
 
     if (augmented_solve_status) return augmented_solve_status;
   }
@@ -868,8 +788,8 @@ int Ipm::computeStartingPoint() {
     std::vector<double> rhs_y(m_, 0.0);
     std::vector<double> lhs_x(n_);
 
-    int augmented_solve_status = LS_->solveAS(
-        model_.A_, temp_scaling, model_.obj_, rhs_y, lhs_x, it_.y);
+    int augmented_solve_status =
+        LS_->solveAS(model_.A_, temp_scaling, model_.obj_, rhs_y, lhs_x, it_.y);
     if (augmented_solve_status) return augmented_solve_status;
   }
   // *********************************************************************

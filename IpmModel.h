@@ -38,23 +38,27 @@ class IpmModel {
   std::vector<double> lower_{};
   std::vector<double> upper_{};
   HighsSparseMatrix A_{};
+  std::vector<int> constraints_{};
   std::string pb_name_{};
 
  public:
-  // =======================================================================
-  // RESIZE THE MODEL
-  // =======================================================================
-  // Allocate space for model with given number of variables and constraints
-  void resize(int num_var,  // number of variables in the model
-              int num_con   // number of constraints in the model
-  );
-
-  // =======================================================================
-  // FIND FINITE BOUNDS
-  // =======================================================================
-  // check if variable has finite lower/upper bound
+  // Check if variable has finite lower/upper bound
   bool hasLb(int j) const { return lower_[j] != -kInf; }
   bool hasUb(int j) const { return upper_[j] != kInf; }
+
+  // Initialize the model
+  void init(const int num_var, const int num_con, const double* obj,
+            const double* rhs, const double* lower, const double* upper,
+            const int* A_colptr, const int* A_rowind, const double* A_values,
+            const int* constraints, const std::string& pb_name);
+
+  // Put the model into correct formulation
+  void reformulate();
+
+  // Compute range of coefficients
+  void checkCoefficients();
+
+  
 
   friend class Ipm;
 };
