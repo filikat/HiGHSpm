@@ -3,7 +3,7 @@
 void FactorHiGHSSolver::clear() { valid_ = false; }
 
 int FactorHiGHSSolver::setup(const HighsSparseMatrix& A,
-                              const std::vector<int>& parameters) {
+                             const std::vector<int>& parameters) {
   std::vector<int> ptrLower;
   std::vector<int> rowsLower;
 
@@ -54,23 +54,14 @@ int FactorHiGHSSolver::setup(const HighsSparseMatrix& A,
     // Normal equations, full matrix
     std::vector<double> theta;
     HighsSparseMatrix AAt;
-    int status = computeAThetaAT(A, theta, AAt);
-    if (status){
+    int status = computeLowerAThetaAT(A, theta, AAt);
+    if (status) {
       printf("Failure: AAt is too large\n");
       return kRetOutOfMemory;
     }
 
-    // extract lower triangle
-    for (int col = 0; col < mA; ++col) {
-      ptrLower.push_back(rowsLower.size());
-      for (int el = AAt.start_[col]; el < AAt.start_[col + 1]; el++) {
-        int row = AAt.index_[el];
-        if (row >= col) {
-          rowsLower.push_back(row);
-        }
-      }
-    }
-    ptrLower.push_back(rowsLower.size());
+    rowsLower = std::move(AAt.index_);
+    ptrLower = std::move(AAt.start_);
   }
 
   // Perform analyse phase
@@ -130,6 +121,12 @@ int FactorHiGHSSolver::factorAS(const HighsSparseMatrix& A,
     return kDecomposerStatusErrorFactorize;
   }
 
+  // save extreme values of the factorisation
+  minD_ = factorise.minD_;
+  maxD_ = factorise.maxD_;
+  minoffD_ = factorise.minoffD_;
+  maxoffD_ = factorise.maxoffD_;
+
   this->valid_ = true;
   use_as_ = true;
   return kDecomposerStatusOk;
@@ -151,27 +148,20 @@ int FactorHiGHSSolver::factorNE(const HighsSparseMatrix& A,
 
   // build full matrix
   HighsSparseMatrix AAt;
-  int status = computeAThetaAT(A, theta, AAt);
-
-  // extract lower triangle
-  for (int col = 0; col < mA; ++col) {
-    ptrLower.push_back(valLower.size());
-    for (int el = AAt.start_[col]; el < AAt.start_[col + 1]; el++) {
-      int row = AAt.index_[el];
-      if (row >= col) {
-        valLower.push_back(AAt.value_[el]);
-        rowsLower.push_back(row);
-      }
-    }
-  }
-  ptrLower.push_back(valLower.size());
+  int status = computeLowerAThetaAT(A, theta, AAt);
 
   // factorise
-  Factorise factorise(S_, rowsLower, ptrLower, valLower);
+  Factorise factorise(S_, AAt.index_, AAt.start_, AAt.value_);
   int factorise_status = factorise.run(N_);
   if (factorise_status) {
     return kDecomposerStatusErrorFactorize;
   }
+
+  // save extreme values of the factorisation
+  minD_ = factorise.minD_;
+  maxD_ = factorise.maxD_;
+  minoffD_ = factorise.minoffD_;
+  maxoffD_ = factorise.maxoffD_;
 
   this->valid_ = true;
   use_as_ = false;
@@ -301,11 +291,11 @@ void FactorHiGHSSolver::refine(const HighsSparseMatrix& A,
 
   for (int iter = 0; iter < 5; ++iter) {
     // stop refinement if residual is small
-    if (norm_res / norm_rhs < 1e-8){
+    if (norm_res / norm_rhs < 1e-8) {
       break;
     }
 
-    //printf("%e  --> ", norm_res / norm_rhs);
+    // printf("%e  --> ", norm_res / norm_rhs);
 
     // compute correction
     // cor = M^-1 res
@@ -356,13 +346,21 @@ void FactorHiGHSSolver::refine(const HighsSparseMatrix& A,
       delta_x = temp_x;
       delta_y = temp_y;
     } else {
-      //printf("rejected\n");
+      // printf("rejected\n");
       return;
     }
   }
 
   norm_res = norm2(res_x, res_y);
-  //printf("%e\n", norm_res / norm_rhs);
+  // printf("%e\n", norm_res / norm_rhs);
 }
 
 void FactorHiGHSSolver::finalise() { S_.printTimes(); }
+
+void FactorHiGHSSolver::extremeValues(double& minD, double& maxD,
+                                      double& minoffD, double& maxoffD) {
+  minD = minD_;
+  maxD = maxD_;
+  minoffD = minoffD_;
+  maxoffD = maxoffD_;
+}

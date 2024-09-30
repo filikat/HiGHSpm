@@ -40,11 +40,13 @@ binary_name = ipm
 OBJDIR = obj
 
 # compilers
-CC=clang
-CPP=clang++
+#CC=clang
+#CPP=clang++
+ CPP = /opt/homebrew/Cellar/llvm/17.0.6_1/bin/clang++
+ CC = /opt/homebrew/Cellar/llvm/17.0.6_1/bin/clang
 
 # compiler flags
-CPPFLAGS = -std=c++11 -O3 -g3 -Wno-deprecated #-fsanitize=address
+CPPFLAGS = -std=c++11 -O3 -g3 -Wno-deprecated #-fsanitize=address #ASAN_OPTIONS=detect_leaks=1
 CFLAGS = -O3 -g3 #-fsanitize=address
 
 # mess to link openmp on mac

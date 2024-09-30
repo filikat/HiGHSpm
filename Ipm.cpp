@@ -92,9 +92,7 @@ Output Ipm::solve() {
   int setup_status = LS_->setup(model_.A_, parameters);
   if (setup_status) return Output{};
 
-  // comment the following line to use default starting point
-  int startStatus = computeStartingPoint();
-  if (startStatus) return {};
+  if (computeStartingPoint()) return Output{};
 
   // initialize residuals
   Residuals res(m_, n_);
@@ -108,7 +106,7 @@ Output Ipm::solve() {
   double dual_obj{};
   double pd_gap = 1.0;
 
-  std::string status;
+  std::string solver_status;
 
   // ------------------------------------------
   // ---- MAIN LOOP ---------------------------
@@ -119,18 +117,18 @@ Output Ipm::solve() {
     // Check that iterate is not NaN or Inf
     if (it_.isNaN()) {
       std::cerr << "iterate is nan\n";
-      status = "Error";
+      solver_status = "Error";
       break;
     } else if (it_.isInf()) {
       std::cerr << "iterate is inf\n";
-      status = "Error";
+      solver_status = "Error";
       break;
     }
 
     // If too many bad iterations, stop
     if (bad_iter >= 5) {
       printf("\n Failuer: no progress\n");
-      status = "No progress";
+      solver_status = "No progress";
       break;
     }
 
@@ -140,15 +138,17 @@ Output Ipm::solve() {
         primal_infeas < kIpmTolerance &&       // primal feasibility
         dual_infeas < kIpmTolerance) {         // dual feasibility
       printf("\n===== Optimal solution found =====\n\n");
-      status = "Optimal";
+      solver_status = "Optimal";
       break;
     }
 
     // Possibly print header
-    if (iter % 20 == 0)
+    if (iter % 20 == 0) {
       printf(
           " iter         primal obj            dual obj        pinf       dinf "
-          "       mu        alpha_p    alpha_d      p/d rel gap      time   min diag   max diag\n");
+          "       mu        alpha_p    alpha_d      p/d rel gap      time | "
+          "  min T      max T   |    min D      max D  |    min L      max L\n");
+    }
 
     ++iter;
 
@@ -185,7 +185,7 @@ Output Ipm::solve() {
       // Solve Newton system
       if (solveNewtonSystem(model_.A_, scaling, res, is_corrector, delta)) {
         std::cerr << "Error while solving Newton system\n";
-        status = "Error";
+        solver_status = "Error";
         break;
       }
 
@@ -206,7 +206,7 @@ Output Ipm::solve() {
       // Solve Newton system for predictor
       if (solveNewtonSystem(model_.A_, scaling, res, is_corrector, delta)) {
         std::cerr << "Error while solving Newton system\n";
-        status = "Error";
+        solver_status = "Error";
         break;
       }
 
@@ -232,13 +232,13 @@ Output Ipm::solve() {
       res.res1.assign(m_, 0.0);
       if (solveNewtonSystem(model_.A_, scaling, res, is_corrector, delta_cor)) {
         std::cerr << "Error while solving Newton system\n";
-        status = "Error";
+        solver_status = "Error";
         break;
       }
 
       // Compute full Newton direction for corrector
       if (recoverDirection(res, is_corrector, delta_cor)) {
-        status = "Error";
+        solver_status = "Error";
         break;
       }
 
@@ -294,11 +294,16 @@ Output Ipm::solve() {
     pd_gap = std::fabs(primal_obj - dual_obj) /
              (1 + 0.5 * std::fabs(primal_obj + dual_obj));
 
+    // extract extreme values of factorisation
+    double minD, maxD, minoffD, maxoffD;
+    LS_->extremeValues(minD, maxD, minoffD, maxoffD);
+
     printf(
         "%5d %20.10e %20.10e %10.2e %10.2e %10.2e %10.2f %10.2f %15.2e "
-        "%10.1fs %10.2e %10.2e\n",
+        "%10.1fs |%10.2e %10.2e |%10.2e %10.2e |%10.2e %10.2e\n",
         iter, primal_obj, dual_obj, primal_infeas, dual_infeas, mu,
-        alpha_primal, alpha_dual, pd_gap, getWallTime() - timer_iterations,min_theta_,max_theta_);
+        alpha_primal, alpha_dual, pd_gap, getWallTime() - timer_iterations,
+        min_theta_, max_theta_, minD, maxD, minoffD, maxoffD);
 
     // it.print(iter);
     // delta.print(iter);
@@ -307,7 +312,7 @@ Output Ipm::solve() {
 
   LS_->finalise();
 
-  if (status.empty()) status = "Max iter";
+  if (solver_status.empty()) solver_status = "Max iter";
 
   model_.unscale(it_);
 
@@ -318,7 +323,7 @@ Output Ipm::solve() {
   out.primal_infeas = primal_infeas;
   out.dual_infeas = dual_infeas;
   out.mu = mu;
-  out.status = status;
+  out.status = solver_status;
 
   return out;
 }

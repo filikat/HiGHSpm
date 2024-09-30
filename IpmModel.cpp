@@ -184,9 +184,10 @@ bool IpmModel::equilibrate() {
   colscale_.resize(0);
   rowscale_.resize(0);
 
+  int exp;
+
   // check if matrix needs equilibration
   for (int el = 0; el < A_.numNz(); ++el) {
-    int exp;
     std::frexp(std::abs(A_.value_[el]), &exp);
     if (exp < expmin || exp > expmax) {
       out_of_range = true;
@@ -224,7 +225,6 @@ bool IpmModel::equilibrate() {
 
     // compute scaling factors for rows
     for (int row = 0; row < num_con_; ++row) {
-      int exp;
       std::frexp(rowmax[row], &exp);
       rowmax[row] = equilFactor(exp, expmin, expmax);
       if (rowmax[row] != 1.0) {
@@ -236,7 +236,6 @@ bool IpmModel::equilibrate() {
 
     // compute scaling factors for columns
     for (int col = 0; col < num_var_; ++col) {
-      int exp;
       std::frexp(colmax[col], &exp);
       colmax[col] = equilFactor(exp, expmin, expmax);
       if (colmax[col] != 1.0) {

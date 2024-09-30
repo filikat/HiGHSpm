@@ -69,6 +69,10 @@ class LinearSolver {
                       const std::vector<double>& rhs_x,
                       const std::vector<double>& rhs_y,
                       std::vector<double>& lhs_x, std::vector<double>& lhs_y) {}
+
+  virtual void extremeValues(double& minD, double& maxD, double& minoffD,
+                             double& maxoffD){};
+
   virtual void finalise() {}
   // =================================================================
 };
