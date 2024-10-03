@@ -13,6 +13,7 @@ enum ArgC {
   kOptionNlaArg,
   kOptionFactArg,
   kOptionFormat,
+  kOptionVerbose,
   kMaxArgC
 };
 
@@ -20,10 +21,11 @@ int main(int argc, char** argv) {
   if (argc < kMinArgC || argc > kMaxArgC) {
     std::cerr
         << "======= How to use: ./ipm LP_name.mps(.gz) nla_option fact_option "
-           "format_option =======\n";
-    std::cerr << "nla_option   : 0 aug sys, 1 norm eq\n";
-    std::cerr << "fact_option  : 0 Chol, 1 LDLt\n";
-    std::cerr << "format_option: 0 full, 1 hybrid packed, 2 hybrid hybrid\n";
+           "format_option verbose_option =======\n";
+    std::cerr << "nla_option     : 0 aug sys, 1 norm eq\n";
+    std::cerr << "fact_option    : 0 Chol, 1 LDLt\n";
+    std::cerr << "format_option  : 0 full, 1 hybrid packed, 2 hybrid hybrid\n";
+    std::cerr << "verbose_option : 0 short print, 1 full print\n";
     return 1;
   }
 
@@ -213,6 +215,9 @@ int main(int argc, char** argv) {
               << kOptionFormatMax << "]\n";
     return 1;
   }
+
+  ipm.option_verbose_ =
+      argc > kOptionVerbose ? atoi(argv[kOptionVerbose]) : false;
 
   // extract problem name witout mps from path
   std::string pb_name{};

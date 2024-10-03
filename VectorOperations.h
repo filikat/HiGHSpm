@@ -38,6 +38,7 @@ double norm2(const std::vector<double>& x);
 double norm2(const std::vector<double>& x0, const std::vector<double>& x1);
 
 double infNorm(const std::vector<double>& x);
+double infNorm(const std::vector<double>& x0, const std::vector<double>& x1);
 
 // Infinity norm of the difference of two vectors
 double infNormDiff(const std::vector<double>& x, const std::vector<double>& y);

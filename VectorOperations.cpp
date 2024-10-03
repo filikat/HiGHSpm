@@ -77,6 +77,17 @@ double infNorm(const std::vector<double>& x) {
   return norm;
 }
 
+double infNorm(const std::vector<double>& x0, const std::vector<double>& x1) {
+  double norm{};
+  for (int i = 0; i < x0.size(); ++i) {
+    norm = std::max(norm, std::fabs(x0[i]));
+  }
+  for (int i = 0; i < x1.size(); ++i) {
+    norm = std::max(norm, std::fabs(x1[i]));
+  }
+  return norm;
+}
+
 double infNormDiff(const std::vector<double>& x, const std::vector<double>& y) {
   assert(x.size() == y.size());
   double inf_norm_diff = 0;

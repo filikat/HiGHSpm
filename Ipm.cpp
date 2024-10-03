@@ -145,9 +145,14 @@ Output Ipm::solve() {
     // Possibly print header
     if (iter % 20 == 0) {
       printf(
-          " iter         primal obj            dual obj        pinf       dinf "
-          "       mu        alpha_p    alpha_d      p/d rel gap      time | "
-          "  min T      max T   |    min D      max D  |    min L      max L\n");
+          " iter      primal obj        dual obj        pinf      dinf "
+          "       mu     alpha_p   alpha_d   p/d gap    time");
+      if (option_verbose_) {
+        printf(
+            " |   min T     max T  |   min D     max D  |   min L     max L  | "
+            " #reg   max reg    max res");
+      }
+      printf("\n");
     }
 
     ++iter;
@@ -183,14 +188,14 @@ Output Ipm::solve() {
       computeResiduals56(sigma * mu, delta, is_corrector, res);
 
       // Solve Newton system
-      if (solveNewtonSystem(model_.A_, scaling, res, is_corrector, delta)) {
+      if (solveNewtonSystem(model_.A_, scaling, res, delta)) {
         std::cerr << "Error while solving Newton system\n";
         solver_status = "Error";
         break;
       }
 
       // Compute full Newton direction
-      recoverDirection(res, is_corrector, delta);
+      recoverDirection(res, delta);
 
       // CheckResiduals(Delta, Res);
 
@@ -204,14 +209,14 @@ Output Ipm::solve() {
       computeResiduals56(0, delta, is_corrector, res);
 
       // Solve Newton system for predictor
-      if (solveNewtonSystem(model_.A_, scaling, res, is_corrector, delta)) {
+      if (solveNewtonSystem(model_.A_, scaling, res, delta)) {
         std::cerr << "Error while solving Newton system\n";
         solver_status = "Error";
         break;
       }
 
       // Compute full Newton direction for predictor
-      recoverDirection(res, is_corrector, delta);
+      recoverDirection(res, delta);
       // *********************************************************************
 
       // *********************************************************************
@@ -226,29 +231,21 @@ Output Ipm::solve() {
       computeResiduals56(sigma * mu, delta, is_corrector, res);
 
       // Initialize corrector direction
-      NewtonDir delta_cor(m_, n_);
+      // NewtonDir delta_cor(m_, n_);
 
       // Solve Newton system for corrector
-      res.res1.assign(m_, 0.0);
-      if (solveNewtonSystem(model_.A_, scaling, res, is_corrector, delta_cor)) {
+      // res.res1.assign(m_, 0.0);
+      if (solveNewtonSystem(model_.A_, scaling, res, delta)) {
         std::cerr << "Error while solving Newton system\n";
         solver_status = "Error";
         break;
       }
 
       // Compute full Newton direction for corrector
-      if (recoverDirection(res, is_corrector, delta_cor)) {
+      if (recoverDirection(res, delta)) {
         solver_status = "Error";
         break;
       }
-
-      // Add corrector to predictor
-      vectorAdd(delta.x, delta_cor.x, 1.0);
-      vectorAdd(delta.y, delta_cor.y, 1.0);
-      vectorAdd(delta.xl, delta_cor.xl, 1.0);
-      vectorAdd(delta.xu, delta_cor.xu, 1.0);
-      vectorAdd(delta.zl, delta_cor.zl, 1.0);
-      vectorAdd(delta.zu, delta_cor.zu, 1.0);
       // *********************************************************************
     }
 
@@ -295,15 +292,27 @@ Output Ipm::solve() {
              (1 + 0.5 * std::fabs(primal_obj + dual_obj));
 
     // extract extreme values of factorisation
-    double minD, maxD, minoffD, maxoffD;
-    LS_->extremeValues(minD, maxD, minoffD, maxoffD);
+    LS_data ls_data{};
+    LS_->extractData(ls_data);
 
     printf(
-        "%5d %20.10e %20.10e %10.2e %10.2e %10.2e %10.2f %10.2f %15.2e "
-        "%10.1fs |%10.2e %10.2e |%10.2e %10.2e |%10.2e %10.2e\n",
+        "%5d %16.8e %16.8e %10.2e %10.2e %10.2e %8.2f %8.2f %10.2e "
+        "%7.1f",
         iter, primal_obj, dual_obj, primal_infeas, dual_infeas, mu,
-        alpha_primal, alpha_dual, pd_gap, getWallTime() - timer_iterations,
-        min_theta_, max_theta_, minD, maxD, minoffD, maxoffD);
+        alpha_primal, alpha_dual, pd_gap, getWallTime() - timer_iterations);
+    if (option_verbose_) {
+      printf(" |%9.2e %9.2e |%9.2e %9.2e |%9.2e %9.2e |%5d", min_theta_,
+             max_theta_, ls_data.minD, ls_data.maxD, ls_data.minL, ls_data.maxL,
+             ls_data.num_reg);
+      if (ls_data.num_reg > 0) {
+        printf(" %10.2e", ls_data.max_reg);
+      } else {
+        printf(" %10s", "-");
+      }
+      printf(" %10.2e", ls_data.worst_res);
+    }
+
+    printf("\n");
 
     // it.print(iter);
     // delta.print(iter);
@@ -413,14 +422,16 @@ void Ipm::computeResiduals56(const double sigma_mu, const NewtonDir& delta_aff,
     for (int i = 0; i < n_; ++i) {
       // res5
       if (model_.hasLb(i)) {
-        res.res5[i] = sigma_mu - delta_aff.xl[i] * delta_aff.zl[i];
+        res.res5[i] = sigma_mu - it_.xl[i] * it_.zl[i] -
+                      delta_aff.xl[i] * delta_aff.zl[i];
       } else {
         res.res5[i] = 0.0;
       }
 
       // res6
       if (model_.hasUb(i)) {
-        res.res6[i] = sigma_mu - delta_aff.xu[i] * delta_aff.zu[i];
+        res.res6[i] = sigma_mu - it_.xu[i] * it_.zu[i] -
+                      delta_aff.xu[i] * delta_aff.zu[i];
       } else {
         res.res6[i] = 0.0;
       }
@@ -428,30 +439,16 @@ void Ipm::computeResiduals56(const double sigma_mu, const NewtonDir& delta_aff,
   }
 }
 
-std::vector<double> Ipm::computeResiduals7(const Residuals& res,
-                                           bool is_corrector) {
+std::vector<double> Ipm::computeResiduals7(const Residuals& res) {
   std::vector<double> res7;
 
-  if (!is_corrector) {
-    res7 = res.res4;
-    for (int i = 0; i < n_; ++i) {
-      if (model_.hasLb(i)) {
-        res7[i] -= ((res.res5[i] + it_.zl[i] * res.res2[i]) / it_.xl[i]);
-      }
-      if (model_.hasUb(i)) {
-        res7[i] += ((res.res6[i] - it_.zu[i] * res.res3[i]) / it_.xu[i]);
-      }
+  res7 = res.res4;
+  for (int i = 0; i < n_; ++i) {
+    if (model_.hasLb(i)) {
+      res7[i] -= ((res.res5[i] + it_.zl[i] * res.res2[i]) / it_.xl[i]);
     }
-
-  } else {
-    res7.resize(n_, 0.0);
-    for (int i = 0; i < n_; ++i) {
-      if (model_.hasLb(i)) {
-        res7[i] -= (res.res5[i] / it_.xl[i]);
-      }
-      if (model_.hasUb(i)) {
-        res7[i] += (res.res6[i] / it_.xu[i]);
-      }
+    if (model_.hasUb(i)) {
+      res7[i] += ((res.res6[i] - it_.zu[i] * res.res3[i]) / it_.xu[i]);
     }
   }
 
@@ -461,15 +458,10 @@ std::vector<double> Ipm::computeResiduals7(const Residuals& res,
 std::vector<double> Ipm::computeResiduals8(const HighsSparseMatrix& A,
                                            const std::vector<double>& scaling,
                                            const Residuals& res,
-                                           const std::vector<double>& res7,
-                                           bool is_corrector) {
+                                           const std::vector<double>& res7) {
   std::vector<double> res8;
 
-  if (is_corrector) {
-    res8.resize(m_, 0.0);
-  } else {
-    res8 = res.res1;
-  }
+  res8 = res.res1;
 
   std::vector<double> temp(res7);
 
@@ -512,10 +504,9 @@ void Ipm::computeScaling(std::vector<double>& scaling) {
 // =======================================================================
 int Ipm::solveNewtonSystem(const HighsSparseMatrix& A,
                            const std::vector<double>& scaling,
-                           const Residuals& res, bool is_corrector,
-                           NewtonDir& delta) {
+                           const Residuals& res, NewtonDir& delta) {
   // Compute residual 7
-  std::vector<double> res7{computeResiduals7(res, is_corrector)};
+  std::vector<double> res7{computeResiduals7(res)};
 
   // Identify whether the augmented system should be solved directly
   const bool use_direct_augmented = option_nla_ == kOptionNlaAugmented;
@@ -537,8 +528,7 @@ int Ipm::solveNewtonSystem(const HighsSparseMatrix& A,
     // A.scaling.A^T delta.y = res8
 
     // Compute res8
-    std::vector<double> res8{
-        computeResiduals8(A, scaling, res, res7, is_corrector)};
+    std::vector<double> res8{computeResiduals8(A, scaling, res, res7)};
 
     if (first_call_with_theta) {
       int newton_invert_status = LS_->factorNE(A, theta);
@@ -595,15 +585,6 @@ int Ipm::solveNewtonSystem(const HighsSparseMatrix& A,
       if (augmented_invert_status) return augmented_invert_status;
     }
 
-    // When solving the augmented system, the right side for the
-    // predictor should be (res7; res1), but for the corrector it
-    // should be (res7; 0)
-    if (is_corrector) {
-      // Check that res1 has been zeroed
-      const double res1_norm = norm2(res.res1);
-      assert(!res1_norm);
-    }
-
     LS_->solveAS(A, theta, res7, res.res1, delta.x, delta.y);
 
 #ifdef COMPARE_LINEAR_SOLVER
@@ -631,7 +612,7 @@ int Ipm::solveNewtonSystem(const HighsSparseMatrix& A,
   }
 
   // apply iterative refinement
-  LS_->refine(A, theta, res7, res.res1, delta.x, delta.y);
+  LS_->refine(A, scaling, res7, res.res1, delta.x, delta.y);
 
   return 0;
 }
@@ -639,24 +620,14 @@ int Ipm::solveNewtonSystem(const HighsSparseMatrix& A,
 // =======================================================================
 // FULL NEWTON DIRECTION
 // =======================================================================
-int Ipm::recoverDirection(const Residuals& res, bool is_corrector,
-                          NewtonDir& delta) {
-  if (!is_corrector) {
-    // Deltaxl
-    delta.xl = delta.x;
-    vectorAdd(delta.xl, res.res2, -1.0);
+int Ipm::recoverDirection(const Residuals& res, NewtonDir& delta) {
+  //  Deltaxl
+  delta.xl = delta.x;
+  vectorAdd(delta.xl, res.res2, -1.0);
 
-    // Deltaxu
-    delta.xu = res.res3;
-    vectorAdd(delta.xu, delta.x, -1.0);
-  } else {
-    // Deltaxl
-    delta.xl = delta.x;
-
-    // Deltaxu
-    delta.xu = delta.x;
-    vectorScale(delta.xu, -1.0);
-  }
+  // Deltaxu
+  delta.xu = res.res3;
+  vectorAdd(delta.xu, delta.x, -1.0);
 
   // Deltazl
   delta.zl = res.res5;

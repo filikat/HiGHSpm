@@ -42,7 +42,7 @@ class Ipm {
   int option_fact_ = kOptionFactDefault;
   int option_format_ = kOptionFormatDefault;
   int option_predcor_ = kOptionPredcorDefault;
-  
+  int option_verbose_ = false;
 
   // ===================================================================================
   // LOAD THE PROBLEM
@@ -144,18 +144,13 @@ class Ipm {
   //
   //  res7 = res4 - Xl^{-1} * (res5 + Zl * res2) + Xu^{-1} * (res6 - Zu * res3)
   //
-  //  Or
-  //
-  //  res7 = - Xl^{-1} * res5 + Xu^{-1} * res6
-  //
   // (the computation of res7 takes into account only the components for which
   // the correspoding upper/lower bounds are finite)
   //
   // ===================================================================================
   std::vector<double> computeResiduals7(
       // INPUT
-      const Residuals& res,      // residuals
-      bool is_corrector = false  // true if corrector, false is predictor
+      const Residuals& res  // residuals
   );
 
   // ===================================================================================
@@ -165,18 +160,13 @@ class Ipm {
   //
   //  res8 = res1 + A * Theta * res7
   //
-  //  Or
-  //
-  //  res8 = A * Theta * res7
-  //
   // ===================================================================================
   std::vector<double> computeResiduals8(
       // INPUT
       const HighsSparseMatrix& highs_a,    // constraint matrix
       const std::vector<double>& scaling,  // scaling vector
       const Residuals& res,                // residuals
-      const std::vector<double>& res7,     // residual 7
-      bool is_corrector = false  // true if corrector, false is predictor
+      const std::vector<double>& res7      // residual 7
   );
 
   // ===================================================================================
@@ -222,20 +212,14 @@ class Ipm {
   // with:
   //  res8 = res1 + A * Theta * res7
   //
-  //
-  // ___WARNING___
-  //  scaling may contain zeros, if there are free variables.
-  //  Do not form Theta = diag( scaling )^{-1} in this case.
-  //
   // ===================================================================================
   int solveNewtonSystem(
       // INPUT
       const HighsSparseMatrix& highs_a,    // constraint matrix
       const std::vector<double>& scaling,  // diagonal scaling, length n
       const Residuals& res,                // current residuals
-      bool is_corrector,  // true if corrector, false if predictor
-      // OUTPUT
-      NewtonDir& delta  // Newton direction
+                                           // OUTPUT
+      NewtonDir& delta                     // Newton direction
   );
 
   // ===================================================================================
@@ -252,7 +236,6 @@ class Ipm {
   int recoverDirection(
       // INPUT
       const Residuals& res,  // current residuals
-      bool is_corrector,     // true if corrector, false if predictor
       // OUTPUT
       NewtonDir& delta  // Newton directions
   );

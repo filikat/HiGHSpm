@@ -409,7 +409,7 @@ double getWallTime() {
       .count();
 }
 
-void debug_print(std::string& filestr, const std::vector<int>& data) {
+void debug_print(std::string filestr, const std::vector<int>& data) {
   char filename[100];
   snprintf(filename, 100, "../FactorHiGHS/matlab/%s", filestr.c_str());
 
@@ -422,14 +422,14 @@ void debug_print(std::string& filestr, const std::vector<int>& data) {
   fclose(out_file);
 }
 
-void debug_print(std::string& filestr, const std::vector<double>& data) {
+void debug_print(std::string filestr, const std::vector<double>& data) {
   char filename[100];
   snprintf(filename, 100, "../FactorHiGHS/matlab/%s", filestr.c_str());
 
   FILE* out_file = fopen(filename, "w+");
 
   for (double d : data) {
-    fprintf(out_file, "%.10e\n", d);
+    fprintf(out_file, "%.17e\n", d);
   }
 
   fclose(out_file);

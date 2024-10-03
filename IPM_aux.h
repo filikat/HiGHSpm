@@ -132,7 +132,7 @@ int computeLowerAThetaAT(const HighsSparseMatrix& matrix,
                          // overflow pointers
 );
 
-void debug_print(std::string& filestr, const std::vector<int>& data);
-void debug_print(std::string& filestr, const std::vector<double>& data);
+void debug_print(std::string filestr, const std::vector<int>& data);
+void debug_print(std::string filestr, const std::vector<double>& data);
 
 #endif

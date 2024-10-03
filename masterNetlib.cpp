@@ -183,7 +183,7 @@ int main() {
     // ===================================================================================
     // Identify the option values and check their validity
     // ===================================================================================
-    ipm.option_nla_ = 0;
+    ipm.option_nla_ = 1;
     ipm.option_fact_ = 1;
     ipm.option_format_ = 1;
     ipm.option_predcor_ = 1;
