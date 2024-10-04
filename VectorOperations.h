@@ -7,20 +7,21 @@
 // COMPONENT-WISE VECTOR OPERATIONS
 // =======================================================================
 
-// v1[i] + alpha * v2[i]
+// alpha * v1[i] + beta * v2[i]
 void vectorAdd(std::vector<double>& v1, const std::vector<double>& v2,
-               double alpha = 1.0);
+               double beta = 1.0, double alpha = 1.0);
 
 // v1[i] + alpha
 void vectorAdd(std::vector<double>& v1, const double alpha);
 
 // alpha * v1[i] * v2[i] + beta
 void vectorMultiply(std::vector<double>& v1, const std::vector<double>& v2,
-                    double alpha = 1.0, double beta = 0.0);
+                    double beta = 1.0, double alpha = 0.0);
 
-// v1[i] + alpha * v2[i] * v3[i]
+// alpha * v1[i] + beta * v2[i] * v3[i]
 void vectorAddMult(std::vector<double>& v1, const std::vector<double>& v2,
-                   const std::vector<double>& v3, double alpha = 1.0);
+                   const std::vector<double>& v3, double alpha = 1.0,
+                   double beta = 1.0);
 
 // v1[i] / v2[i]
 void vectorDivide(std::vector<double>& v1, const std::vector<double>& v2);

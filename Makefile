@@ -19,6 +19,7 @@ cpp_sources = \
 		CholmodSolver.cpp \
 		HFactorSolver.cpp \
 		FactorHiGHSSolver.cpp \
+		CurtisReidScaling.cpp \
 		../FactorHiGHS/Analyse.cpp \
 		../FactorHiGHS/Auxiliary.cpp \
 		../FactorHiGHS/Factorise.cpp \

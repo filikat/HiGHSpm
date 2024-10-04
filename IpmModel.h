@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 #include "Ipm_aux.h"
+#include "CurtisReidScaling.h"
 
 #include "util/HighsSparseMatrix.h"
 
@@ -64,6 +65,7 @@ class IpmModel {
 
   // Scale the matrix
   void scale();
+  void scaleCR();
   void unscale(Iterate& it);
   bool equilibrate();
 

@@ -4,9 +4,9 @@
 #include <cmath>
 
 void vectorAdd(std::vector<double>& v1, const std::vector<double>& v2,
-               double alpha) {
+               double beta, double alpha) {
   for (int i = 0; i < v1.size(); ++i) {
-    v1[i] += alpha * v2[i];
+    v1[i] = alpha * v1[i] + beta * v2[i];
   }
 }
 
@@ -24,9 +24,9 @@ void vectorMultiply(std::vector<double>& v1, const std::vector<double>& v2,
 }
 
 void vectorAddMult(std::vector<double>& v1, const std::vector<double>& v2,
-                   const std::vector<double>& v3, double alpha) {
+                   const std::vector<double>& v3, double beta, double alpha) {
   for (int i = 0; i < v1.size(); ++i) {
-    v1[i] += alpha * v2[i] * v3[i];
+    v1[i] = alpha * v1[i] + beta * v2[i] * v3[i];
   }
 }
 

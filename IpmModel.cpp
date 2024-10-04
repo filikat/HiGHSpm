@@ -53,6 +53,11 @@ void IpmModel::reformulate() {
       std::vector<int> temp_ind{i};
       std::vector<double> temp_val{1.0};
       A_.addVec(1, temp_ind.data(), temp_val.data());
+
+      // set scaling to 1
+      if (colscale_.size() > 0) {
+        colscale_.push_back(1.0);
+      }
     }
   }
 }
@@ -94,10 +99,16 @@ void IpmModel::checkCoefficients() {
   }
   if (bmin == kInf) bmin = 0.0;
 
-  // compute max and min entry of lb,ub
+  // compute max and min for bounds
   double boundmin = kInf;
   double boundmax = 0.0;
   for (int i = 0; i < num_var_; ++i) {
+    /*if (std::isfinite(lower_[i]) && std::isfinite(upper_[i]) &&
+        upper_[i] != lower_[i]) {
+      boundmin = std::min(boundmin, std::abs(upper_[i] - lower_[i]));
+      boundmax = std::max(boundmax, std::abs(upper_[i] - lower_[i]));
+    }*/
+
     if (lower_[i] != 0.0 && std::isfinite(lower_[i])) {
       boundmin = std::min(boundmin, std::abs(lower_[i]));
       boundmax = std::max(boundmax, std::abs(lower_[i]));
@@ -109,12 +120,29 @@ void IpmModel::checkCoefficients() {
   }
   if (boundmin == kInf) boundmin = 0.0;
 
+  // compute max and min scaling
+  double scalemin = kInf;
+  double scalemax = 0.0;
+  for (int i = 0; i < num_var_; ++i) {
+    scalemin = std::min(scalemin, colscale_[i]);
+    scalemax = std::max(scalemax, colscale_[i]);
+  }
+  for (int i = 0; i < num_con_; ++i) {
+    scalemin = std::min(scalemin, rowscale_[i]);
+    scalemax = std::max(scalemax, rowscale_[i]);
+  }
+
   // print ranges
   printf("\nCoefficients range\n");
-  printf("Range of A     : [%5.1e, %5.1e]\n", Amin, Amax);
-  printf("Range of b     : [%5.1e, %5.1e]\n", bmin, bmax);
-  printf("Range of c     : [%5.1e, %5.1e]\n", cmin, cmax);
-  printf("Range of bounds: [%5.1e, %5.1e]\n", boundmin, boundmax);
+  printf("Range of A     : [%5.1e, %5.1e], ratio %.1e\n", Amin, Amax,
+         Amax / Amin);
+  printf("Range of b     : [%5.1e, %5.1e], ratio %.1e\n", bmin, bmax,
+         bmax / bmin);
+  printf("Range of c     : [%5.1e, %5.1e], ratio %.1e\n", cmin, cmax,
+         cmax / cmin);
+  printf("Range of bounds: [%5.1e, %5.1e], ratio %.1e\n", boundmin, boundmax,
+         boundmax / boundmin);
+  printf("Scaling coeff  : [%5.1e, %5.1e]\n", scalemin, scalemax);
   printf("\n");
 }
 
@@ -135,6 +163,40 @@ void IpmModel::scale() {
     for (int row = 0; row < num_con_; ++row) {
       // Row has been scaled up by rowscale_[row], so rhs is scaled up
       rhs_[row] *= rowscale_[row];
+    }
+  }
+}
+
+void IpmModel::scaleCR() {
+  // Apply Curtis-Reid scaling and scale the problem accordingly
+
+  double objscale{};
+  double rhsscale{};
+  colscale_.resize(num_var_);
+  rowscale_.resize(num_con_);
+
+  CurtisReidScaling(A_.start_, A_.index_, A_.value_, rhs_, obj_, objscale,
+                    rhsscale, rowscale_, colscale_);
+
+  // Column has been scaled up by colscale_[col], so cost is scaled up and
+  // bounds are scaled down
+  for (int col = 0; col < num_var_; ++col) {
+    obj_[col] *= colscale_[col];
+    lower_[col] /= colscale_[col];
+    upper_[col] /= colscale_[col];
+  }
+
+  // Row has been scaled up by rowscale_[row], so rhs is scaled up
+  for (int row = 0; row < num_con_; ++row) {
+    rhs_[row] *= rowscale_[row];
+  }
+
+  // Each entry of the matrix is scaled by the corresponding row and col factor
+  for (int col = 0; col < num_var_; ++col) {
+    for (int el = A_.start_[col]; el < A_.start_[col + 1]; ++el) {
+      int row = A_.index_[el];
+      A_.value_[el] *= rowscale_[row];
+      A_.value_[el] *= colscale_[col];
     }
   }
 }
