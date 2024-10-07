@@ -20,7 +20,7 @@ void Ipm::load(const int num_var, const int num_con, const double* obj,
   model_.init(num_var, num_con, obj, rhs, lower, upper, A_colptr, A_rowind,
               A_values, constraints, pb_name);
 
-  model_.scaleCR();
+  model_.scale();
   model_.reformulate();
   model_.checkCoefficients();
 

@@ -10,8 +10,8 @@ void CurtisReidScaling(const std::vector<int>& ptr,
                        const std::vector<int>& rows,
                        const std::vector<double>& val,
                        const std::vector<double> b, const std::vector<double> c,
-                       double& objscale, double& rhsscale,
-                       std::vector<double>& rowscale,
-                       std::vector<double>& colscale);
+                       int& objexp, int& rhsexp,
+                       std::vector<int>& rowexp,
+                       std::vector<int>& colexp);
 
 #endif

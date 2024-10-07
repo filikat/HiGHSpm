@@ -43,8 +43,11 @@ class IpmModel {
   std::vector<int> constraints_{};
   std::string pb_name_{};
 
-  std::vector<double> colscale_{};
-  std::vector<double> rowscale_{};
+  // exponents for scaling
+  std::vector<int> colexp_{};
+  std::vector<int> rowexp_{};
+  int objexp_{};
+  int rhsexp_{};
 
  public:
   // Check if variable has finite lower/upper bound
@@ -65,9 +68,7 @@ class IpmModel {
 
   // Scale the matrix
   void scale();
-  void scaleCR();
   void unscale(Iterate& it);
-  bool equilibrate();
 
   friend class Ipm;
 };

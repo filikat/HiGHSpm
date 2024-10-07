@@ -113,11 +113,10 @@ void CurtisReidScaling(const std::vector<int>& ptr,
                        const std::vector<int>& rows,
                        const std::vector<double>& val,
                        const std::vector<double> b, const std::vector<double> c,
-                       double& objscale, double& rhsscale,
-                       std::vector<double>& rowscale,
-                       std::vector<double>& colscale) {
+                       int& objexp, int& rhsexp, std::vector<int>& rowexp,
+                       std::vector<int>& colexp) {
   // Takes as input the CSC matrix A, vectors b and c.
-  // Computes Curtis-Reid scaling of the LP.
+  // Computes Curtis-Reid scaling exponents of the LP, using powers of 2.
 
   int n = c.size();
   int m = b.size();
@@ -172,20 +171,12 @@ void CurtisReidScaling(const std::vector<int>& ptr,
   }
 
   // solve linear system with CG
-  std::vector<double> scaling(m + n + 2);
-  CG_for_CR_scaling(rhs, scaling, row_entries, col_entries, ptr, rows);
+  std::vector<double> exponents(m + n + 2);
+  CG_for_CR_scaling(rhs, exponents, row_entries, col_entries, ptr, rows);
 
-  for (int i = 0; i < m + n + 2; ++i) {
-    // round solution to nearest integer
-    int exponent = std::round(scaling[i]);
-
-    // compute scaling as power of 2
-    scaling[i] = std::ldexp(1.0, -exponent);
-  }
-
-  // unpack scaling into various components
-  objscale = scaling[0];
-  rhsscale = scaling[m + 1];
-  for (int i = 0; i < m; ++i) rowscale[i] = scaling[1 + i];
-  for (int j = 0; j < n; ++j) colscale[j] = scaling[m + 2 + j];
+  // unpack exponents into various components
+  objexp = -std::round(exponents[0]);
+  rhsexp = -std::round(exponents[m + 1]);
+  for (int i = 0; i < m; ++i) rowexp[i] = -std::round(exponents[1 + i]);
+  for (int j = 0; j < n; ++j) colexp[j] = -std::round(exponents[m + 2 + j]);
 }

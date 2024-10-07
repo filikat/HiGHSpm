@@ -234,7 +234,7 @@ int main(int argc, char** argv) {
 
   // solve LP
   start_time = getWallTime();
-  ipm.solve();
+  Output output = ipm.solve();
   double optimize_time = getWallTime() - start_time;
 
   double run_time = getWallTime() - start_time0;
