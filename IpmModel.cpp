@@ -149,7 +149,8 @@ void IpmModel::checkCoefficients() {
          cmax / cmin);
   printf("Range of bounds: [%5.1e, %5.1e], ratio %.1e\n", boundmin, boundmax,
          boundmax / boundmin);
-  printf("Scaling coeff  : [%5.1e, %5.1e]\n", scalemin, scalemax);
+  printf("Scaling coeff  : [%5.1e, %5.1e], ratio %.1e\n", scalemin, scalemax,
+         scalemax / scalemin);
   printf("\n");
 }
 

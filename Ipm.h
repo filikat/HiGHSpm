@@ -215,7 +215,7 @@ class Ipm {
   // ===================================================================================
   int solveNewtonSystem(
       // INPUT
-      const HighsSparseMatrix& highs_a,    // constraint matrix
+      const HighsSparseMatrix& A,          // constraint matrix
       const std::vector<double>& scaling,  // diagonal scaling, length n
       const Residuals& res,                // current residuals
                                            // OUTPUT

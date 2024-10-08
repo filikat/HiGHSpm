@@ -7,9 +7,8 @@ void MA86Solver::clear() {
   valid_ = false;
 }
 
-int MA86Solver::factorAS(const HighsSparseMatrix &matrix,
-                         const std::vector<double> &theta) {
-
+int MA86Solver::factorAS(const HighsSparseMatrix& matrix,
+                         const std::vector<double>& scaling) {
   // only execute factorization if it has not been done yet
   assert(!this->valid_);
 
@@ -23,10 +22,10 @@ int MA86Solver::factorAS(const HighsSparseMatrix &matrix,
   // Extract lower triangular part of augmented system
   int row_index_offset = matrix.num_col_;
   for (int iCol = 0; iCol < matrix.num_col_; iCol++) {
-    const double theta_i = !theta.empty() ? theta[iCol] : 1;
+    const double scaling_i = !scaling.empty() ? scaling[iCol] : 1;
 
     ptr.push_back(val.size());
-    val.push_back(-1 / theta_i);
+    val.push_back(-scaling_i);
     row.push_back(iCol);
     for (int iEl = matrix.start_[iCol]; iEl < matrix.start_[iCol + 1]; iEl++) {
       int iRow = matrix.index_[iEl];
@@ -52,37 +51,32 @@ int MA86Solver::factorAS(const HighsSparseMatrix &matrix,
   int ord = 1;
   wrapper_mc68_order(ord, n + m, ptr.data(), row.data(), this->order_.data(),
                      &this->control_perm_, &this->info_perm_);
-  if (this->info_perm_.flag < 0)
-    return kDecomposerStatusErrorFactorize;
+  if (this->info_perm_.flag < 0) return kDecomposerStatusErrorFactorize;
 
   // factorization with MA86
   wrapper_ma86_default_control(&this->control_);
   wrapper_ma86_analyse(n + m, ptr.data(), row.data(), this->order_.data(),
                        &this->keep_, &this->control_, &this->info_);
-  if (this->info_.flag < 0)
-    return kDecomposerStatusErrorFactorize;
+  if (this->info_.flag < 0) return kDecomposerStatusErrorFactorize;
 
   wrapper_ma86_factor(n + m, ptr.data(), row.data(), val.data(),
                       this->order_.data(), &this->keep_, &this->control_,
                       &this->info_);
-  if (this->info_.flag < 0)
-    return kDecomposerStatusErrorFactorize;
+  if (this->info_.flag < 0) return kDecomposerStatusErrorFactorize;
 
   this->valid_ = true;
   return kDecomposerStatusOk;
 }
 
-int MA86Solver::factorNE(const HighsSparseMatrix &highs_a,
-                         const std::vector<double> &theta) {
-
+int MA86Solver::factorNE(const HighsSparseMatrix& highs_a,
+                         const std::vector<double>& scaling) {
   // only execute factorization if it has not been done yet
   assert(!this->valid_);
 
   // compute normal equations matrix
   HighsSparseMatrix AThetaAT;
-  int AAT_status = computeAThetaAT(highs_a, theta, AThetaAT);
-  if (AAT_status)
-    return AAT_status;
+  int AAT_status = computeAThetaAT(highs_a, scaling, AThetaAT);
+  if (AAT_status) return AAT_status;
 
   // initialize data to extract lower triangle
   int n = AThetaAT.num_col_;
@@ -111,29 +105,25 @@ int MA86Solver::factorNE(const HighsSparseMatrix &highs_a,
   int ord = 1;
   wrapper_mc68_order(ord, n, ptr.data(), row.data(), this->order_.data(),
                      &this->control_perm_, &this->info_perm_);
-  if (this->info_perm_.flag < 0)
-    return kDecomposerStatusErrorFactorize;
+  if (this->info_perm_.flag < 0) return kDecomposerStatusErrorFactorize;
 
   // factorize with MA86
   wrapper_ma86_default_control(&this->control_);
   wrapper_ma86_analyse(n, ptr.data(), row.data(), this->order_.data(),
                        &this->keep_, &this->control_, &this->info_);
-  if (this->info_.flag < 0)
-    return kDecomposerStatusErrorFactorize;
+  if (this->info_.flag < 0) return kDecomposerStatusErrorFactorize;
 
-  wrapper_ma86_factor(n, ptr.data(), row.data(), val.data(), this->order_.data(),
-                      &this->keep_, &this->control_, &this->info_);
-  if (this->info_.flag < 0)
-    return kDecomposerStatusErrorFactorize;
+  wrapper_ma86_factor(n, ptr.data(), row.data(), val.data(),
+                      this->order_.data(), &this->keep_, &this->control_,
+                      &this->info_);
+  if (this->info_.flag < 0) return kDecomposerStatusErrorFactorize;
 
   this->valid_ = true;
   return kDecomposerStatusOk;
 }
 
-int MA86Solver::solveNE(const HighsSparseMatrix &highs_a,
-                        const std::vector<double> &theta,
-                        const std::vector<double> &rhs,
-                        std::vector<double> &lhs) {
+int MA86Solver::solveNE(const std::vector<double>& rhs,
+                        std::vector<double>& lhs) {
   // only execute the solve if factorization is valid
   assert(this->valid_);
 
@@ -144,19 +134,15 @@ int MA86Solver::solveNE(const HighsSparseMatrix &highs_a,
   // solve with ma86
   wrapper_ma86_solve(0, 1, system_size, lhs.data(), this->order_.data(),
                      &this->keep_, &this->control_, &this->info_);
-  if (this->info_.flag < 0)
-    return kDecomposerStatusErrorFactorize;
+  if (this->info_.flag < 0) return kDecomposerStatusErrorFactorize;
 
   return kDecomposerStatusOk;
 }
 
-int MA86Solver::solveAS(const HighsSparseMatrix &highs_a,
-                        const std::vector<double> &theta,
-                        const std::vector<double> &rhs_x,
-                        const std::vector<double> &rhs_y,
-                        std::vector<double> &lhs_x,
-                        std::vector<double> &lhs_y) {
-
+int MA86Solver::solveAS(const std::vector<double>& rhs_x,
+                        const std::vector<double>& rhs_y,
+                        std::vector<double>& lhs_x,
+                        std::vector<double>& lhs_y) {
   // only execute the solve if factorization is valid
   assert(this->valid_);
 
@@ -165,17 +151,19 @@ int MA86Solver::solveAS(const HighsSparseMatrix &highs_a,
   rhs.insert(rhs.end(), rhs_x.begin(), rhs_x.end());
   rhs.insert(rhs.end(), rhs_y.begin(), rhs_y.end());
 
-  int system_size = highs_a.num_col_ + highs_a.num_row_;
+  int m = rhs_y.size();
+  int n = rhs_x.size();
+
+  int system_size = m + n;
 
   // solve using ma86
   wrapper_ma86_solve(0, 1, system_size, rhs.data(), this->order_.data(),
                      &this->keep_, &this->control_, &this->info_);
-  if (this->info_.flag < 0)
-    return kDecomposerStatusErrorFactorize;
+  if (this->info_.flag < 0) return kDecomposerStatusErrorFactorize;
 
   // split lhs
-  lhs_x = std::vector<double>(rhs.begin(), rhs.begin() + highs_a.num_col_);
-  lhs_y = std::vector<double>(rhs.begin() + highs_a.num_col_, rhs.end());
+  lhs_x = std::vector<double>(rhs.begin(), rhs.begin() + n);
+  lhs_y = std::vector<double>(rhs.begin() + n, rhs.end());
 
   return kDecomposerStatusOk;
 }

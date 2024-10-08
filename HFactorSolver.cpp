@@ -6,7 +6,7 @@ void HFactorSolver::clear() {
 }
 
 int HFactorSolver::factorAS(const HighsSparseMatrix& matrix,
-                            const std::vector<double>& theta) {
+                            const std::vector<double>& scaling) {
   // only execute factorization if it has not been done yet
   assert(!this->valid_);
 
@@ -27,8 +27,8 @@ int HFactorSolver::factorAS(const HighsSparseMatrix& matrix,
   assert(basic_index.size() == 0);
   for (int iCol = 0; iCol < matrix.num_col_; iCol++) {
     basic_index.push_back(iCol);
-    const double theta_i = !theta.empty() ? theta[iCol] : 1;
-    double diag = -1 / theta_i;
+    const double scaling_i = !scaling.empty() ? scaling[iCol] : 1;
+    double diag = -scaling_i;
     assert(diag < 0);
     value.push_back(diag);
     index.push_back(iCol);
@@ -82,13 +82,13 @@ int HFactorSolver::factorAS(const HighsSparseMatrix& matrix,
 }
 
 int HFactorSolver::factorNE(const HighsSparseMatrix& highs_a,
-                            const std::vector<double>& theta) {
+                            const std::vector<double>& scaling) {
   // only execute factorization if it has not been done yet
   assert(!this->valid_);
 
   // compute normal equations matrix
   HighsSparseMatrix AThetaAT;
-  int AAT_status = computeAThetaAT(highs_a, theta, AThetaAT);
+  int AAT_status = computeAThetaAT(highs_a, scaling, AThetaAT);
   if (AAT_status) return AAT_status;
 
   HFactor& factor = this->factor_;
@@ -110,9 +110,7 @@ int HFactorSolver::factorNE(const HighsSparseMatrix& highs_a,
   return invert_status;
 }
 
-int HFactorSolver::solveNE(const HighsSparseMatrix& highs_a,
-                           const std::vector<double>& theta,
-                           const std::vector<double>& rhs,
+int HFactorSolver::solveNE(const std::vector<double>& rhs,
                            std::vector<double>& lhs) {
   // only execute the solve if factorization is valid
   assert(this->valid_);
@@ -125,9 +123,7 @@ int HFactorSolver::solveNE(const HighsSparseMatrix& highs_a,
   return kDecomposerStatusOk;
 }
 
-int HFactorSolver::solveAS(const HighsSparseMatrix& highs_a,
-                           const std::vector<double>& theta,
-                           const std::vector<double>& rhs_x,
+int HFactorSolver::solveAS(const std::vector<double>& rhs_x,
                            const std::vector<double>& rhs_y,
                            std::vector<double>& lhs_x,
                            std::vector<double>& lhs_y) {
@@ -139,7 +135,9 @@ int HFactorSolver::solveAS(const HighsSparseMatrix& highs_a,
   rhs.insert(rhs.end(), rhs_x.begin(), rhs_x.end());
   rhs.insert(rhs.end(), rhs_y.begin(), rhs_y.end());
 
-  int system_size = highs_a.num_col_ + highs_a.num_row_;
+  int m = rhs_y.size();
+  int n = rhs_x.size();
+  int system_size = m + n;
 
   // solve using HFactor
   std::vector<double> sol = rhs;
@@ -148,8 +146,8 @@ int HFactorSolver::solveAS(const HighsSparseMatrix& highs_a,
     rhs[this->basic_index_[iCol]] = sol[iCol];
 
   // split lhs
-  lhs_x = std::vector<double>(rhs.begin(), rhs.begin() + highs_a.num_col_);
-  lhs_y = std::vector<double>(rhs.begin() + highs_a.num_col_, rhs.end());
+  lhs_x = std::vector<double>(rhs.begin(), rhs.begin() + n);
+  lhs_y = std::vector<double>(rhs.begin() + n, rhs.end());
 
   return kDecomposerStatusOk;
 }

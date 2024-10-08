@@ -76,7 +76,7 @@ int FactorHiGHSSolver::setup(const HighsSparseMatrix& A,
 }
 
 int FactorHiGHSSolver::factorAS(const HighsSparseMatrix& A,
-                                const std::vector<double>& theta) {
+                                const std::vector<double>& scaling) {
   // only execute factorization if it has not been done yet
   assert(!this->valid_);
 
@@ -99,7 +99,7 @@ int FactorHiGHSSolver::factorAS(const HighsSparseMatrix& A,
   for (int i = 0; i < nA; ++i) {
     // diagonal element
     rowsLower[next] = i;
-    valLower[next++] = -1.0 / theta[i];
+    valLower[next++] = -scaling[i];
 
     // column of A
     for (int el = A.start_[i]; el < A.start_[i + 1]; ++el) {
@@ -136,7 +136,7 @@ int FactorHiGHSSolver::factorAS(const HighsSparseMatrix& A,
 }
 
 int FactorHiGHSSolver::factorNE(const HighsSparseMatrix& A,
-                                const std::vector<double>& theta) {
+                                const std::vector<double>& scaling) {
   // only execute factorization if it has not been done yet
   assert(!this->valid_);
 
@@ -151,7 +151,7 @@ int FactorHiGHSSolver::factorNE(const HighsSparseMatrix& A,
 
   // build full matrix
   HighsSparseMatrix AAt;
-  int status = computeLowerAThetaAT(A, theta, AAt);
+  int status = computeLowerAThetaAT(A, scaling, AAt);
 
   // factorise
   Factorise factorise(S_, AAt.index_, AAt.start_, AAt.value_);
@@ -171,9 +171,7 @@ int FactorHiGHSSolver::factorNE(const HighsSparseMatrix& A,
   return kDecomposerStatusOk;
 }
 
-int FactorHiGHSSolver::solveNE(const HighsSparseMatrix& A,
-                               const std::vector<double>& theta,
-                               const std::vector<double>& rhs,
+int FactorHiGHSSolver::solveNE(const std::vector<double>& rhs,
                                std::vector<double>& lhs) {
   // only execute the solve if factorization is valid
   assert(this->valid_);
@@ -186,14 +184,14 @@ int FactorHiGHSSolver::solveNE(const HighsSparseMatrix& A,
   return kDecomposerStatusOk;
 }
 
-int FactorHiGHSSolver::solveAS(const HighsSparseMatrix& A,
-                               const std::vector<double>& theta,
-                               const std::vector<double>& rhs_x,
+int FactorHiGHSSolver::solveAS(const std::vector<double>& rhs_x,
                                const std::vector<double>& rhs_y,
                                std::vector<double>& lhs_x,
                                std::vector<double>& lhs_y) {
   // only execute the solve if factorization is valid
   assert(this->valid_);
+
+  int n = rhs_x.size();
 
   // create single rhs
   std::vector<double> rhs;
@@ -203,8 +201,8 @@ int FactorHiGHSSolver::solveAS(const HighsSparseMatrix& A,
   N_.solve(rhs);
 
   // split lhs
-  lhs_x = std::vector<double>(rhs.begin(), rhs.begin() + A.num_col_);
-  lhs_y = std::vector<double>(rhs.begin() + A.num_col_, rhs.end());
+  lhs_x = std::vector<double>(rhs.begin(), rhs.begin() + n);
+  lhs_y = std::vector<double>(rhs.begin() + n, rhs.end());
 
   return kDecomposerStatusOk;
 }
@@ -279,7 +277,7 @@ void FactorHiGHSSolver::refine(const HighsSparseMatrix& A,
   }
   A.alphaProductPlusY(-1.0, delta_y, res_x, true);
 
-  //printf("Res x %e\n", infNorm(res_x));
+  printf("Res x %e\n", infNorm(res_x));
 
   // compute residual y
   // res_y = rhs_y - A * Dx - Rd * Dy
@@ -293,9 +291,20 @@ void FactorHiGHSSolver::refine(const HighsSparseMatrix& A,
     res_y[i] -= dual_reg * delta_y[i];
   }
 
-  //printf("Res y %e\n", infNorm(res_y));
+  printf("Res y %e\n", infNorm(res_y));
 
   norm_res = infNorm(res_x, res_y);
+
+  /*std::ofstream out_file;
+  print(out_file, delta_x, "delta_x");
+  print(out_file, delta_y, "delta_y");
+  print(out_file, rhs_x, "rhs_x");
+  print(out_file, rhs_y, "rhs_y");
+  print(out_file, scaling, "scaling");
+  print(out_file, A.start_, "ptrA");
+  print(out_file, A.index_, "rowsA");
+  print(out_file, A.value_, "valA");
+  print(out_file, dynamic_reg, "dyn_reg");*/
 
   for (int iter = 0; iter < 5; ++iter) {
     // stop refinement if residual is small
@@ -303,7 +312,7 @@ void FactorHiGHSSolver::refine(const HighsSparseMatrix& A,
       break;
     }
 
-    //printf("%e  --> ", norm_res);
+    printf("%e  --> ", norm_res);
 
     // compute correction
     // cor = M^-1 res
@@ -354,14 +363,14 @@ void FactorHiGHSSolver::refine(const HighsSparseMatrix& A,
       delta_x = temp_x;
       delta_y = temp_y;
     } else {
-      //printf(" %e xxx \n", norm_res);
+      printf(" %e xxx \n", norm_res);
       worst_res_ = std::max(worst_res_, old_norm_res);
       return;
     }
   }
 
   norm_res = infNorm(res_x, res_y);
-  //printf("%e\n", norm_res);
+  printf("%e\n", norm_res);
 
   worst_res_ = std::max(worst_res_, norm_res);
 }

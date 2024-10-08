@@ -8,19 +8,19 @@ void MA57Solver::clear() {
 }
 
 int MA57Solver::factorAS(const HighsSparseMatrix& matrix,
-                         const std::vector<double>& theta) {
+                         const std::vector<double>& scaling) {
   std::cerr << "MA57 does not factorize indefinite matrices\n";
   return kDecomposerStatusErrorFactorize;
 }
 
 int MA57Solver::factorNE(const HighsSparseMatrix& highs_a,
-                         const std::vector<double>& theta) {
+                         const std::vector<double>& scaling) {
   // only execute factorization if it has not been done yet
   assert(!this->valid_);
 
   // compute normal equations matrix
   HighsSparseMatrix AThetaAT;
-  int AAT_status = computeAThetaAT(highs_a, theta, AThetaAT);
+  int AAT_status = computeAThetaAT(highs_a, scaling, AThetaAT);
   if (AAT_status) return AAT_status;
 
   // initialize data to extract lower triangle
@@ -30,8 +30,7 @@ int MA57Solver::factorNE(const HighsSparseMatrix& highs_a,
   // Extract lower triangular part of AAT
   for (int c = 0; c < n; c++) {
     ptr.push_back(val_.size());
-    for (int idx = AThetaAT.start_[c]; idx < AThetaAT.start_[c + 1];
-         idx++) {
+    for (int idx = AThetaAT.start_[c]; idx < AThetaAT.start_[c + 1]; idx++) {
       int row_idx = AThetaAT.index_[idx];
       if (row_idx >= c) {
         val_.push_back(AThetaAT.value_[idx]);
@@ -70,9 +69,7 @@ int MA57Solver::factorNE(const HighsSparseMatrix& highs_a,
   return kDecomposerStatusOk;
 }
 
-int MA57Solver::solveNE(const HighsSparseMatrix& highs_a,
-                        const std::vector<double>& theta,
-                        const std::vector<double>& rhs,
+int MA57Solver::solveNE(const std::vector<double>& rhs,
                         std::vector<double>& lhs) {
   // only execute the solve if factorization is valid
   assert(this->valid_);
@@ -89,9 +86,7 @@ int MA57Solver::solveNE(const HighsSparseMatrix& highs_a,
   return kDecomposerStatusOk;
 }
 
-int MA57Solver::solveAS(const HighsSparseMatrix& highs_a,
-                        const std::vector<double>& theta,
-                        const std::vector<double>& rhs_x,
+int MA57Solver::solveAS(const std::vector<double>& rhs_x,
                         const std::vector<double>& rhs_y,
                         std::vector<double>& lhs_x,
                         std::vector<double>& lhs_y) {

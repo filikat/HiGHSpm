@@ -18,15 +18,12 @@ class CholmodSolver : public LinearSolver {
 
   // Functions
   int factorAS(const HighsSparseMatrix& highs_a,
-               const std::vector<double>& theta) override;
+               const std::vector<double>& scaling) override;
   int factorNE(const HighsSparseMatrix& highs_a,
-               const std::vector<double>& theta) override;
-  int solveNE(const HighsSparseMatrix& highs_a,
-              const std::vector<double>& theta, const std::vector<double>& rhs,
+               const std::vector<double>& scaling) override;
+  int solveNE(const std::vector<double>& rhs,
               std::vector<double>& lhs) override;
-  int solveAS(const HighsSparseMatrix& highs_a,
-              const std::vector<double>& theta,
-              const std::vector<double>& rhs_x,
+  int solveAS(const std::vector<double>& rhs_x,
               const std::vector<double>& rhs_y, std::vector<double>& lhs_x,
               std::vector<double>& lhs_y) override;
   void clear() override;

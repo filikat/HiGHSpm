@@ -73,7 +73,6 @@ Output Ipm::solve() {
   MA97Solver ma97_solver;
   HFactorSolver hfactor_solver;
   FactorHiGHSSolver factorHiGHS_solver;
-  // LS_ = &ma86_solver;
   LS_ = &factorHiGHS_solver;
 
 #ifdef COMPARE_LINEAR_SOLVER
@@ -127,7 +126,7 @@ Output Ipm::solve() {
 
     // If too many bad iterations, stop
     if (bad_iter >= 5) {
-      printf("\n Failuer: no progress\n");
+      printf("\n Failuer: no progress\n\n");
       solver_status = "No progress";
       break;
     }
@@ -137,7 +136,9 @@ Output Ipm::solve() {
         mu < kIpmTolerance &&                  // mu
         primal_infeas < kIpmTolerance &&       // primal feasibility
         dual_infeas < kIpmTolerance) {         // dual feasibility
-      printf("\n===== Optimal solution found =====\n\n");
+      printf("\n===== Optimal solution found =====\n");
+      primal_obj = std::ldexp(dotProd(it_.x, model_.obj_), -model_.objexp_);
+      printf("Objective value: %e\n\n", primal_obj);
       solver_status = "Optimal";
       break;
     }
@@ -311,12 +312,7 @@ Output Ipm::solve() {
       }
       printf(" %10.2e", ls_data.worst_res);
     }
-
     printf("\n");
-
-    // it.print(iter);
-    // delta.print(iter);
-    // res.print(iter);
   }
 
   LS_->finalise();
@@ -508,22 +504,20 @@ int Ipm::solveNewtonSystem(const HighsSparseMatrix& A,
   // Compute residual 7
   std::vector<double> res7{computeResiduals7(res)};
 
-  // Identify whether the augmented system should be solved directly
-  const bool use_direct_augmented = option_nla_ == kOptionNlaAugmented;
-  // Identify whether the Newton system should be solved directly
-  const bool use_direct_newton = option_nla_ == kOptionNlaNormEq;
+  const bool use_as = option_nla_ == kOptionNlaAugmented;
 
   // Augmented system is
   //
   // [-scaling A^T][dx] = [res7]
   // [A        0  ][dy]   [res1]
   //
-  std::vector<double> theta;
-  scaling2theta(scaling, theta);
 
   const bool first_call_with_theta = !LS_->valid_;
 
-  if (use_direct_newton) {
+  // *********************************************************************
+  // NORMAL EQUATIONS
+  // *********************************************************************
+  if (!use_as) {
     // Have to solve the Newton system
     // A.scaling.A^T delta.y = res8
 
@@ -531,23 +525,23 @@ int Ipm::solveNewtonSystem(const HighsSparseMatrix& A,
     std::vector<double> res8{computeResiduals8(A, scaling, res, res7)};
 
     if (first_call_with_theta) {
-      int newton_invert_status = LS_->factorNE(A, theta);
+      int newton_invert_status = LS_->factorNE(A, scaling);
 
 #ifdef COMPARE_LINEAR_SOLVER
-      LS2_->factorNE(A, theta);
+      LS2_->factorNE(A, scaling);
 #endif
 
       if (newton_invert_status) return newton_invert_status;
     }
 
-    int newton_solve_status = LS_->solveNE(A, theta, res8, delta.y);
+    int newton_solve_status = LS_->solveNE(res8, delta.y);
 
     if (newton_solve_status) return newton_solve_status;
 
 #ifdef COMPARE_LINEAR_SOLVER
     {
       std::vector<double> temp(m_, 0.0);
-      LS2_->solveNE(A, theta, res8, temp);
+      LS2_->solveNE(res8, temp);
 
       double diff{};
       double normy{};
@@ -563,7 +557,6 @@ int Ipm::solveNewtonSystem(const HighsSparseMatrix& A,
 #endif
 
     // Compute delta.x
-    // *********************************************************************
     // Deltax = A^T * Deltay - res7;
     delta.x = res7;
     A.alphaProductPlusY(-1.0, delta.y, delta.x, true);
@@ -571,27 +564,28 @@ int Ipm::solveNewtonSystem(const HighsSparseMatrix& A,
 
     // Deltax = Theta * Deltax
     vectorDivide(delta.x, scaling);
-    // *********************************************************************
   }
-
-  if (use_direct_augmented) {
+  // *********************************************************************
+  // AUGMENTED SYSTEM
+  // *********************************************************************
+  else {
     if (first_call_with_theta) {
-      int augmented_invert_status = LS_->factorAS(A, theta);
+      int augmented_invert_status = LS_->factorAS(A, scaling);
 
 #ifdef COMPARE_LINEAR_SOLVER
-      LS2_->factorAS(A, theta);
+      LS2_->factorAS(A, scaling);
 #endif
 
       if (augmented_invert_status) return augmented_invert_status;
     }
 
-    LS_->solveAS(A, theta, res7, res.res1, delta.x, delta.y);
+    LS_->solveAS(res7, res.res1, delta.x, delta.y);
 
 #ifdef COMPARE_LINEAR_SOLVER
     {
       std::vector<double> tempx(n_, 0.0);
       std::vector<double> tempy(m_, 0.0);
-      LS2_->solveAS(A, theta, res7, res.res1, tempx, tempy);
+      LS2_->solveAS(res7, res.res1, tempx, tempy);
 
       double diff{};
       double normy{};
@@ -611,7 +605,9 @@ int Ipm::solveNewtonSystem(const HighsSparseMatrix& A,
 #endif
   }
 
-  // apply iterative refinement
+  // *********************************************************************
+  // REFINEMENT
+  // *********************************************************************
   LS_->refine(A, scaling, res7, res.res1, delta.x, delta.y);
 
   return 0;
@@ -711,8 +707,7 @@ int Ipm::computeStartingPoint() {
     int newton_invert_status = LS_->factorNE(model_.A_, temp_scaling);
     if (newton_invert_status) return newton_invert_status;
 
-    int newton_solve_status =
-        LS_->solveNE(model_.A_, temp_scaling, it_.y, temp_m);
+    int newton_solve_status = LS_->solveNE(it_.y, temp_m);
     if (newton_solve_status) return newton_solve_status;
 
   } else if (option_nla_ == kOptionNlaAugmented) {
@@ -726,8 +721,8 @@ int Ipm::computeStartingPoint() {
     std::vector<double> rhs_x(n_);
     for (int i = 0; i < n_; ++i) rhs_x[i] = -it_.x[i];
     std::vector<double> lhs_x(n_);
-    int augmented_solve_status = LS_->solveAS(model_.A_, temp_scaling, rhs_x,
-                                              model_.rhs_, lhs_x, temp_m);
+    int augmented_solve_status =
+        LS_->solveAS(rhs_x, model_.rhs_, lhs_x, temp_m);
 
     if (augmented_solve_status) return augmented_solve_status;
   }
@@ -775,8 +770,7 @@ int Ipm::computeStartingPoint() {
     std::fill(temp_m.begin(), temp_m.end(), 0.0);
     model_.A_.alphaProductPlusY(1.0, model_.obj_, temp_m);
 
-    int newton_solve_status =
-        LS_->solveNE(model_.A_, temp_scaling, temp_m, it_.y);
+    int newton_solve_status = LS_->solveNE(temp_m, it_.y);
     if (newton_solve_status) return newton_solve_status;
 
   } else if (option_nla_ == kOptionNlaAugmented) {
@@ -787,8 +781,7 @@ int Ipm::computeStartingPoint() {
     std::vector<double> rhs_y(m_, 0.0);
     std::vector<double> lhs_x(n_);
 
-    int augmented_solve_status =
-        LS_->solveAS(model_.A_, temp_scaling, model_.obj_, rhs_y, lhs_x, it_.y);
+    int augmented_solve_status = LS_->solveAS(model_.obj_, rhs_y, lhs_x, it_.y);
     if (augmented_solve_status) return augmented_solve_status;
   }
   // *********************************************************************

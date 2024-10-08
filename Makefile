@@ -28,7 +28,8 @@ cpp_sources = \
 		../FactorHiGHS/FormatHandler.cpp \
 		../FactorHiGHS/FullFormatHandler.cpp \
 		../FactorHiGHS/HybridPackedFormatHandler.cpp \
-		../FactorHiGHS/HybridHybridFormatHandler.cpp
+		../FactorHiGHS/HybridHybridFormatHandler.cpp \
+		../FactorHiGHS/CurtisReidScalingSym.cpp
 c_sources = hsl_wrapper.c \
 			../FactorHiGHS/DenseFact.c \
 			../FactorHiGHS/CallAndTimeBlas.c \

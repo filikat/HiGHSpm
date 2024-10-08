@@ -7,24 +7,21 @@ void MA87Solver::clear() {
   valid_ = false;
 }
 
-int MA87Solver::factorAS(const HighsSparseMatrix &matrix,
-                         const std::vector<double> &theta) {
-
+int MA87Solver::factorAS(const HighsSparseMatrix& matrix,
+                         const std::vector<double>& scaling) {
   std::cerr << "MA87 does not factorize indefinite matrices\n";
   return kDecomposerStatusErrorFactorize;
 }
 
-int MA87Solver::factorNE(const HighsSparseMatrix &highs_a,
-                         const std::vector<double> &theta) {
-
+int MA87Solver::factorNE(const HighsSparseMatrix& highs_a,
+                         const std::vector<double>& scaling) {
   // only execute factorization if it has not been done yet
   assert(!this->valid_);
 
   // compute normal equations matrix
   HighsSparseMatrix AThetaAT;
-  int AAT_status = computeAThetaAT(highs_a, theta, AThetaAT);
-  if (AAT_status)
-    return AAT_status;
+  int AAT_status = computeAThetaAT(highs_a, scaling, AThetaAT);
+  if (AAT_status) return AAT_status;
 
   // initialize data to extract lower triangle
   int n = AThetaAT.num_col_;
@@ -53,29 +50,25 @@ int MA87Solver::factorNE(const HighsSparseMatrix &highs_a,
   int ord = 1;
   wrapper_mc68_order(ord, n, ptr.data(), row.data(), this->order_.data(),
                      &this->control_perm_, &this->info_perm_);
-  if (this->info_perm_.flag < 0)
-    return kDecomposerStatusErrorFactorize;
+  if (this->info_perm_.flag < 0) return kDecomposerStatusErrorFactorize;
 
   // factorize with MA87
   wrapper_ma87_default_control(&this->control_);
   wrapper_ma87_analyse(n, ptr.data(), row.data(), this->order_.data(),
                        &this->keep_, &this->control_, &this->info_);
-  if (this->info_.flag < 0)
-    return kDecomposerStatusErrorFactorize;
+  if (this->info_.flag < 0) return kDecomposerStatusErrorFactorize;
 
-  wrapper_ma87_factor(n, ptr.data(), row.data(), val.data(), this->order_.data(),
-                      &this->keep_, &this->control_, &this->info_);
-  if (this->info_.flag < 0)
-    return kDecomposerStatusErrorFactorize;
+  wrapper_ma87_factor(n, ptr.data(), row.data(), val.data(),
+                      this->order_.data(), &this->keep_, &this->control_,
+                      &this->info_);
+  if (this->info_.flag < 0) return kDecomposerStatusErrorFactorize;
 
   this->valid_ = true;
   return kDecomposerStatusOk;
 }
 
-int MA87Solver::solveNE(const HighsSparseMatrix &highs_a,
-                        const std::vector<double> &theta,
-                        const std::vector<double> &rhs,
-                        std::vector<double> &lhs) {
+int MA87Solver::solveNE(const std::vector<double>& rhs,
+                        std::vector<double>& lhs) {
   // only execute the solve if factorization is valid
   assert(this->valid_);
 
@@ -86,19 +79,15 @@ int MA87Solver::solveNE(const HighsSparseMatrix &highs_a,
   // solve with ma87
   wrapper_ma87_solve(0, 1, system_size, lhs.data(), this->order_.data(),
                      &this->keep_, &this->control_, &this->info_);
-  if (this->info_.flag < 0)
-    return kDecomposerStatusErrorFactorize;
+  if (this->info_.flag < 0) return kDecomposerStatusErrorFactorize;
 
   return kDecomposerStatusOk;
 }
 
-int MA87Solver::solveAS(const HighsSparseMatrix &highs_a,
-                        const std::vector<double> &theta,
-                        const std::vector<double> &rhs_x,
-                        const std::vector<double> &rhs_y,
-                        std::vector<double> &lhs_x,
-                        std::vector<double> &lhs_y) {
-
+int MA87Solver::solveAS(const std::vector<double>& rhs_x,
+                        const std::vector<double>& rhs_y,
+                        std::vector<double>& lhs_x,
+                        std::vector<double>& lhs_y) {
   std::cerr << "MA87 does not factorize indefinite matrices\n";
   return kDecomposerStatusErrorFactorize;
 }

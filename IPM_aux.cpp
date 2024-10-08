@@ -213,7 +213,7 @@ void NewtonDir::print(int iter) const {
 }
 
 int computeAThetaAT(const HighsSparseMatrix& matrix,
-                    const std::vector<double>& theta, HighsSparseMatrix& AAT,
+                    const std::vector<double>& scaling, HighsSparseMatrix& AAT,
                     const int max_num_nz) {
   // Create a row-wise copy of the matrix
   HighsSparseMatrix AT = matrix;
@@ -238,7 +238,7 @@ int computeAThetaAT(const HighsSparseMatrix& matrix,
     int num_col_el = 0;
     for (int iRowEl = AT.start_[iRow]; iRowEl < AT.start_[iRow + 1]; iRowEl++) {
       int iCol = AT.index_[iRowEl];
-      const double theta_value = !theta.empty() ? theta[iCol] : 1;
+      const double theta_value = !scaling.empty() ? 1.0 / scaling[iCol] : 1;
       if (!theta_value) continue;
       const double row_value = theta_value * AT.value_[iRowEl];
       for (int iColEl = matrix.start_[iCol]; iColEl < matrix.start_[iCol + 1];
@@ -313,7 +313,7 @@ int computeAThetaAT(const HighsSparseMatrix& matrix,
 }
 
 int computeLowerAThetaAT(const HighsSparseMatrix& matrix,
-                         const std::vector<double>& theta,
+                         const std::vector<double>& scaling,
                          HighsSparseMatrix& AAT, const int max_num_nz) {
   // Create a row-wise copy of the matrix
   HighsSparseMatrix AT = matrix;
@@ -338,7 +338,7 @@ int computeLowerAThetaAT(const HighsSparseMatrix& matrix,
     int num_col_el = 0;
     for (int iRowEl = AT.start_[iRow]; iRowEl < AT.start_[iRow + 1]; iRowEl++) {
       int iCol = AT.index_[iRowEl];
-      const double theta_value = !theta.empty() ? theta[iCol] : 1;
+      const double theta_value = !scaling.empty() ? 1.0 / scaling[iCol] : 1;
       if (!theta_value) continue;
       const double row_value = theta_value * AT.value_[iRowEl];
       for (int iColEl = matrix.start_[iCol]; iColEl < matrix.start_[iCol + 1];

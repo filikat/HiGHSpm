@@ -45,21 +45,17 @@ class LinearSolver {
   // These need to be defined by any derived class.
   // =================================================================
   virtual int factorAS(const HighsSparseMatrix& A,
-                       const std::vector<double>& theta) = 0;
+                       const std::vector<double>& scaling) = 0;
 
-  virtual int solveAS(const HighsSparseMatrix& A,
-                      const std::vector<double>& theta,
-                      const std::vector<double>& rhs_x,
+  virtual int solveAS(const std::vector<double>& rhs_x,
                       const std::vector<double>& rhs_y,
                       std::vector<double>& lhs_x,
                       std::vector<double>& lhs_y) = 0;
 
   virtual int factorNE(const HighsSparseMatrix& A,
-                       const std::vector<double>& theta) = 0;
+                       const std::vector<double>& scaling) = 0;
 
-  virtual int solveNE(const HighsSparseMatrix& A,
-                      const std::vector<double>& theta,
-                      const std::vector<double>& rhs,
+  virtual int solveNE(const std::vector<double>& rhs,
                       std::vector<double>& lhs) = 0;
 
   virtual void clear() = 0;

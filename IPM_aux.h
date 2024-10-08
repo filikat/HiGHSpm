@@ -112,7 +112,7 @@ struct Output {
 };
 
 int computeAThetaAT(const HighsSparseMatrix& matrix,
-                    const std::vector<double>& theta, HighsSparseMatrix& AAT,
+                    const std::vector<double>& scaling, HighsSparseMatrix& AAT,
                     const int max_num_nz = 100000000
                     // Cant exceed kHighsIInf = 2,147,483,647,
                     // otherwise start_ values may overflow. Even
@@ -122,7 +122,7 @@ int computeAThetaAT(const HighsSparseMatrix& matrix,
 );
 
 int computeLowerAThetaAT(const HighsSparseMatrix& matrix,
-                         const std::vector<double>& theta,
+                         const std::vector<double>& scaling,
                          HighsSparseMatrix& AAT,
                          const int max_num_nz = 100000000
                          // Cant exceed kHighsIInf = 2,147,483,647,
