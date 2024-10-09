@@ -5,13 +5,6 @@
 
 #include "VectorOperations.h"
 
-void scaling2theta(const std::vector<double>& scaling,
-                   std::vector<double>& theta) {
-  const int dim = scaling.size();
-  theta.resize(dim);
-  for (int i = 0; i < dim; i++) theta[i] = 1 / scaling[i];
-}
-
 Residuals::Residuals(int m, int n)
     : res1(m, 0.0),
       res2(n, 0.0),

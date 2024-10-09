@@ -4,672 +4,346 @@
 #include <cmath>
 #include <iostream>
 
-// #define COMPARE_LINEAR_SOLVER
-
-// =======================================================================
-// LOAD THE PROBLEM
-// =======================================================================
 void Ipm::load(const int num_var, const int num_con, const double* obj,
                const double* rhs, const double* lower, const double* upper,
-               const int* A_colptr, const int* A_rowind, const double* A_values,
-               const int* constraints, const std::string& pb_name) {
-  if (!obj || !rhs || !lower || !upper || !A_colptr || !A_rowind || !A_values ||
+               const int* A_ptr, const int* A_rows, const double* A_vals,
+               const int* constraints, const std::string& pb_name,
+               const Options& options) {
+  if (!obj || !rhs || !lower || !upper || !A_ptr || !A_rows || !A_vals ||
       !constraints)
     return;
 
-  model_.init(num_var, num_con, obj, rhs, lower, upper, A_colptr, A_rowind,
-              A_values, constraints, pb_name);
+  model_.init(num_var, num_con, obj, rhs, lower, upper, A_ptr, A_rows, A_vals,
+              constraints, pb_name);
 
   model_.scale();
   model_.reformulate();
-  model_.checkCoefficients();
 
   m_ = model_.num_con_;
   n_ = model_.num_var_;
-  model_ready_ = true;
+
+  options_ = options;
 }
 
-// =======================================================================
-// SOLVE THE LP
-// =======================================================================
 Output Ipm::solve() {
-  // solve only if model is loaded
-  if (!model_ready_) return Output{};
+  if (!model_.ready_) return Output{};
 
-  printf("-----------------------------------------\n");
-  printf("Problem %s\n", model_.pb_name_.c_str());
-  printf("\trows %d\n", model_.A_.num_row_);
-  printf("\tcols %d\n", model_.A_.num_col_);
-  printf("\tnnz  %d\n", model_.A_.numNz());
-  printf("\tusing %s\n", option_nla_ == kOptionNlaAugmented
-                             ? "augmented system"
-                             : "normal equations");
-  printf("-----------------------------------------\n");
-
-  double timer_iterations = getWallTime();
+  printInfo();
 
   // ------------------------------------------
   // ---- INITIALIZE --------------------------
   // ------------------------------------------
 
-  // iterations counter
-  int iter{};
+  // start timer
+  start_time_ = getWallTime();
 
-  // count number of "bad" iterations
-  int bad_iter{};
-
-  // initialize stepsize
-  double alpha_primal{};
-  double alpha_dual{};
-
-  // initialize starting point
+  // initialize iterate and residuals
   it_ = Iterate(m_, n_);
+  res_ = Residuals(m_, n_);
 
   // initialize linear solver
-  CholmodSolver cholmod_solver;
-  MA57Solver ma57_solver;
-  MA86Solver ma86_solver;
-  MA87Solver ma87_solver;
-  MA97Solver ma97_solver;
-  HFactorSolver hfactor_solver;
   FactorHiGHSSolver factorHiGHS_solver;
   LS_ = &factorHiGHS_solver;
+  if (LS_->setup(model_.A_, options_)) return Output{};
 
-#ifdef COMPARE_LINEAR_SOLVER
-  LS2_ = &hfactor_solver;
-#endif
-
-  // augmented system cannot be factorized with cholesky
-  assert(
-      !(option_nla_ == kOptionNlaAugmented && option_fact_ == kOptionFactChol));
-
-  // perform any preliminary calculations for the linear solver
-  std::vector<int> parameters(kParamSize);
-  parameters[kParamNla] = option_nla_;
-  parameters[kParamFact] = option_fact_;
-  parameters[kParamFormat] = option_format_;
-  int setup_status = LS_->setup(model_.A_, parameters);
-  if (setup_status) return Output{};
-
+  // initialize starting point, residuals and mu
   if (computeStartingPoint()) return Output{};
-
-  // initialize residuals
-  Residuals res(m_, n_);
-  computeResiduals1234(res);
-
-  // initialize infeasibilities and mu
-  double primal_infeas = norm2(res.res1) / (1 + norm2(model_.rhs_));
-  double dual_infeas = norm2(res.res4) / (1 + norm2(model_.obj_));
-  double mu = computeMu();
-  double primal_obj{};
-  double dual_obj{};
-  double pd_gap = 1.0;
-
-  std::string solver_status;
+  computeResiduals1234();
+  computeMu();
+  computeIndicators();
 
   // ------------------------------------------
   // ---- MAIN LOOP ---------------------------
   // ------------------------------------------
 
-  printf("\n");
-  while (iter < kMaxIterations) {
-    // Check that iterate is not NaN or Inf
-    if (it_.isNaN()) {
-      std::cerr << "iterate is nan\n";
-      solver_status = "Error";
-      break;
-    } else if (it_.isInf()) {
-      std::cerr << "iterate is inf\n";
-      solver_status = "Error";
-      break;
-    }
+  while (iter_ < kMaxIterations) {
+    if (checkIterate()) break;
+    if (checkBadIter()) break;
+    if (checkTermination()) break;
 
-    // If too many bad iterations, stop
-    if (bad_iter >= 5) {
-      printf("\n Failuer: no progress\n\n");
-      solver_status = "No progress";
-      break;
-    }
+    ++iter_;
 
-    // Stopping criterion
-    if (iter > 0 && pd_gap < kIpmTolerance &&  // primal-dual gap is small
-        mu < kIpmTolerance &&                  // mu
-        primal_infeas < kIpmTolerance &&       // primal feasibility
-        dual_infeas < kIpmTolerance) {         // dual feasibility
-      printf("\n===== Optimal solution found =====\n");
-      primal_obj = std::ldexp(dotProd(it_.x, model_.obj_), -model_.objexp_);
-      printf("Objective value: %e\n\n", primal_obj);
-      solver_status = "Optimal";
-      break;
-    }
+    // Clear Newton direction
+    delta_ = NewtonDir(m_, n_);
 
-    // Possibly print header
-    if (iter % 20 == 0) {
-      printf(
-          " iter      primal obj        dual obj        pinf      dinf "
-          "       mu     alpha_p   alpha_d   p/d gap    time");
-      if (option_verbose_) {
-        printf(
-            " |   min T     max T  |   min D     max D  |   min L     max L  | "
-            " #reg   max reg    max res");
-      }
-      printf("\n");
-    }
-
-    ++iter;
-
-    // Compute diagonal scaling
-    std::vector<double> scaling(n_, 0.0);
-    computeScaling(scaling);
-
-    // Clear any existing data in the linear solver now that scaling has changed
+    // Clear any existing data in the linear solver
     LS_->clear();
 
-#ifdef COMPARE_LINEAR_SOLVER
-    LS2_->clear();
-#endif
+    computeScaling();
 
-    // Initialize Newton direction
-    NewtonDir delta(m_, n_);
+    // ===== PREDICTOR =====
+    sigma_ = 0.0;
+    computeResiduals56();
+    if (solveNewtonSystem()) break;
+    if (recoverDirection()) break;
 
-    if (option_predcor_ == 0) {
-      bool is_corrector = false;
+    // ===== CORRECTOR =====
+    computeSigma();
+    computeResiduals56();
+    if (solveNewtonSystem()) break;
+    if (recoverDirection()) break;
 
-      // Heuristic to choose sigma
-      double sigma{};
-      if (iter == 1) {
-        sigma = kSigmaInitial;
-      } else {
-        sigma = pow(std::max(1.0 - alpha_primal, 1.0 - alpha_dual), 5.0);
-        sigma = std::max(sigma, kSigmaMin);
-        sigma = std::min(sigma, kSigmaMax);
-      }
-
-      // Compute last two residuals with correct value of sigma
-      computeResiduals56(sigma * mu, delta, is_corrector, res);
-
-      // Solve Newton system
-      if (solveNewtonSystem(model_.A_, scaling, res, delta)) {
-        std::cerr << "Error while solving Newton system\n";
-        solver_status = "Error";
-        break;
-      }
-
-      // Compute full Newton direction
-      recoverDirection(res, delta);
-
-      // CheckResiduals(Delta, Res);
-
-    } else {
-      // *********************************************************************
-      // PREDICTOR
-      // *********************************************************************
-      bool is_corrector = false;
-
-      // Compute last two residuals for predictor
-      computeResiduals56(0, delta, is_corrector, res);
-
-      // Solve Newton system for predictor
-      if (solveNewtonSystem(model_.A_, scaling, res, delta)) {
-        std::cerr << "Error while solving Newton system\n";
-        solver_status = "Error";
-        break;
-      }
-
-      // Compute full Newton direction for predictor
-      recoverDirection(res, delta);
-      // *********************************************************************
-
-      // *********************************************************************
-      // CORRECTOR
-      // *********************************************************************
-      is_corrector = true;
-
-      // Compute sigma based on the predictor
-      double sigma = computeSigmaCorrector(delta, mu);
-
-      // Compute last two residuals for corrector
-      computeResiduals56(sigma * mu, delta, is_corrector, res);
-
-      // Initialize corrector direction
-      // NewtonDir delta_cor(m_, n_);
-
-      // Solve Newton system for corrector
-      // res.res1.assign(m_, 0.0);
-      if (solveNewtonSystem(model_.A_, scaling, res, delta)) {
-        std::cerr << "Error while solving Newton system\n";
-        solver_status = "Error";
-        break;
-      }
-
-      // Compute full Newton direction for corrector
-      if (recoverDirection(res, delta)) {
-        solver_status = "Error";
-        break;
-      }
-      // *********************************************************************
-    }
-
-    // Find step-sizes
-    computeStepSizes(delta, alpha_primal, alpha_dual);
-
-    if (std::min(alpha_primal, alpha_dual) < 0.05)
-      ++bad_iter;
-    else
-      bad_iter = 0;
-
-    // Make the step
-    vectorAdd(it_.x, delta.x, alpha_primal);
-    vectorAdd(it_.xl, delta.xl, alpha_primal);
-    vectorAdd(it_.xu, delta.xu, alpha_primal);
-    vectorAdd(it_.y, delta.y, alpha_dual);
-    vectorAdd(it_.zl, delta.zl, alpha_dual);
-    vectorAdd(it_.zu, delta.zu, alpha_dual);
-
-    // Compute first four residuals of the new iterate
-    computeResiduals1234(res);
-
-    // Compute mu of the new iterate
-    mu = computeMu();
-
-    // Print output to screen
-    primal_infeas = norm2(res.res1) / (1 + norm2(model_.rhs_));
-    dual_infeas = norm2(res.res4) / (1 + norm2(model_.obj_));
-    primal_obj = dotProd(it_.x, model_.obj_);
-
-    // compute dual objective
-    dual_obj = dotProd(it_.y, model_.rhs_);
-    for (int i = 0; i < n_; ++i) {
-      if (model_.hasLb(i)) {
-        dual_obj += model_.lower_[i] * it_.zl[i];
-      }
-      if (model_.hasUb(i)) {
-        dual_obj -= model_.upper_[i] * it_.zu[i];
-      }
-    }
-
-    // compute scaled primal-dual gap
-    pd_gap = std::fabs(primal_obj - dual_obj) /
-             (1 + 0.5 * std::fabs(primal_obj + dual_obj));
-
-    // extract extreme values of factorisation
-    LS_data ls_data{};
-    LS_->extractData(ls_data);
-
-    printf(
-        "%5d %16.8e %16.8e %10.2e %10.2e %10.2e %8.2f %8.2f %10.2e "
-        "%7.1f",
-        iter, primal_obj, dual_obj, primal_infeas, dual_infeas, mu,
-        alpha_primal, alpha_dual, pd_gap, getWallTime() - timer_iterations);
-    if (option_verbose_) {
-      printf(" |%9.2e %9.2e |%9.2e %9.2e |%9.2e %9.2e |%5d", min_theta_,
-             max_theta_, ls_data.minD, ls_data.maxD, ls_data.minL, ls_data.maxL,
-             ls_data.num_reg);
-      if (ls_data.num_reg > 0) {
-        printf(" %10.2e", ls_data.max_reg);
-      } else {
-        printf(" %10s", "-");
-      }
-      printf(" %10.2e", ls_data.worst_res);
-    }
-    printf("\n");
+    // ===== STEP =====
+    makeStep();
+    computeResiduals1234();
+    computeMu();
+    computeIndicators();
+    printOutput();
   }
 
   LS_->finalise();
-
-  if (solver_status.empty()) solver_status = "Max iter";
-
   model_.unscale(it_);
 
   // output struct
   Output out{};
   out.it = std::move(it_);
-  out.iterations = iter;
-  out.primal_infeas = primal_infeas;
-  out.dual_infeas = dual_infeas;
-  out.mu = mu;
-  out.status = solver_status;
+  out.iterations = iter_;
+  out.primal_infeas = primal_infeas_;
+  out.dual_infeas = dual_infeas_;
+  out.mu = mu_;
+  out.status = ipm_status_;
 
   return out;
 }
 
-// =======================================================================
-// COMPUTE MU
-// =======================================================================
-double Ipm::computeMu() {
-  double mu = 0.0;
+void Ipm::computeMu() {
+  mu_ = 0.0;
   int number_finite_bounds{};
   for (int i = 0; i < n_; ++i) {
     if (model_.hasLb(i)) {
-      mu += it_.xl[i] * it_.zl[i];
+      mu_ += it_.xl[i] * it_.zl[i];
       ++number_finite_bounds;
     }
     if (model_.hasUb(i)) {
-      mu += it_.xu[i] * it_.zu[i];
+      mu_ += it_.xu[i] * it_.zu[i];
       ++number_finite_bounds;
     }
   }
-  return (mu / number_finite_bounds);
+  mu_ /= number_finite_bounds;
 }
 
-// =======================================================================
-// COMPUTE RESIDUALS
-// =======================================================================
-void Ipm::computeResiduals1234(Residuals& res) {
+void Ipm::computeResiduals1234() {
   // res1
-  res.res1 = model_.rhs_;
-  model_.A_.alphaProductPlusY(-1.0, it_.x, res.res1);
+  res_.res1 = model_.b_;
+  model_.A_.alphaProductPlusY(-1.0, it_.x, res_.res1);
 
   // res2
   for (int i = 0; i < n_; ++i) {
     if (model_.hasLb(i)) {
-      res.res2[i] = model_.lower_[i] - it_.x[i] + it_.xl[i];
+      res_.res2[i] = model_.lower_[i] - it_.x[i] + it_.xl[i];
     } else {
-      res.res2[i] = 0.0;
+      res_.res2[i] = 0.0;
     }
   }
 
   // res3
   for (int i = 0; i < n_; ++i) {
     if (model_.hasUb(i)) {
-      res.res3[i] = model_.upper_[i] - it_.x[i] - it_.xu[i];
+      res_.res3[i] = model_.upper_[i] - it_.x[i] - it_.xu[i];
     } else {
-      res.res3[i] = 0.0;
+      res_.res3[i] = 0.0;
     }
   }
 
   // res4
-  res.res4 = model_.obj_;
-  model_.A_.alphaProductPlusY(-1.0, it_.y, res.res4, true);
+  res_.res4 = model_.c_;
+  model_.A_.alphaProductPlusY(-1.0, it_.y, res_.res4, true);
   for (int i = 0; i < n_; ++i) {
     if (model_.hasLb(i)) {
-      res.res4[i] -= it_.zl[i];
+      res_.res4[i] -= it_.zl[i];
     }
     if (model_.hasUb(i)) {
-      res.res4[i] += it_.zu[i];
+      res_.res4[i] += it_.zu[i];
     }
   }
 
   // Check for NaN or Inf
-  assert(!res.isNaN());
-  assert(!res.isInf());
+  assert(!res_.isNaN());
+  assert(!res_.isInf());
 }
 
-void Ipm::computeResiduals56(const double sigma_mu, const NewtonDir& delta_aff,
-                             bool is_corrector, Residuals& res) {
-  if (!is_corrector) {
-    for (int i = 0; i < n_; ++i) {
-      // res5
-      if (model_.hasLb(i)) {
-        res.res5[i] = sigma_mu - it_.xl[i] * it_.zl[i];
-      } else {
-        res.res5[i] = 0.0;
-      }
+void Ipm::computeResiduals56() {
+  // For predictor, delta_ and sigma_ should be zero.
+  // For corrector, delta_ should be the affine scaling direction and sigma_
+  // should be computed with computeSigma().
 
-      // res6
-      if (model_.hasUb(i)) {
-        res.res6[i] = sigma_mu - it_.xu[i] * it_.zu[i];
-      } else {
-        res.res6[i] = 0.0;
-      }
+  for (int i = 0; i < n_; ++i) {
+    // res5
+    if (model_.hasLb(i)) {
+      res_.res5[i] =
+          sigma_ * mu_ - it_.xl[i] * it_.zl[i] - delta_.xl[i] * delta_.zl[i];
+    } else {
+      res_.res5[i] = 0.0;
     }
 
-  } else {
-    for (int i = 0; i < n_; ++i) {
-      // res5
-      if (model_.hasLb(i)) {
-        res.res5[i] = sigma_mu - it_.xl[i] * it_.zl[i] -
-                      delta_aff.xl[i] * delta_aff.zl[i];
-      } else {
-        res.res5[i] = 0.0;
-      }
-
-      // res6
-      if (model_.hasUb(i)) {
-        res.res6[i] = sigma_mu - it_.xu[i] * it_.zu[i] -
-                      delta_aff.xu[i] * delta_aff.zu[i];
-      } else {
-        res.res6[i] = 0.0;
-      }
+    // res6
+    if (model_.hasUb(i)) {
+      res_.res6[i] =
+          sigma_ * mu_ - it_.xu[i] * it_.zu[i] - delta_.xu[i] * delta_.zu[i];
+    } else {
+      res_.res6[i] = 0.0;
     }
   }
 }
 
-std::vector<double> Ipm::computeResiduals7(const Residuals& res) {
+std::vector<double> Ipm::computeResiduals7() {
   std::vector<double> res7;
 
-  res7 = res.res4;
+  res7 = res_.res4;
   for (int i = 0; i < n_; ++i) {
     if (model_.hasLb(i)) {
-      res7[i] -= ((res.res5[i] + it_.zl[i] * res.res2[i]) / it_.xl[i]);
+      res7[i] -= ((res_.res5[i] + it_.zl[i] * res_.res2[i]) / it_.xl[i]);
     }
     if (model_.hasUb(i)) {
-      res7[i] += ((res.res6[i] - it_.zu[i] * res.res3[i]) / it_.xu[i]);
+      res7[i] += ((res_.res6[i] - it_.zu[i] * res_.res3[i]) / it_.xu[i]);
     }
   }
 
   return res7;
 }
 
-std::vector<double> Ipm::computeResiduals8(const HighsSparseMatrix& A,
-                                           const std::vector<double>& scaling,
-                                           const Residuals& res,
-                                           const std::vector<double>& res7) {
+std::vector<double> Ipm::computeResiduals8(const std::vector<double>& res7) {
   std::vector<double> res8;
 
-  res8 = res.res1;
+  res8 = res_.res1;
 
   std::vector<double> temp(res7);
 
   // temp = Theta * res7
-  vectorDivide(temp, scaling);
+  vectorDivide(temp, scaling_);
 
   // res8 += A * temp
-  A.alphaProductPlusY(1.0, temp, res8);
+  model_.A_.alphaProductPlusY(1.0, temp, res8);
 
   return res8;
 }
 
-// =======================================================================
-// COMPUTE SCALING
-// =======================================================================
-void Ipm::computeScaling(std::vector<double>& scaling) {
+void Ipm::computeScaling() {
+  scaling_.assign(n_, 0.0);
+
   for (int i = 0; i < n_; ++i) {
     if (model_.hasLb(i)) {
-      scaling[i] += it_.zl[i] / it_.xl[i];
+      scaling_[i] += it_.zl[i] / it_.xl[i];
     }
     if (model_.hasUb(i)) {
-      scaling[i] += it_.zu[i] / it_.xu[i];
+      scaling_[i] += it_.zu[i] / it_.xu[i];
     }
 
     // add primal regularization
-    scaling[i] += kPrimalStaticRegularization;
+    scaling_[i] += kPrimalStaticRegularization;
   }
 
   min_theta_ = kInf;
   max_theta_ = 0.0;
 
   for (int i = 0; i < n_; ++i) {
-    min_theta_ = std::min(min_theta_, 1.0 / scaling[i]);
-    max_theta_ = std::max(max_theta_, 1.0 / scaling[i]);
+    min_theta_ = std::min(min_theta_, 1.0 / scaling_[i]);
+    max_theta_ = std::max(max_theta_, 1.0 / scaling_[i]);
   }
 }
 
-// =======================================================================
-// SOLVE NEWTON SYSTEM
-// =======================================================================
-int Ipm::solveNewtonSystem(const HighsSparseMatrix& A,
-                           const std::vector<double>& scaling,
-                           const Residuals& res, NewtonDir& delta) {
-  // Compute residual 7
-  std::vector<double> res7{computeResiduals7(res)};
+bool Ipm::solveNewtonSystem() {
+  // augmented system cannot be factorized with cholesky
+  assert(options_.nla != kOptionNlaAugmented ||
+         options_.fact != kOptionFactChol);
 
-  const bool use_as = option_nla_ == kOptionNlaAugmented;
+  std::vector<double> res7{computeResiduals7()};
 
-  // Augmented system is
-  //
-  // [-scaling A^T][dx] = [res7]
-  // [A        0  ][dy]   [res1]
-  //
+  const bool use_as = options_.nla == kOptionNlaAugmented;
 
   const bool first_call_with_theta = !LS_->valid_;
 
-  // *********************************************************************
   // NORMAL EQUATIONS
-  // *********************************************************************
   if (!use_as) {
-    // Have to solve the Newton system
-    // A.scaling.A^T delta.y = res8
-
-    // Compute res8
-    std::vector<double> res8{computeResiduals8(A, scaling, res, res7)};
+    std::vector<double> res8{computeResiduals8(res7)};
 
     if (first_call_with_theta) {
-      int newton_invert_status = LS_->factorNE(A, scaling);
-
-#ifdef COMPARE_LINEAR_SOLVER
-      LS2_->factorNE(A, scaling);
-#endif
-
-      if (newton_invert_status) return newton_invert_status;
+      if (LS_->factorNE(model_.A_, scaling_)) goto failure;
     }
 
-    int newton_solve_status = LS_->solveNE(res8, delta.y);
-
-    if (newton_solve_status) return newton_solve_status;
-
-#ifdef COMPARE_LINEAR_SOLVER
-    {
-      std::vector<double> temp(m_, 0.0);
-      LS2_->solveNE(res8, temp);
-
-      double diff{};
-      double normy{};
-      for (int i = 0; i < m_; ++i) {
-        diff += (temp[i] - delta.y[i]) * (temp[i] - delta.y[i]);
-        normy += delta.y[i] * delta.y[i];
-      }
-      diff = sqrt(diff);
-      normy = sqrt(normy);
-
-      printf("Error: %e\n", diff / normy);
-    }
-#endif
+    if (LS_->solveNE(res8, delta_.y)) goto failure;
 
     // Compute delta.x
     // Deltax = A^T * Deltay - res7;
-    delta.x = res7;
-    A.alphaProductPlusY(-1.0, delta.y, delta.x, true);
-    vectorScale(delta.x, -1.0);
+    delta_.x = res7;
+    model_.A_.alphaProductPlusY(-1.0, delta_.y, delta_.x, true);
+    vectorScale(delta_.x, -1.0);
 
     // Deltax = Theta * Deltax
-    vectorDivide(delta.x, scaling);
+    vectorDivide(delta_.x, scaling_);
   }
-  // *********************************************************************
+
   // AUGMENTED SYSTEM
-  // *********************************************************************
   else {
     if (first_call_with_theta) {
-      int augmented_invert_status = LS_->factorAS(A, scaling);
-
-#ifdef COMPARE_LINEAR_SOLVER
-      LS2_->factorAS(A, scaling);
-#endif
-
-      if (augmented_invert_status) return augmented_invert_status;
+      if (LS_->factorAS(model_.A_, scaling_)) goto failure;
     }
 
-    LS_->solveAS(res7, res.res1, delta.x, delta.y);
-
-#ifdef COMPARE_LINEAR_SOLVER
-    {
-      std::vector<double> tempx(n_, 0.0);
-      std::vector<double> tempy(m_, 0.0);
-      LS2_->solveAS(res7, res.res1, tempx, tempy);
-
-      double diff{};
-      double normy{};
-      for (int i = 0; i < m_; ++i) {
-        diff += (tempy[i] - delta.y[i]) * (tempy[i] - delta.y[i]);
-        normy += delta.y[i] * delta.y[i];
-      }
-      for (int i = 0; i < n_; ++i) {
-        diff += (tempx[i] - delta.x[i]) * (tempx[i] - delta.x[i]);
-        normy += delta.x[i] * delta.x[i];
-      }
-      diff = sqrt(diff);
-      normy = sqrt(normy);
-
-      printf("Error: %e\n", diff / normy);
-    }
-#endif
+    if (LS_->solveAS(res7, res_.res1, delta_.x, delta_.y)) goto failure;
   }
 
-  // *********************************************************************
   // REFINEMENT
-  // *********************************************************************
-  LS_->refine(A, scaling, res7, res.res1, delta.x, delta.y);
+  LS_->refine(model_.A_, scaling_, res7, res_.res1, delta_.x, delta_.y);
+  return false;
 
-  return 0;
+// Failure occured in factorisation or solve
+failure:
+  std::cerr << "Error while solving Newton system\n";
+  ipm_status_ = "Error\n";
+  return true;
 }
 
-// =======================================================================
-// FULL NEWTON DIRECTION
-// =======================================================================
-int Ipm::recoverDirection(const Residuals& res, NewtonDir& delta) {
+bool Ipm::recoverDirection() {
   //  Deltaxl
-  delta.xl = delta.x;
-  vectorAdd(delta.xl, res.res2, -1.0);
+  delta_.xl = delta_.x;
+  vectorAdd(delta_.xl, res_.res2, -1.0);
 
   // Deltaxu
-  delta.xu = res.res3;
-  vectorAdd(delta.xu, delta.x, -1.0);
+  delta_.xu = res_.res3;
+  vectorAdd(delta_.xu, delta_.x, -1.0);
 
   // Deltazl
-  delta.zl = res.res5;
-  vectorAddMult(delta.zl, it_.zl, delta.xl, -1.0);
-  vectorDivide(delta.zl, it_.xl);
+  delta_.zl = res_.res5;
+  vectorAddMult(delta_.zl, it_.zl, delta_.xl, -1.0);
+  vectorDivide(delta_.zl, it_.xl);
 
   // Deltazu
-  delta.zu = res.res6;
-  vectorAddMult(delta.zu, it_.zu, delta.xu, -1.0);
-  vectorDivide(delta.zu, it_.xu);
+  delta_.zu = res_.res6;
+  vectorAddMult(delta_.zu, it_.zu, delta_.xu, -1.0);
+  vectorDivide(delta_.zu, it_.xu);
 
   // Check for NaN of Inf
-  if (delta.isNaN()) {
-    std::cerr << "direction is nan\n";
-    return kRetGeneric;
-  } else if (delta.isInf()) {
-    std::cerr << "direciton is inf\n";
-    return kRetGeneric;
+  if (delta_.isNaN()) {
+    std::cerr << "Direction is nan\n";
+    ipm_status_ = "Error";
+    return true;
+  } else if (delta_.isInf()) {
+    std::cerr << "Direciton is inf\n";
+    ipm_status_ = "Error";
+    return true;
   }
-
-  return kRetOk;
+  return false;
 }
 
-// =======================================================================
-// COMPUTE STEP-SIZES
-// =======================================================================
-void Ipm::computeStepSizes(const NewtonDir& delta, double& alpha_primal,
-                           double& alpha_dual) {
+void Ipm::computeStepSizes(double& alpha_primal, double& alpha_dual) {
   alpha_primal = 1.0;
   for (int i = 0; i < n_; ++i) {
-    if (delta.xl[i] < 0 && model_.hasLb(i)) {
-      alpha_primal = std::min(alpha_primal, -it_.xl[i] / delta.xl[i]);
+    if (delta_.xl[i] < 0 && model_.hasLb(i)) {
+      alpha_primal = std::min(alpha_primal, -it_.xl[i] / delta_.xl[i]);
     }
-    if (delta.xu[i] < 0 && model_.hasUb(i)) {
-      alpha_primal = std::min(alpha_primal, -it_.xu[i] / delta.xu[i]);
+    if (delta_.xu[i] < 0 && model_.hasUb(i)) {
+      alpha_primal = std::min(alpha_primal, -it_.xu[i] / delta_.xu[i]);
     }
   }
   alpha_primal *= kInteriorScaling;
 
   alpha_dual = 1.0;
   for (int i = 0; i < n_; ++i) {
-    if (delta.zl[i] < 0 && model_.hasLb(i)) {
-      alpha_dual = std::min(alpha_dual, -it_.zl[i] / delta.zl[i]);
+    if (delta_.zl[i] < 0 && model_.hasLb(i)) {
+      alpha_dual = std::min(alpha_dual, -it_.zl[i] / delta_.zl[i]);
     }
-    if (delta.zu[i] < 0 && model_.hasUb(i)) {
-      alpha_dual = std::min(alpha_dual, -it_.zu[i] / delta.zu[i]);
+    if (delta_.zu[i] < 0 && model_.hasUb(i)) {
+      alpha_dual = std::min(alpha_dual, -it_.zu[i] / delta_.zu[i]);
     }
   }
   alpha_dual *= kInteriorScaling;
@@ -678,9 +352,22 @@ void Ipm::computeStepSizes(const NewtonDir& delta, double& alpha_primal,
          alpha_dual < 1);
 }
 
-// ===================================================================================
-// COMPUTE STARTING POINT
-// ===================================================================================
+void Ipm::makeStep() {
+  computeStepSizes(alpha_primal_, alpha_dual_);
+
+  if (std::min(alpha_primal_, alpha_dual_) < 0.05)
+    ++bad_iter_;
+  else
+    bad_iter_ = 0;
+
+  vectorAdd(it_.x, delta_.x, alpha_primal_);
+  vectorAdd(it_.xl, delta_.xl, alpha_primal_);
+  vectorAdd(it_.xu, delta_.xu, alpha_primal_);
+  vectorAdd(it_.y, delta_.y, alpha_dual_);
+  vectorAdd(it_.zl, delta_.zl, alpha_dual_);
+  vectorAdd(it_.zu, delta_.zu, alpha_dual_);
+}
+
 int Ipm::computeStartingPoint() {
   // *********************************************************************
   // x starting point
@@ -695,9 +382,9 @@ int Ipm::computeStartingPoint() {
   const std::vector<double> temp_scaling(n_, 1.0);
   std::vector<double> temp_m(m_);
 
-  if (option_nla_ == kOptionNlaNormEq) {
+  if (options_.nla == kOptionNlaNormEq) {
     // use y to store b-A*x
-    it_.y = model_.rhs_;
+    it_.y = model_.b_;
     model_.A_.alphaProductPlusY(-1.0, it_.x, it_.y);
 
     // solve A*A^T * dx = b-A*x with factorization and store the result in
@@ -710,7 +397,7 @@ int Ipm::computeStartingPoint() {
     int newton_solve_status = LS_->solveNE(it_.y, temp_m);
     if (newton_solve_status) return newton_solve_status;
 
-  } else if (option_nla_ == kOptionNlaAugmented) {
+  } else if (options_.nla == kOptionNlaAugmented) {
     // obtain solution of A*A^T * dx = b-A*x by solving
     // [ -I  A^T] [...] = [ -x]
     // [  A   0 ] [ dx] = [ b ]
@@ -721,8 +408,7 @@ int Ipm::computeStartingPoint() {
     std::vector<double> rhs_x(n_);
     for (int i = 0; i < n_; ++i) rhs_x[i] = -it_.x[i];
     std::vector<double> lhs_x(n_);
-    int augmented_solve_status =
-        LS_->solveAS(rhs_x, model_.rhs_, lhs_x, temp_m);
+    int augmented_solve_status = LS_->solveAS(rhs_x, model_.b_, lhs_x, temp_m);
 
     if (augmented_solve_status) return augmented_solve_status;
   }
@@ -765,15 +451,15 @@ int Ipm::computeStartingPoint() {
   // y starting point
   // *********************************************************************
 
-  if (option_nla_ == kOptionNlaNormEq) {
+  if (options_.nla == kOptionNlaNormEq) {
     // compute A*c
     std::fill(temp_m.begin(), temp_m.end(), 0.0);
-    model_.A_.alphaProductPlusY(1.0, model_.obj_, temp_m);
+    model_.A_.alphaProductPlusY(1.0, model_.c_, temp_m);
 
     int newton_solve_status = LS_->solveNE(temp_m, it_.y);
     if (newton_solve_status) return newton_solve_status;
 
-  } else if (option_nla_ == kOptionNlaAugmented) {
+  } else if (options_.nla == kOptionNlaAugmented) {
     // obtain solution of A*A^T * y = A*c by solving
     // [ -I  A^T] [...] = [ c ]
     // [  A   0 ] [ y ] = [ 0 ]
@@ -781,7 +467,7 @@ int Ipm::computeStartingPoint() {
     std::vector<double> rhs_y(m_, 0.0);
     std::vector<double> lhs_x(n_);
 
-    int augmented_solve_status = LS_->solveAS(model_.obj_, rhs_y, lhs_x, it_.y);
+    int augmented_solve_status = LS_->solveAS(model_.c_, rhs_y, lhs_x, it_.y);
     if (augmented_solve_status) return augmented_solve_status;
   }
   // *********************************************************************
@@ -790,7 +476,7 @@ int Ipm::computeStartingPoint() {
   // zl, zu starting point
   // *********************************************************************
   // compute c - A^T * y and store in zl
-  it_.zl = model_.obj_;
+  it_.zl = model_.c_;
   model_.A_.alphaProductPlusY(-1.0, it_.y, it_.zl, true);
 
   // split result between zl and zu
@@ -863,95 +549,143 @@ int Ipm::computeStartingPoint() {
   return kDecomposerStatusOk;
 }
 
-double Ipm::computeSigmaCorrector(const NewtonDir& delta_aff, double mu) {
+void Ipm::computeSigma() {
+  // delta_ should contain the affine scaling direction
+
   // stepsizes of predictor direction
   double alpha_p{};
   double alpha_d{};
-  computeStepSizes(delta_aff, alpha_p, alpha_d);
+  computeStepSizes(alpha_p, alpha_d);
 
   // mu using predictor direction
   double mu_aff = 0.0;
   int number_finite_bounds{};
   for (int i = 0; i < n_; ++i) {
     if (model_.hasLb(i)) {
-      mu_aff += (it_.xl[i] + alpha_p * delta_aff.xl[i]) *
-                (it_.zl[i] + alpha_d * delta_aff.zl[i]);
+      mu_aff += (it_.xl[i] + alpha_p * delta_.xl[i]) *
+                (it_.zl[i] + alpha_d * delta_.zl[i]);
       ++number_finite_bounds;
     }
     if (model_.hasUb(i)) {
-      mu_aff += (it_.xu[i] + alpha_p * delta_aff.xu[i]) *
-                (it_.zu[i] + alpha_d * delta_aff.zu[i]);
+      mu_aff += (it_.xu[i] + alpha_p * delta_.xu[i]) *
+                (it_.zu[i] + alpha_d * delta_.zu[i]);
       ++number_finite_bounds;
     }
   }
   mu_aff /= number_finite_bounds;
 
   // heuristic to choose sigma
-  double ratio = mu_aff / mu;
-
-  return ratio * ratio * ratio;
+  double ratio = mu_aff / mu_;
+  sigma_ = ratio * ratio * ratio;
 }
 
-void Ipm::checkResiduals(const NewtonDir& delta, const Residuals& res) const {
-  std::vector<double> temp_m(m_, 0.0);
-  std::vector<double> temp_n(n_, 0.0);
+void Ipm::computeIndicators() {
+  primal_infeas_ = norm2(res_.res1) / (1 + norm2(model_.b_));
+  dual_infeas_ = norm2(res_.res4) / (1 + norm2(model_.c_));
+  primal_obj_ = dotProd(it_.x, model_.c_);
 
-  // check A * delta.x - res1
-  model_.A_.product(temp_m, delta.x);
-  double norm_diff_1 = infNormDiff(temp_m, res.res1);
-  vectorAdd(temp_m, res.res1, -1.0);
-  vectorDivide(temp_m, res.res1);
-  double rel_norm_1 = infNorm(temp_m);
+  dual_obj_ = dotProd(it_.y, model_.b_);
+  for (int i = 0; i < n_; ++i) {
+    if (model_.hasLb(i)) {
+      dual_obj_ += model_.lower_[i] * it_.zl[i];
+    }
+    if (model_.hasUb(i)) {
+      dual_obj_ -= model_.upper_[i] * it_.zu[i];
+    }
+  }
 
-  // check delta.x - delta.xl - res2
-  temp_n = delta.x;
-  vectorAdd(temp_n, delta.xl, -1.0);
-  double norm_diff_2 = infNormDiff(temp_n, res.res2);
-  vectorAdd(temp_n, res.res2, -1.0);
-  vectorDivide(temp_n, res.res2);
-  double rel_norm_2 = infNorm(temp_n);
+  pd_gap_ = std::fabs(primal_obj_ - dual_obj_) /
+            (1 + 0.5 * std::fabs(primal_obj_ + dual_obj_));
+}
 
-  // check delta.x + delta.xu - res3
-  temp_n = delta.x;
-  vectorAdd(temp_n, delta.xu);
-  double norm_diff_3 = infNormDiff(temp_n, res.res3);
-  vectorAdd(temp_n, res.res3, -1.0);
-  vectorDivide(temp_n, res.res3);
-  double rel_norm_3 = infNorm(temp_n);
+bool Ipm::checkIterate() {
+  // Check that iterate is not NaN or Inf
+  if (it_.isNaN()) {
+    std::cerr << "iterate is nan\n";
+    ipm_status_ = "Error";
+    return true;
+  } else if (it_.isInf()) {
+    std::cerr << "iterate is inf\n";
+    ipm_status_ = "Error";
+    return true;
+  }
+  return false;
+}
 
-  // check A^T * delta.y + delta.zl - delta.zu - res4
-  std::fill(temp_n.begin(), temp_n.end(), 0.0);
-  model_.A_.productTranspose(temp_n, delta.y);
-  vectorAdd(temp_n, delta.zl);
-  vectorAdd(temp_n, delta.zu, -1.0);
-  double norm_diff_4 = infNormDiff(temp_n, res.res4);
-  vectorAdd(temp_n, res.res4, -1.0);
-  vectorDivide(temp_n, res.res4);
-  double rel_norm_4 = infNorm(temp_n);
+bool Ipm::checkBadIter() {
+  // If too many bad iterations, stop
+  if (bad_iter_ >= 5) {
+    printf("\n Failuer: no progress\n\n");
+    ipm_status_ = "No progress";
+    return true;
+  }
+  return false;
+}
 
-  // check Zl * delta.xl + Xl * delta.zl - res5
-  temp_n = delta.xl;
-  vectorMultiply(temp_n, it_.zl);
-  vectorAddMult(temp_n, delta.zl, it_.xl);
-  double norm_diff_5 = infNormDiff(temp_n, res.res5);
-  vectorAdd(temp_n, res.res5, -1.0);
-  vectorDivide(temp_n, res.res5);
-  double rel_norm_5 = infNorm(temp_n);
+bool Ipm::checkTermination() {
+  if (pd_gap_ < kIpmTolerance &&         // primal-dual gap is small
+      primal_infeas_ < kIpmTolerance &&  // primal feasibility
+      dual_infeas_ < kIpmTolerance) {    // dual feasibility
+    printf("\n===== Optimal solution found =====\n");
 
-  // check Zu * delta.xu + Xu * delta.zu - res6
-  temp_n = delta.xu;
-  vectorMultiply(temp_n, it_.zu);
-  vectorAddMult(temp_n, delta.zu, it_.xu);
-  double norm_diff_6 = infNormDiff(temp_n, res.res6);
-  vectorAdd(temp_n, res.res6, -1.0);
-  vectorDivide(temp_n, res.res6);
-  double rel_norm_6 = infNorm(temp_n);
+    // Compute and print final objective
+    primal_obj_ = std::ldexp(dotProd(it_.x, model_.c_), -model_.cexp_);
+    printf("Objective value: %e\n\n", primal_obj_);
 
-  printf("Diff norms:\n");
-  printf("1: %.2e\n", norm_diff_1);
-  printf("2: %.2e\n", norm_diff_2);
-  printf("3: %.2e\n", norm_diff_3);
-  printf("4: %.2e\n", norm_diff_4);
-  printf("5: %.2e\n", norm_diff_5);
-  printf("6: %.2e\n", norm_diff_6);
+    ipm_status_ = "Optimal";
+    return true;
+  }
+  return false;
+}
+
+void Ipm::printHeader() const {
+  if (iter_ % 20 == 1) {
+    printf(
+        " iter      primal obj        dual obj        pinf      dinf "
+        "       mu     alpha_p   alpha_d   p/d gap    time");
+    if (options_.verbose) {
+      printf(
+          " |   min T     max T  |   min D     max D  |   min L     max L  | "
+          " #reg   max reg    max res");
+    }
+    printf("\n");
+  }
+}
+
+void Ipm::printOutput() const {
+  printHeader();
+
+  // extract extreme values of factorisation
+  LS_data ls_data{};
+  LS_->extractData(ls_data);
+
+  printf(
+      "%5d %16.8e %16.8e %10.2e %10.2e %10.2e %8.2f %8.2f %10.2e "
+      "%7.1f",
+      iter_, primal_obj_, dual_obj_, primal_infeas_, dual_infeas_, mu_,
+      alpha_primal_, alpha_dual_, pd_gap_, getWallTime() - start_time_);
+  if (options_.verbose) {
+    printf(" |%9.2e %9.2e |%9.2e %9.2e |%9.2e %9.2e |%5d", min_theta_,
+           max_theta_, ls_data.minD, ls_data.maxD, ls_data.minL, ls_data.maxL,
+           ls_data.num_reg);
+    if (ls_data.num_reg > 0) {
+      printf(" %10.2e", ls_data.max_reg);
+    } else {
+      printf(" %10s", "-");
+    }
+    printf(" %10.2e", ls_data.worst_res);
+  }
+  printf("\n");
+}
+
+void Ipm::printInfo() const {
+  printf("\n");
+  printf("Problem %s\n", model_.pb_name_.c_str());
+  printf("%d rows, %d cols, %d nnz\n", m_, n_, model_.A_.numNz());
+  printf("Using %s\n", options_.nla == kOptionNlaAugmented
+                           ? "augmented systems"
+                           : "normal equations");
+
+  // print range of coefficients
+  model_.checkCoefficients();
 }

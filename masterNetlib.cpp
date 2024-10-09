@@ -183,10 +183,10 @@ int main() {
     // ===================================================================================
     // Identify the option values and check their validity
     // ===================================================================================
-    ipm.option_nla_ = 1;
-    ipm.option_fact_ = 1;
-    ipm.option_format_ = 1;
-    ipm.option_predcor_ = 1;
+    Options options{};
+    options.nla = 1;
+    options.fact = 1;
+    options.format = 1;
 
     // extract problem name without mps
     std::regex rgx("(.+)\\.mps");
@@ -197,7 +197,7 @@ int main() {
     // load the problem
     ipm.load(n, m, obj.data(), rhs.data(), lower.data(), upper.data(),
              colptr.data(), rowind.data(), values.data(), constraints.data(),
-             pb_name);
+             pb_name, options);
     double load_time = getWallTime() - start_time;
 
     // solve LP

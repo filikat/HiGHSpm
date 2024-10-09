@@ -65,8 +65,7 @@ class LinearSolver {
   // Virtual functions.
   // These may be overridden by derived classes, if needed.
   // =================================================================
-  virtual int setup(const HighsSparseMatrix& A,
-                    const std::vector<int>& parameters) {
+  virtual int setup(const HighsSparseMatrix& A, const Options& options) {
     return 0;
   }
 

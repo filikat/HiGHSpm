@@ -26,22 +26,16 @@ enum OptionFormat {
   kOptionFormatDefault = kOptionFormatHybridPacked
 };
 
-enum OptionPredCor {
-  kOptionPredcorMin = 0,
-  kOptionPredcorOff = kOptionPredcorMin,
-  kOptionPredcorOn = 1,
-  kOptionPredcorMax = kOptionPredcorOn,
-  kOptionPredcorDefault = kOptionPredcorOn
+struct Options {
+  int nla = kOptionNlaDefault;
+  int fact = kOptionFactDefault;
+  int format = kOptionFormatDefault;
+  int verbose = false;
 };
-
-enum Parameters { kParamNla, kParamFact, kParamFormat, kParamSize };
 
 const int kMaxIterations = 100;
 const double kIpmTolerance = 1e-8;
 
-const double kSigmaInitial = 0.5;
-const double kSigmaMin = 0.05;
-const double kSigmaMax = 0.95;
 const double kInteriorScaling = 0.999;
 
 const double kPrimalStaticRegularization = 1e-12;

@@ -2,11 +2,15 @@
 
 void FactorHiGHSSolver::clear() {
   valid_ = false;
+  maxD_ = 0.0;
+  minD_ = 0.0;
+  maxoffD_ = 0.0;
+  minoffD_ = 0.0;
   worst_res_ = 0.0;
 }
 
 int FactorHiGHSSolver::setup(const HighsSparseMatrix& A,
-                             const std::vector<int>& parameters) {
+                             const Options& options) {
   std::vector<int> ptrLower;
   std::vector<int> rowsLower;
 
@@ -16,10 +20,10 @@ int FactorHiGHSSolver::setup(const HighsSparseMatrix& A,
 
   int negative_pivots{};
 
-  S_.setFact((FactType)parameters[kParamFact]);
-  S_.setFormat((FormatType)parameters[kParamFormat]);
+  S_.setFact((FactType)options.fact);
+  S_.setFormat((FormatType)options.format);
 
-  int nla_type = parameters[kParamNla];
+  int nla_type = options.nla;
 
   // Build the matrix
   if (nla_type == kOptionNlaAugmented) {
@@ -70,7 +74,7 @@ int FactorHiGHSSolver::setup(const HighsSparseMatrix& A,
   // Perform analyse phase
   Analyse analyse(rowsLower, ptrLower, {}, negative_pivots);
   analyse.run(S_);
-  // S_.print();
+  S_.printShort();
 
   return kRetOk;
 }
@@ -277,7 +281,7 @@ void FactorHiGHSSolver::refine(const HighsSparseMatrix& A,
   }
   A.alphaProductPlusY(-1.0, delta_y, res_x, true);
 
-  printf("Res x %e\n", infNorm(res_x));
+  // printf("Res x %e\n", infNorm(res_x));
 
   // compute residual y
   // res_y = rhs_y - A * Dx - Rd * Dy
@@ -291,7 +295,7 @@ void FactorHiGHSSolver::refine(const HighsSparseMatrix& A,
     res_y[i] -= dual_reg * delta_y[i];
   }
 
-  printf("Res y %e\n", infNorm(res_y));
+  // printf("Res y %e\n", infNorm(res_y));
 
   norm_res = infNorm(res_x, res_y);
 
@@ -312,7 +316,7 @@ void FactorHiGHSSolver::refine(const HighsSparseMatrix& A,
       break;
     }
 
-    printf("%e  --> ", norm_res);
+    // printf("%e  --> ", norm_res);
 
     // compute correction
     // cor = M^-1 res
@@ -363,14 +367,14 @@ void FactorHiGHSSolver::refine(const HighsSparseMatrix& A,
       delta_x = temp_x;
       delta_y = temp_y;
     } else {
-      printf(" %e xxx \n", norm_res);
+      // printf(" %e xxx \n", norm_res);
       worst_res_ = std::max(worst_res_, old_norm_res);
       return;
     }
   }
 
   norm_res = infNorm(res_x, res_y);
-  printf("%e\n", norm_res);
+  // printf("%e\n", norm_res);
 
   worst_res_ = std::max(worst_res_, norm_res);
 }

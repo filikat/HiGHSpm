@@ -185,39 +185,39 @@ int main(int argc, char** argv) {
   // Identify the option values and check their validity
   // ===================================================================================
 
+  Options options{};
+
   // option to choose normal equations or augmented system
-  ipm.option_nla_ =
+  options.nla =
       argc > kOptionNlaArg ? atoi(argv[kOptionNlaArg]) : kOptionNlaDefault;
-  if (ipm.option_nla_ < kOptionNlaMin || ipm.option_nla_ > kOptionNlaMax) {
-    std::cerr << "Illegal value of " << ipm.option_nla_
+  if (options.nla < kOptionNlaMin || options.nla > kOptionNlaMax) {
+    std::cerr << "Illegal value of " << options.nla
               << " for option_nla: must be in [" << kOptionNlaMin << ", "
               << kOptionNlaMax << "]\n";
     return 1;
   }
 
   // option to choose Cholesky or LDLt
-  ipm.option_fact_ =
+  options.fact =
       argc > kOptionFactArg ? atoi(argv[kOptionFactArg]) : kOptionFactDefault;
-  if (ipm.option_fact_ < kOptionFactMin || ipm.option_fact_ > kOptionFactMax) {
-    std::cerr << "Illegal value of " << ipm.option_fact_
+  if (options.fact < kOptionFactMin || options.fact > kOptionFactMax) {
+    std::cerr << "Illegal value of " << options.fact
               << " for option_fact: must be in [" << kOptionFactMin << ", "
               << kOptionFactMax << "]\n";
     return 1;
   }
 
   // option to choose storage format inside FactorHiGHS
-  ipm.option_format_ =
+  options.format =
       argc > kOptionFormat ? atoi(argv[kOptionFormat]) : kOptionFormatDefault;
-  if (ipm.option_format_ < kOptionFormatMin ||
-      ipm.option_format_ > kOptionFormatMax) {
-    std::cerr << "Illegal value of " << ipm.option_format_
+  if (options.format < kOptionFormatMin || options.format > kOptionFormatMax) {
+    std::cerr << "Illegal value of " << options.format
               << " for option_format: must be in [" << kOptionFormatMin << ", "
               << kOptionFormatMax << "]\n";
     return 1;
   }
 
-  ipm.option_verbose_ =
-      argc > kOptionVerbose ? atoi(argv[kOptionVerbose]) : false;
+  options.verbose = argc > kOptionVerbose ? atoi(argv[kOptionVerbose]) : false;
 
   // extract problem name witout mps from path
   std::string pb_name{};
@@ -229,7 +229,7 @@ int main(int argc, char** argv) {
   // load the problem
   ipm.load(n, m, obj.data(), rhs.data(), lower.data(), upper.data(),
            colptr.data(), rowind.data(), values.data(), constraints.data(),
-           pb_name);
+           pb_name, options);
   double load_time = getWallTime() - start_time;
 
   // solve LP

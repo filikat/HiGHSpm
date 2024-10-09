@@ -2,28 +2,29 @@
 
 void IpmModel::init(const int num_var, const int num_con, const double* obj,
                     const double* rhs, const double* lower, const double* upper,
-                    const int* A_colptr, const int* A_rowind,
-                    const double* A_values, const int* constraints,
-                    const std::string& pb_name) {
+                    const int* A_ptr, const int* A_rows, const double* A_vals,
+                    const int* constraints, const std::string& pb_name) {
   // copy the input into the model
 
   num_var_ = num_var;
   num_con_ = num_con;
-  obj_ = std::vector<double>(obj, obj + num_var_);
-  rhs_ = std::vector<double>(rhs, rhs + num_con_);
+  c_ = std::vector<double>(obj, obj + num_var_);
+  b_ = std::vector<double>(rhs, rhs + num_con_);
   lower_ = std::vector<double>(lower, lower + num_var_);
   upper_ = std::vector<double>(upper, upper + num_var_);
 
-  int Annz = A_colptr[num_var_];
+  int Annz = A_ptr[num_var_];
   A_.num_col_ = num_var_;
   A_.num_row_ = num_con_;
-  A_.start_ = std::vector<int>(A_colptr, A_colptr + num_var_ + 1);
-  A_.index_ = std::vector<int>(A_rowind, A_rowind + Annz);
-  A_.value_ = std::vector<double>(A_values, A_values + Annz);
+  A_.start_ = std::vector<int>(A_ptr, A_ptr + num_var_ + 1);
+  A_.index_ = std::vector<int>(A_rows, A_rows + Annz);
+  A_.value_ = std::vector<double>(A_vals, A_vals + Annz);
 
   constraints_ = std::vector<int>(constraints, constraints + num_con_);
 
   pb_name_ = pb_name;
+
+  ready_ = true;
 }
 
 void IpmModel::reformulate() {
@@ -47,14 +48,14 @@ void IpmModel::reformulate() {
       }
 
       // cost for new slack
-      obj_.push_back(0.0);
+      c_.push_back(0.0);
 
       // add column of identity to A_
       std::vector<int> temp_ind{i};
       std::vector<double> temp_val{1.0};
       A_.addVec(1, temp_ind.data(), temp_val.data());
 
-      // set scaling to 1
+      // set scaling to 1, i.e. exponent to zero
       if (colexp_.size() > 0) {
         colexp_.push_back(0);
       }
@@ -62,7 +63,7 @@ void IpmModel::reformulate() {
   }
 }
 
-void IpmModel::checkCoefficients() {
+void IpmModel::checkCoefficients() const {
   // compute max and min entry of A in absolute value
   double Amin = kInf;
   double Amax = 0.0;
@@ -77,24 +78,24 @@ void IpmModel::checkCoefficients() {
   }
   if (Amin == kInf) Amin = 0.0;
 
-  // compute max and min entry of obj
+  // compute max and min entry of c
   double cmin = kInf;
   double cmax = 0.0;
   for (int i = 0; i < num_var_; ++i) {
-    if (obj_[i] != 0.0) {
-      cmin = std::min(cmin, std::abs(obj_[i]));
-      cmax = std::max(cmax, std::abs(obj_[i]));
+    if (c_[i] != 0.0) {
+      cmin = std::min(cmin, std::abs(c_[i]));
+      cmax = std::max(cmax, std::abs(c_[i]));
     }
   }
   if (cmin == kInf) cmin = 0.0;
 
-  // compute max and min entry of rhs
+  // compute max and min entry of b
   double bmin = kInf;
   double bmax = 0.0;
   for (int i = 0; i < num_con_; ++i) {
-    if (rhs_[i] != 0.0) {
-      bmin = std::min(bmin, std::abs(rhs_[i]));
-      bmax = std::max(bmax, std::abs(rhs_[i]));
+    if (b_[i] != 0.0) {
+      bmin = std::min(bmin, std::abs(b_[i]));
+      bmax = std::max(bmax, std::abs(b_[i]));
     }
   }
   if (bmin == kInf) bmin = 0.0;
@@ -140,18 +141,16 @@ void IpmModel::checkCoefficients() {
   if (scalemin == kInf) scalemin = 0.0;
 
   // print ranges
-  printf("\nCoefficients range\n");
-  printf("Range of A     : [%5.1e, %5.1e], ratio %.1e\n", Amin, Amax,
+  printf("Range of A      : [%5.1e, %5.1e], ratio %.1e\n", Amin, Amax,
          Amax / Amin);
-  printf("Range of b     : [%5.1e, %5.1e], ratio %.1e\n", bmin, bmax,
+  printf("Range of b      : [%5.1e, %5.1e], ratio %.1e\n", bmin, bmax,
          bmax / bmin);
-  printf("Range of c     : [%5.1e, %5.1e], ratio %.1e\n", cmin, cmax,
+  printf("Range of c      : [%5.1e, %5.1e], ratio %.1e\n", cmin, cmax,
          cmax / cmin);
-  printf("Range of bounds: [%5.1e, %5.1e], ratio %.1e\n", boundmin, boundmax,
+  printf("Range of bounds : [%5.1e, %5.1e], ratio %.1e\n", boundmin, boundmax,
          boundmax / boundmin);
-  printf("Scaling coeff  : [%5.1e, %5.1e], ratio %.1e\n", scalemin, scalemax,
+  printf("Scaling coeff   : [%5.1e, %5.1e], ratio %.1e\n", scalemin, scalemax,
          scalemax / scalemin);
-  printf("\n");
 }
 
 void IpmModel::scale() {
@@ -161,8 +160,8 @@ void IpmModel::scale() {
   rowexp_.resize(num_con_);
 
   // compute exponents for CR scaling
-  CurtisReidScaling(A_.start_, A_.index_, A_.value_, rhs_, obj_, objexp_,
-                    rhsexp_, rowexp_, colexp_);
+  CurtisReidScaling(A_.start_, A_.index_, A_.value_, b_, c_, cexp_, bexp_,
+                    rowexp_, colexp_);
 
   // The scaling is given by exponents.
   // To multiply by the scaling a quantity x: std::ldexp(x,  exp).
@@ -171,25 +170,25 @@ void IpmModel::scale() {
   // floating point number are manipulated.
   //
   // Each row and each columns are scaled by their own exponent.
-  // There are uniform scalings of obj_ and rhs_.
+  // There are uniform scalings of c_ and b_.
 
   // Column has been scaled up by colscale_[col], so cost is scaled up and
   // bounds are scaled down
   for (int col = 0; col < num_var_; ++col) {
-    obj_[col] = std::ldexp(obj_[col], colexp_[col]);
-    obj_[col] = std::ldexp(obj_[col], objexp_);
+    c_[col] = std::ldexp(c_[col], colexp_[col]);
+    c_[col] = std::ldexp(c_[col], cexp_);
 
     lower_[col] = std::ldexp(lower_[col], -colexp_[col]);
-    lower_[col] = std::ldexp(lower_[col], rhsexp_);
+    lower_[col] = std::ldexp(lower_[col], bexp_);
 
     upper_[col] = std::ldexp(upper_[col], -colexp_[col]);
-    upper_[col] = std::ldexp(upper_[col], rhsexp_);
+    upper_[col] = std::ldexp(upper_[col], bexp_);
   }
 
-  // Row has been scaled up by rowscale_[row], so rhs is scaled up
+  // Row has been scaled up by rowscale_[row], so b is scaled up
   for (int row = 0; row < num_con_; ++row) {
-    rhs_[row] = std::ldexp(rhs_[row], rowexp_[row]);
-    rhs_[row] = std::ldexp(rhs_[row], rhsexp_);
+    b_[row] = std::ldexp(b_[row], rowexp_[row]);
+    b_[row] = std::ldexp(b_[row], bexp_);
   }
 
   // Each entry of the matrix is scaled by the corresponding row and col factor
@@ -208,25 +207,25 @@ void IpmModel::unscale(Iterate& it) {
   if (colexp_.size() > 0) {
     for (int i = 0; i < num_var_; ++i) {
       it.x[i] = std::ldexp(it.x[i], colexp_[i]);
-      it.x[i] = std::ldexp(it.x[i], -rhsexp_);
+      it.x[i] = std::ldexp(it.x[i], -bexp_);
 
       it.xl[i] = std::ldexp(it.xl[i], colexp_[i]);
-      it.xl[i] = std::ldexp(it.xl[i], -rhsexp_);
+      it.xl[i] = std::ldexp(it.xl[i], -bexp_);
 
       it.xu[i] = std::ldexp(it.xu[i], colexp_[i]);
-      it.xu[i] = std::ldexp(it.xu[i], -rhsexp_);
+      it.xu[i] = std::ldexp(it.xu[i], -bexp_);
 
       it.zl[i] = std::ldexp(it.zl[i], -colexp_[i]);
-      it.zl[i] = std::ldexp(it.zl[i], objexp_);
+      it.zl[i] = std::ldexp(it.zl[i], cexp_);
 
       it.zu[i] = std::ldexp(it.zu[i], -colexp_[i]);
-      it.zu[i] = std::ldexp(it.zu[i], objexp_);
+      it.zu[i] = std::ldexp(it.zu[i], cexp_);
     }
   }
   if (rowexp_.size() > 0) {
     for (int i = 0; i < num_con_; ++i) {
       it.y[i] = std::ldexp(it.y[i], rowexp_[i]);
-      it.y[i] = std::ldexp(it.y[i], objexp_);
+      it.y[i] = std::ldexp(it.y[i], cexp_);
     }
   }
 

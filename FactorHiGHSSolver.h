@@ -8,7 +8,6 @@
 #include "LinearSolver.h"
 
 class FactorHiGHSSolver : public LinearSolver {
- public:
   // symbolic and numeric factorization objects
   Symbolic S_;
   Numeric N_;
@@ -23,7 +22,8 @@ class FactorHiGHSSolver : public LinearSolver {
   double minoffD_{};
   double worst_res_{};
 
-  // Functions
+ public:
+  // Override functions
   int factorAS(const HighsSparseMatrix& highs_a,
                const std::vector<double>& scaling) override;
   int factorNE(const HighsSparseMatrix& highs_a,
@@ -33,20 +33,19 @@ class FactorHiGHSSolver : public LinearSolver {
   int solveAS(const std::vector<double>& rhs_x,
               const std::vector<double>& rhs_y, std::vector<double>& lhs_x,
               std::vector<double>& lhs_y) override;
-  int setup(const HighsSparseMatrix& A,
-            const std::vector<int>& parameters) override;
+  int setup(const HighsSparseMatrix& A, const Options& options) override;
   void clear() override;
   void refine(const HighsSparseMatrix& A, const std::vector<double>& scaling,
               const std::vector<double>& rhs_x,
               const std::vector<double>& rhs_y, std::vector<double>& lhs_x,
               std::vector<double>& lhs_y) override;
   void finalise() override;
+  void extractData(LS_data& data) override;
 
+  // Other functions
   void solveForRefineNE(const HighsSparseMatrix& A,
                         const std::vector<double>& scaling,
                         std::vector<double>& res_x, std::vector<double>& res_y);
-
-  void extractData(LS_data& data) override;
 };
 
 #endif

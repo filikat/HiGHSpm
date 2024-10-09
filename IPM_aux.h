@@ -19,9 +19,6 @@ enum DecomposerStatus {
 
 double getWallTime();
 
-void scaling2theta(const std::vector<double>& scaling,
-                   std::vector<double>& theta);
-
 // =======================================================================
 // RESIDUALS
 // =======================================================================
@@ -42,6 +39,7 @@ class Residuals {
   std::vector<double> res6{};
 
  public:
+  Residuals() = default;
   Residuals(int m, int n);
 
   void print(int iter = 0) const;
