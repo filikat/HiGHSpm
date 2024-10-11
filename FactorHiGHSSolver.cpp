@@ -1,5 +1,8 @@
 #include "FactorHiGHSSolver.h"
 
+FactorHiGHSSolver::FactorHiGHSSolver(const Options& options)
+    : S_((FactType)options.fact, (FormatType)options.format) {}
+
 void FactorHiGHSSolver::clear() {
   valid_ = false;
   maxD_ = 0.0;
@@ -19,9 +22,6 @@ int FactorHiGHSSolver::setup(const HighsSparseMatrix& A,
   int nzA = A.numNz();
 
   int negative_pivots{};
-
-  S_.setFact((FactType)options.fact);
-  S_.setFormat((FormatType)options.format);
 
   int nla_type = options.nla;
 
@@ -72,8 +72,8 @@ int FactorHiGHSSolver::setup(const HighsSparseMatrix& A,
   }
 
   // Perform analyse phase
-  Analyse analyse(rowsLower, ptrLower, {}, negative_pivots);
-  analyse.run(S_);
+  Analyse analyse(rowsLower, ptrLower, S_, {}, negative_pivots);
+  analyse.run();
   S_.printShort();
 
   return kRetOk;

@@ -3,17 +3,11 @@
 
 #include <string>
 
-#include "CholmodSolver.h"
 #include "FactorHiGHSSolver.h"
-#include "HFactorSolver.h"
 #include "IpmModel.h"
 #include "Ipm_aux.h"
 #include "Ipm_const.h"
 #include "LinearSolver.h"
-#include "MA57Solver.h"
-#include "MA86Solver.h"
-#include "MA87Solver.h"
-#include "MA97Solver.h"
 #include "VectorOperations.h"
 #include "util/HighsSparseMatrix.h"
 

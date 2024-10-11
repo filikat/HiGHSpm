@@ -12,12 +12,6 @@ cpp_sources = \
 		IpmModel.cpp \
 		VectorOperations.cpp \
 		Ipm_aux.cpp \
-		MA57Solver.cpp \
-		MA86Solver.cpp \
-		MA87Solver.cpp \
-		MA97Solver.cpp \
-		CholmodSolver.cpp \
-		HFactorSolver.cpp \
 		FactorHiGHSSolver.cpp \
 		CurtisReidScaling.cpp \
 		../FactorHiGHS/Analyse.cpp \
@@ -30,8 +24,7 @@ cpp_sources = \
 		../FactorHiGHS/HybridPackedFormatHandler.cpp \
 		../FactorHiGHS/HybridHybridFormatHandler.cpp \
 		../FactorHiGHS/CurtisReidScalingSym.cpp
-c_sources = hsl_wrapper.c \
-			../FactorHiGHS/DenseFact.c \
+c_sources = ../FactorHiGHS/DenseFact.c \
 			../FactorHiGHS/CallAndTimeBlas.c \
 			../FactorHiGHS/timing.c
 
@@ -52,15 +45,15 @@ CPPFLAGS = -std=c++11 -O3 -g3 -Wno-deprecated #-fsanitize=address #ASAN_OPTIONS=
 CFLAGS = -O3 -g3 #-fsanitize=address
 
 # mess to link openmp on mac
-OPENMP_FLAGS = -Xclang -fopenmp -I/opt/homebrew/opt/libomp/include -L/opt/homebrew/opt/libomp/lib -lomp
+#OPENMP_FLAGS = -Xclang -fopenmp -I/opt/homebrew/opt/libomp/include -L/opt/homebrew/opt/libomp/lib -lomp
 
 # rpaths for shared libraries
 rpaths = -rpath $(CHOLMOD_PATH)/lib/ -rpath $(LOCAL_PATH)/lib/
 
 # includes and libraries
-includes = -I$(HIGHS_PATH)/build -I$(HIGHS_PATH)/src/ -I$(CHOLMOD_PATH)/include -I$(METIS_PATH)/include -I$(LOCAL_PATH)/include
-libs_path = -L$(HIGHS_PATH)/build/lib -L$(CHOLMOD_PATH)/lib -L$(METIS_PATH)/build/libmetis -L$(LOCAL_PATH)/lib
-libs = -lhighs -lcholmod -lmetis -lhsl_ma57 -lhsl_ma86 -lhsl_ma87 -lhsl_ma97 -lhsl_mc68 -lfakemetis -lGKlib -llapack -lblas
+includes = -I$(HIGHS_PATH)/build -I$(HIGHS_PATH)/src/ -I$(METIS_PATH)/include -I$(LOCAL_PATH)/include
+libs_path = -L$(HIGHS_PATH)/build/lib -L$(METIS_PATH)/build/libmetis -L$(LOCAL_PATH)/lib
+libs = -lhighs -lmetis -lGKlib -llapack -lblas
 
 # name of objects
 cpp_objects = $(cpp_sources:%.cpp=$(OBJDIR)/%.o)
@@ -75,7 +68,7 @@ dep = $(cpp_sources:%.cpp=$(OBJDIR)/%.d)
 # link ipm
 $(binary_name): $(cpp_objects) $(c_objects)
 	@echo Linking objects into $@
-	@$(CPP) $(CPPFLAGS) $(OPENMP_FLAGS) $(libs_path) $(libs) $(rpaths) $^ -o $@
+	@$(CPP) $(CPPFLAGS) $(libs_path) $(libs) $(rpaths) $^ -o $@
 
 # manage dependencies
 -include $(dep)

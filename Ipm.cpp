@@ -42,7 +42,7 @@ Output Ipm::solve() {
   res_ = Residuals(m_, n_);
 
   // initialize linear solver
-  FactorHiGHSSolver factorHiGHS_solver;
+  FactorHiGHSSolver factorHiGHS_solver(options_);
   LS_ = &factorHiGHS_solver;
   if (LS_->setup(model_.A_, options_)) return Output{};
 

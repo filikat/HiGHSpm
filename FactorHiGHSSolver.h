@@ -23,6 +23,8 @@ class FactorHiGHSSolver : public LinearSolver {
   double worst_res_{};
 
  public:
+  FactorHiGHSSolver(const Options& options);
+
   // Override functions
   int factorAS(const HighsSparseMatrix& highs_a,
                const std::vector<double>& scaling) override;
