@@ -4,6 +4,7 @@
 #include <iostream>
 
 #include "VectorOperations.h"
+#include "Regularization.h"
 
 Residuals::Residuals(int m, int n)
     : res1(m, 0.0),
@@ -285,10 +286,6 @@ int computeAThetaAT(const HighsSparseMatrix& matrix,
     int j = std::get<1>(val);
     double dot = std::get<2>(val);
 
-    if (i == j) {
-      dot += kDualStaticRegularization;
-    }
-
     AAT.index_[current_positions[i]] = j;
     AAT.value_[current_positions[i]] = dot;
     current_positions[i]++;
@@ -331,7 +328,9 @@ int computeLowerAThetaAT(const HighsSparseMatrix& matrix,
     int num_col_el = 0;
     for (int iRowEl = AT.start_[iRow]; iRowEl < AT.start_[iRow + 1]; iRowEl++) {
       int iCol = AT.index_[iRowEl];
-      const double theta_value = !scaling.empty() ? 1.0 / scaling[iCol] : 1;
+      const double theta_value =
+          scaling.empty() ? 1.0
+                          : 1.0 / (scaling[iCol] + kPrimalStaticRegularization);
       if (!theta_value) continue;
       const double row_value = theta_value * AT.value_[iRowEl];
       for (int iColEl = matrix.start_[iCol]; iColEl < matrix.start_[iCol + 1];
@@ -380,10 +379,6 @@ int computeLowerAThetaAT(const HighsSparseMatrix& matrix,
     int i = std::get<0>(val);
     int j = std::get<1>(val);
     double dot = std::get<2>(val);
-
-    if (i == j) {
-      dot += kDualStaticRegularization;
-    }
 
     // i>=j, so to get lower triangle, i is the col, j is row
     AAT.index_[current_positions[i]] = j;

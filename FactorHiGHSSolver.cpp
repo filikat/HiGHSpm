@@ -1,5 +1,7 @@
 #include "FactorHiGHSSolver.h"
 
+#include "Regularization.h"
+
 FactorHiGHSSolver::FactorHiGHSSolver(const Options& options)
     : S_((FactType)options.fact, (FormatType)options.format) {}
 
@@ -117,7 +119,7 @@ int FactorHiGHSSolver::factorAS(const HighsSparseMatrix& A,
   // 2,2 block
   for (int i = 0; i < mA; ++i) {
     rowsLower[next] = nA + i;
-    valLower[next++] = kDualStaticRegularization;
+    valLower[next++] = 0.0;
     ptrLower[nA + i + 1] = ptrLower[nA + i] + 1;
   }
 
@@ -221,19 +223,19 @@ void FactorHiGHSSolver::solveForRefineNE(const HighsSparseMatrix& A,
 
   std::vector<double> temp(n);
 
-  // build rhs = res_y + A Theta res_x
+  // build rhs = res_y + A (Theta^-1+Rp)^-1 res_x
   for (int i = 0; i < n; ++i) {
-    temp[i] = res_x[i] / scaling[i];
+    temp[i] = res_x[i] / (scaling[i] + kPrimalStaticRegularization);
   }
   A.alphaProductPlusY(1.0, temp, res_y);
 
   // solve to find cor_y
   N_.solve(res_y);
 
-  // compute cor_x = Theta (A^T cor_y - res_x) into res_x
+  // compute cor_x = (Theta^-1+Rp)^-1 (A^T cor_y - res_x) into res_x
   A.alphaProductPlusY(-1.0, res_y, res_x, true);
   for (int i = 0; i < n; ++i) {
-    res_x[i] /= -scaling[i];
+    res_x[i] /= -(scaling[i] + kPrimalStaticRegularization);
   }
 }
 
@@ -253,8 +255,8 @@ void FactorHiGHSSolver::refine(const HighsSparseMatrix& A,
   int m = A.num_row_;
 
   // initialize residual/correction
-  std::vector<double> res_x(rhs_x);
-  std::vector<double> res_y(rhs_y);
+  std::vector<double> res_x;
+  std::vector<double> res_y;
 
   // residual norm
   double norm_res{};
@@ -262,22 +264,25 @@ void FactorHiGHSSolver::refine(const HighsSparseMatrix& A,
   const double norm_rhs = infNorm(rhs_x, rhs_y);
 
   // extract dynamic regularizaiton and un-permute it
-  std::vector<double> dynamic_reg = N_.dynamic_reg_;
-  permuteVector(dynamic_reg, S_.iperm());
+  std::vector<double> total_reg_ = N_.total_reg_;
+  permuteVector(total_reg_, S_.iperm());
 
   // dynamic_reg corresponds to either primal-dual (for AS), or only dual (for
-  // NE). The static primal is already included in theta, so only the static
-  // dual needs to be added.
+  // NE).
 
   // compute residual x
   // res_x = rhs_x + (theta^-1 + Rp) * Dx - A^T * Dy
+  res_x = rhs_x;
   for (int i = 0; i < n; ++i) {
-    // primal dynamic reg is zero for NE. For AS, it is extracted from
-    // dynamic_reg.
-    double primal_dynamic{};
-    if (use_as_) primal_dynamic = dynamic_reg[i];
+    // primal reg is only static for NE. For AS, it is extracted from
+    // total_reg, already including static and dynamic.
+    double primal_reg{};
+    if (use_as_)
+      primal_reg = total_reg_[i];
+    else
+      primal_reg = kPrimalStaticRegularization;
 
-    res_x[i] += delta_x[i] * (scaling[i] + primal_dynamic);
+    res_x[i] += delta_x[i] * (scaling[i] + primal_reg);
   }
   A.alphaProductPlusY(-1.0, delta_y, res_x, true);
 
@@ -285,13 +290,13 @@ void FactorHiGHSSolver::refine(const HighsSparseMatrix& A,
 
   // compute residual y
   // res_y = rhs_y - A * Dx - Rd * Dy
+  res_y = rhs_y;
   A.alphaProductPlusY(-1.0, delta_x, res_y);
   for (int i = 0; i < m; ++i) {
-    // dynamir_reg stored only Rd for NE, stores both Rd, Rp for AS
+    // total_reg_ stored only Rd for NE, stores both Rd, Rp for AS
     int offset = use_as_ ? n : 0;
-    double dual_reg = kDualStaticRegularization + dynamic_reg[i + offset];
-    // if (dynamic_reg[i + offset] > 0.0) printf("%e\n", dual_reg);
-    // dual_reg = 0.0;
+    double dual_reg = total_reg_[i + offset];
+
     res_y[i] -= dual_reg * delta_y[i];
   }
 
@@ -344,10 +349,13 @@ void FactorHiGHSSolver::refine(const HighsSparseMatrix& A,
     // compute new residual
     res_x = rhs_x;
     for (int i = 0; i < n; ++i) {
-      double primal_dynamic{};
-      if (use_as_) primal_dynamic = dynamic_reg[i];
+      double primal_reg{};
+      if (use_as_)
+        primal_reg = total_reg_[i];
+      else
+        primal_reg = kPrimalStaticRegularization;
 
-      res_x[i] += temp_x[i] * (scaling[i] + primal_dynamic);
+      res_x[i] += temp_x[i] * (scaling[i] + primal_reg);
     }
     A.alphaProductPlusY(-1.0, temp_y, res_x, true);
 
@@ -355,7 +363,7 @@ void FactorHiGHSSolver::refine(const HighsSparseMatrix& A,
     A.alphaProductPlusY(-1.0, temp_x, res_y);
     for (int i = 0; i < m; ++i) {
       int offset = use_as_ ? n : 0;
-      double dual_reg = kDualStaticRegularization + dynamic_reg[i + offset];
+      double dual_reg = total_reg_[i + offset];
       res_y[i] -= dual_reg * temp_y[i];
     }
 
@@ -388,13 +396,10 @@ void FactorHiGHSSolver::extractData(LS_data& data) {
   data.maxL = maxoffD_;
 
   // compute number of regularized pivots and maximum regularization
-  data.num_reg = 0;
+  data.num_reg = N_.n_reg_piv_;
   data.max_reg = 0.0;
-  for (double d : N_.dynamic_reg_) {
-    if (d != 0.0) {
-      ++data.num_reg;
-      data.max_reg = std::max(data.max_reg, std::abs(d));
-    }
+  for (int i = 0; i < N_.total_reg_.size(); ++i) {
+    data.max_reg = std::max(data.max_reg, std::abs(N_.total_reg_[i]));
   }
 
   data.worst_res = worst_res_;

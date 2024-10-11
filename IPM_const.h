@@ -38,7 +38,4 @@ const double kIpmTolerance = 1e-8;
 
 const double kInteriorScaling = 0.999;
 
-const double kPrimalStaticRegularization = 1e-12;
-const double kDualStaticRegularization = 1e-8;
-
 #endif

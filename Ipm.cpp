@@ -4,6 +4,8 @@
 #include <cmath>
 #include <iostream>
 
+#include "Regularization.h"
+
 void Ipm::load(const int num_var, const int num_con, const double* obj,
                const double* rhs, const double* lower, const double* upper,
                const int* A_ptr, const int* A_rows, const double* A_vals,
@@ -209,8 +211,10 @@ std::vector<double> Ipm::computeResiduals8(const std::vector<double>& res7) {
 
   std::vector<double> temp(res7);
 
-  // temp = Theta * res7
-  vectorDivide(temp, scaling_);
+  // temp = (Theta^-1+Rp)^-1 * res7
+  for (int i = 0; i < n_; ++i) {
+    temp[i] /= scaling_[i] + kPrimalStaticRegularization;
+  }
 
   // res8 += A * temp
   model_.A_.alphaProductPlusY(1.0, temp, res8);
@@ -228,9 +232,6 @@ void Ipm::computeScaling() {
     if (model_.hasUb(i)) {
       scaling_[i] += it_.zu[i] / it_.xu[i];
     }
-
-    // add primal regularization
-    scaling_[i] += kPrimalStaticRegularization;
   }
 
   min_theta_ = kInf;
@@ -269,8 +270,10 @@ bool Ipm::solveNewtonSystem() {
     model_.A_.alphaProductPlusY(-1.0, delta_.y, delta_.x, true);
     vectorScale(delta_.x, -1.0);
 
-    // Deltax = Theta * Deltax
-    vectorDivide(delta_.x, scaling_);
+    // Deltax = (Theta^-1+Rp)^-1 * Deltax
+    for (int i = 0; i < n_; ++i)
+      delta_.x[i] /= scaling_[i] + kPrimalStaticRegularization;
+
   }
 
   // AUGMENTED SYSTEM
@@ -665,15 +668,9 @@ void Ipm::printOutput() const {
       iter_, primal_obj_, dual_obj_, primal_infeas_, dual_infeas_, mu_,
       alpha_primal_, alpha_dual_, pd_gap_, getWallTime() - start_time_);
   if (options_.verbose) {
-    printf(" |%9.2e %9.2e |%9.2e %9.2e |%9.2e %9.2e |%5d", min_theta_,
-           max_theta_, ls_data.minD, ls_data.maxD, ls_data.minL, ls_data.maxL,
-           ls_data.num_reg);
-    if (ls_data.num_reg > 0) {
-      printf(" %10.2e", ls_data.max_reg);
-    } else {
-      printf(" %10s", "-");
-    }
-    printf(" %10.2e", ls_data.worst_res);
+    printf(" |%9.2e %9.2e |%9.2e %9.2e |%9.2e %9.2e |%5d %10.2e %10.2e",
+           min_theta_, max_theta_, ls_data.minD, ls_data.maxD, ls_data.minL,
+           ls_data.maxL, ls_data.num_reg, ls_data.max_reg, ls_data.worst_res);
   }
   printf("\n");
 }
