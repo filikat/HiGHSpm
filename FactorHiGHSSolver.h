@@ -4,23 +4,19 @@
 #include <algorithm>
 
 #include "../FactorHiGHS/Analyse.h"
+#include "../FactorHiGHS/DataCollector.h"
 #include "../FactorHiGHS/Factorise.h"
 #include "LinearSolver.h"
 
 class FactorHiGHSSolver : public LinearSolver {
-  // symbolic and numeric factorization objects
+  // symbolic factorization
   Symbolic S_;
+
+  // numeric factorization
   Numeric N_;
 
   // keep track of whether as or ne is being factorized
   bool use_as_ = true;
-
-  // extreme values of the factorisation
-  double maxD_{};
-  double minD_{};
-  double maxoffD_{};
-  double minoffD_{};
-  double worst_res_{};
 
  public:
   FactorHiGHSSolver(const Options& options);
@@ -42,7 +38,6 @@ class FactorHiGHSSolver : public LinearSolver {
               const std::vector<double>& rhs_y, std::vector<double>& lhs_x,
               std::vector<double>& lhs_y) override;
   void finalise() override;
-  void extractData(LS_data& data) override;
 
   // Other functions
   void solveForRefineNE(const HighsSparseMatrix& A,

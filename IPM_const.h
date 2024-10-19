@@ -9,14 +9,6 @@ enum OptionNla {
   kOptionNlaDefault = kOptionNlaNormEq
 };
 
-enum OptionFact {
-  kOptionFactMin = 0,
-  kOptionFactChol = kOptionNlaMin,
-  kOptionFactLDLt,
-  kOptionFactMax = kOptionFactLDLt,
-  kOptionFactDefault = kOptionFactLDLt,
-};
-
 enum OptionFormat {
   kOptionFormatMin = 0,
   kOptionFormatFull = kOptionFormatMin,
@@ -28,7 +20,6 @@ enum OptionFormat {
 
 struct Options {
   int nla = kOptionNlaDefault;
-  int fact = kOptionFactDefault;
   int format = kOptionFormatDefault;
   int verbose = false;
 };

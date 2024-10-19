@@ -23,7 +23,7 @@ cpp_sources = \
 		../FactorHiGHS/FullFormatHandler.cpp \
 		../FactorHiGHS/HybridPackedFormatHandler.cpp \
 		../FactorHiGHS/HybridHybridFormatHandler.cpp \
-		../FactorHiGHS/CurtisReidScalingSym.cpp
+		../FactorHiGHS/DataCollector.cpp
 c_sources = ../FactorHiGHS/DenseFact.c \
 			../FactorHiGHS/CallAndTimeBlas.c \
 			../FactorHiGHS/timing.c
@@ -89,6 +89,8 @@ $(c_objects): $(OBJDIR)/%.o: %.c
 .PHONY : clean
 clean: 
 	rm $(OBJDIR)/*.o
+	rm FactorHiGHS/*.o
 	rm $(binary_name)
 	rm $(OBJDIR)/*.d
+	rm FactorHiGHS/*.d
 

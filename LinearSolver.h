@@ -3,20 +3,11 @@
 
 #include <vector>
 
+#include "../FactorHiGHS/DataCollector.h"
 #include "Ipm_aux.h"
 #include "Ipm_const.h"
 #include "VectorOperations.h"
 #include "util/HighsSparseMatrix.h"
-
-struct LS_data {
-  double minD;       // minimum element of D
-  double maxD;       // maximum element of D
-  double minL;       // minimum element of L
-  double maxL;       // maximum element of L
-  double max_reg;    // maximum regularization used
-  int num_reg;       // number of regularized pivots
-  double worst_res;  // worst residual after refinement
-};
 
 // Interface class for solving augmented system or normal equations.
 //
@@ -38,6 +29,9 @@ struct LS_data {
 
 class LinearSolver {
  public:
+  // object to handle times and statistics
+  DataCollector data{};
+
   bool valid_ = false;
 
   // =================================================================
@@ -59,7 +53,6 @@ class LinearSolver {
                       std::vector<double>& lhs) = 0;
 
   virtual void clear() = 0;
-  // =================================================================
 
   // =================================================================
   // Virtual functions.
@@ -76,9 +69,6 @@ class LinearSolver {
                       std::vector<double>& lhs_x, std::vector<double>& lhs_y) {}
 
   virtual void finalise() {}
-
-  virtual void extractData(LS_data& data){};
-  // =================================================================
 };
 
 #endif

@@ -11,7 +11,6 @@ enum ArgC {
   kMinArgC = 2,
   kModelFileArg = 1,
   kOptionNlaArg,
-  kOptionFactArg,
   kOptionFormat,
   kOptionVerbose,
   kMaxArgC
@@ -19,11 +18,9 @@ enum ArgC {
 
 int main(int argc, char** argv) {
   if (argc < kMinArgC || argc > kMaxArgC) {
-    std::cerr
-        << "======= How to use: ./ipm LP_name.mps(.gz) nla_option fact_option "
-           "format_option verbose_option =======\n";
+    std::cerr << "======= How to use: ./ipm LP_name.mps(.gz) nla_option "
+                 "format_option verbose_option =======\n";
     std::cerr << "nla_option     : 0 aug sys, 1 norm eq\n";
-    std::cerr << "fact_option    : 0 Chol, 1 LDLt\n";
     std::cerr << "format_option  : 0 full, 1 hybrid packed, 2 hybrid hybrid\n";
     std::cerr << "verbose_option : 0 short print, 1 full print\n";
     return 1;
@@ -194,16 +191,6 @@ int main(int argc, char** argv) {
     std::cerr << "Illegal value of " << options.nla
               << " for option_nla: must be in [" << kOptionNlaMin << ", "
               << kOptionNlaMax << "]\n";
-    return 1;
-  }
-
-  // option to choose Cholesky or LDLt
-  options.fact =
-      argc > kOptionFactArg ? atoi(argv[kOptionFactArg]) : kOptionFactDefault;
-  if (options.fact < kOptionFactMin || options.fact > kOptionFactMax) {
-    std::cerr << "Illegal value of " << options.fact
-              << " for option_fact: must be in [" << kOptionFactMin << ", "
-              << kOptionFactMax << "]\n";
     return 1;
   }
 

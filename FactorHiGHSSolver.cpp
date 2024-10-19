@@ -3,15 +3,11 @@
 #include "Regularization.h"
 
 FactorHiGHSSolver::FactorHiGHSSolver(const Options& options)
-    : S_((FactType)options.fact, (FormatType)options.format) {}
+    : S_((FormatType)options.format), N_(S_, data) {}
 
 void FactorHiGHSSolver::clear() {
   valid_ = false;
-  maxD_ = 0.0;
-  minD_ = 0.0;
-  maxoffD_ = 0.0;
-  minoffD_ = 0.0;
-  worst_res_ = 0.0;
+  data.resetExtremeEntries();
 }
 
 int FactorHiGHSSolver::setup(const HighsSparseMatrix& A,
@@ -74,7 +70,7 @@ int FactorHiGHSSolver::setup(const HighsSparseMatrix& A,
   }
 
   // Perform analyse phase
-  Analyse analyse(rowsLower, ptrLower, S_, {}, negative_pivots);
+  Analyse analyse(S_, data, rowsLower, ptrLower, negative_pivots);
   analyse.run();
   S_.printShort();
 
@@ -124,17 +120,11 @@ int FactorHiGHSSolver::factorAS(const HighsSparseMatrix& A,
   }
 
   // factorise matrix
-  Factorise factorise(S_, rowsLower, ptrLower, valLower);
+  Factorise factorise(S_, data, rowsLower, ptrLower, valLower);
   int status = factorise.run(N_);
   if (status) {
     return kDecomposerStatusErrorFactorize;
   }
-
-  // save extreme values of the factorisation
-  minD_ = factorise.minD_;
-  maxD_ = factorise.maxD_;
-  minoffD_ = factorise.minoffD_;
-  maxoffD_ = factorise.maxoffD_;
 
   this->valid_ = true;
   use_as_ = true;
@@ -160,17 +150,11 @@ int FactorHiGHSSolver::factorNE(const HighsSparseMatrix& A,
   int status = computeLowerAThetaAT(A, scaling, AAt);
 
   // factorise
-  Factorise factorise(S_, AAt.index_, AAt.start_, AAt.value_);
+  Factorise factorise(S_, data, AAt.index_, AAt.start_, AAt.value_);
   int factorise_status = factorise.run(N_);
   if (factorise_status) {
     return kDecomposerStatusErrorFactorize;
   }
-
-  // save extreme values of the factorisation
-  minD_ = factorise.minD_;
-  maxD_ = factorise.maxD_;
-  minoffD_ = factorise.minoffD_;
-  maxoffD_ = factorise.maxoffD_;
 
   this->valid_ = true;
   use_as_ = false;
@@ -376,7 +360,7 @@ void FactorHiGHSSolver::refine(const HighsSparseMatrix& A,
       delta_y = temp_y;
     } else {
       // printf(" %e xxx \n", norm_res);
-      worst_res_ = std::max(worst_res_, old_norm_res);
+      data.worst_res_ = std::max(data.worst_res_, old_norm_res);
       return;
     }
   }
@@ -384,23 +368,7 @@ void FactorHiGHSSolver::refine(const HighsSparseMatrix& A,
   norm_res = infNorm(res_x, res_y);
   // printf("%e\n", norm_res);
 
-  worst_res_ = std::max(worst_res_, norm_res);
+  data.worst_res_ = std::max(data.worst_res_, norm_res);
 }
 
-void FactorHiGHSSolver::finalise() { S_.printTimes(); }
-
-void FactorHiGHSSolver::extractData(LS_data& data) {
-  data.minD = minD_;
-  data.maxD = maxD_;
-  data.minL = minoffD_;
-  data.maxL = maxoffD_;
-
-  // compute number of regularized pivots and maximum regularization
-  data.num_reg = N_.n_reg_piv_;
-  data.max_reg = 0.0;
-  for (int i = 0; i < N_.total_reg_.size(); ++i) {
-    data.max_reg = std::max(data.max_reg, std::abs(N_.total_reg_[i]));
-  }
-
-  data.worst_res = worst_res_;
-}
+void FactorHiGHSSolver::finalise() { data.printTimes(); }

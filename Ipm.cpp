@@ -244,10 +244,6 @@ void Ipm::computeScaling() {
 }
 
 bool Ipm::solveNewtonSystem() {
-  // augmented system cannot be factorized with cholesky
-  assert(options_.nla != kOptionNlaAugmented ||
-         options_.fact != kOptionFactChol);
-
   std::vector<double> res7{computeResiduals7()};
 
   const bool use_as = options_.nla == kOptionNlaAugmented;
@@ -658,10 +654,6 @@ void Ipm::printHeader() const {
 void Ipm::printOutput() const {
   printHeader();
 
-  // extract extreme values of factorisation
-  LS_data ls_data{};
-  LS_->extractData(ls_data);
-
   printf(
       "%5d %16.8e %16.8e %10.2e %10.2e %10.2e %8.2f %8.2f %10.2e "
       "%7.1f",
@@ -669,8 +661,9 @@ void Ipm::printOutput() const {
       alpha_primal_, alpha_dual_, pd_gap_, getWallTime() - start_time_);
   if (options_.verbose) {
     printf(" |%9.2e %9.2e |%9.2e %9.2e |%9.2e %9.2e |%5d %10.2e %10.2e",
-           min_theta_, max_theta_, ls_data.minD, ls_data.maxD, ls_data.minL,
-           ls_data.maxL, ls_data.num_reg, ls_data.max_reg, ls_data.worst_res);
+           min_theta_, max_theta_, LS_->data.minD_, LS_->data.maxD_,
+           LS_->data.minL_, LS_->data.maxL_, LS_->data.num_reg_,
+           LS_->data.max_reg_, LS_->data.worst_res_);
   }
   printf("\n");
 }
@@ -678,10 +671,12 @@ void Ipm::printOutput() const {
 void Ipm::printInfo() const {
   printf("\n");
   printf("Problem %s\n", model_.pb_name_.c_str());
-  printf("%d rows, %d cols, %d nnz\n", m_, n_, model_.A_.numNz());
+  printf("%.2e rows, %.2e cols, %.2e nnz\n", (double)m_, (double)n_,
+         (double)model_.A_.numNz());
   printf("Using %s\n", options_.nla == kOptionNlaAugmented
                            ? "augmented systems"
                            : "normal equations");
+  printf("\n");
 
   // print range of coefficients
   model_.checkCoefficients();
