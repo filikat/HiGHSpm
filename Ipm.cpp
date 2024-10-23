@@ -288,7 +288,7 @@ bool Ipm::solveNewtonSystem() {
 // Failure occured in factorisation or solve
 failure:
   std::cerr << "Error while solving Newton system\n";
-  ipm_status_ = "Error\n";
+  ipm_status_ = "Error";
   return true;
 }
 
@@ -367,7 +367,7 @@ void Ipm::makeStep() {
   vectorAdd(it_.zu, delta_.zu, alpha_dual_);
 }
 
-int Ipm::computeStartingPoint() {
+bool Ipm::computeStartingPoint() {
   // *********************************************************************
   // x starting point
   // *********************************************************************
@@ -390,26 +390,21 @@ int Ipm::computeStartingPoint() {
     // temp_m
 
     // factorize A*A^T
-    int newton_invert_status = LS_->factorNE(model_.A_, temp_scaling);
-    if (newton_invert_status) return newton_invert_status;
+    if (LS_->factorNE(model_.A_, temp_scaling)) goto failure;
 
-    int newton_solve_status = LS_->solveNE(it_.y, temp_m);
-    if (newton_solve_status) return newton_solve_status;
+    if (LS_->solveNE(it_.y, temp_m)) goto failure;
 
   } else if (options_.nla == kOptionNlaAugmented) {
     // obtain solution of A*A^T * dx = b-A*x by solving
     // [ -I  A^T] [...] = [ -x]
     // [  A   0 ] [ dx] = [ b ]
 
-    int augmented_invert_status = LS_->factorAS(model_.A_, temp_scaling);
-    if (augmented_invert_status) return augmented_invert_status;
+    if (LS_->factorAS(model_.A_, temp_scaling)) goto failure;
 
     std::vector<double> rhs_x(n_);
     for (int i = 0; i < n_; ++i) rhs_x[i] = -it_.x[i];
     std::vector<double> lhs_x(n_);
-    int augmented_solve_status = LS_->solveAS(rhs_x, model_.b_, lhs_x, temp_m);
-
-    if (augmented_solve_status) return augmented_solve_status;
+    if (LS_->solveAS(rhs_x, model_.b_, lhs_x, temp_m)) goto failure;
   }
 
   // compute dx = A^T * (A*A^T)^{-1} * (b-A*x) and store the result in xl
@@ -424,26 +419,28 @@ int Ipm::computeStartingPoint() {
   // xl, xu starting point
   // *********************************************************************
   // compute xl, xu that satisfy linear constraints
-  double violation{};
-  for (int i = 0; i < n_; ++i) {
-    if (model_.hasLb(i)) {
-      it_.xl[i] = it_.x[i] - model_.lower_[i];
-      violation = std::min(violation, it_.xl[i]);
-    } else {
-      it_.xl[i] = 0.0;
+  {
+    double violation{};
+    for (int i = 0; i < n_; ++i) {
+      if (model_.hasLb(i)) {
+        it_.xl[i] = it_.x[i] - model_.lower_[i];
+        violation = std::min(violation, it_.xl[i]);
+      } else {
+        it_.xl[i] = 0.0;
+      }
+      if (model_.hasUb(i)) {
+        it_.xu[i] = model_.upper_[i] - it_.x[i];
+        violation = std::min(violation, it_.xu[i]);
+      } else {
+        it_.xu[i] = 0.0;
+      }
     }
-    if (model_.hasUb(i)) {
-      it_.xu[i] = model_.upper_[i] - it_.x[i];
-      violation = std::min(violation, it_.xu[i]);
-    } else {
-      it_.xu[i] = 0.0;
-    }
-  }
 
-  // shift to be positive
-  violation = 1.0 + std::max(0.0, -1.5 * violation);
-  vectorAdd(it_.xl, violation);
-  vectorAdd(it_.xu, violation);
+    // shift to be positive
+    violation = 1.0 + std::max(0.0, -1.5 * violation);
+    vectorAdd(it_.xl, violation);
+    vectorAdd(it_.xu, violation);
+  }
   // *********************************************************************
 
   // *********************************************************************
@@ -455,8 +452,7 @@ int Ipm::computeStartingPoint() {
     std::fill(temp_m.begin(), temp_m.end(), 0.0);
     model_.A_.alphaProductPlusY(1.0, model_.c_, temp_m);
 
-    int newton_solve_status = LS_->solveNE(temp_m, it_.y);
-    if (newton_solve_status) return newton_solve_status;
+    if (LS_->solveNE(temp_m, it_.y)) goto failure;
 
   } else if (options_.nla == kOptionNlaAugmented) {
     // obtain solution of A*A^T * y = A*c by solving
@@ -466,8 +462,7 @@ int Ipm::computeStartingPoint() {
     std::vector<double> rhs_y(m_, 0.0);
     std::vector<double> lhs_x(n_);
 
-    int augmented_solve_status = LS_->solveAS(model_.c_, rhs_y, lhs_x, it_.y);
-    if (augmented_solve_status) return augmented_solve_status;
+    if (LS_->solveAS(model_.c_, rhs_y, lhs_x, it_.y)) goto failure;
   }
   // *********************************************************************
 
@@ -479,33 +474,36 @@ int Ipm::computeStartingPoint() {
   model_.A_.alphaProductPlusY(-1.0, it_.y, it_.zl, true);
 
   // split result between zl and zu
-  violation = 0.0;
-  for (int i = 0; i < n_; ++i) {
-    double val = it_.zl[i];
-    it_.zl[i] = 0.0;
-    it_.zu[i] = 0.0;
+  {
+    double violation = 0.0;
+    for (int i = 0; i < n_; ++i) {
+      double val = it_.zl[i];
+      it_.zl[i] = 0.0;
+      it_.zu[i] = 0.0;
 
-    if (model_.hasLb(i) && model_.hasUb(i)) {
-      it_.zl[i] = 0.5 * val;
-      it_.zu[i] = -0.5 * val;
-    } else if (model_.hasLb(i)) {
-      it_.zl[i] = val;
-    } else if (model_.hasUb(i)) {
-      it_.zu[i] = -val;
+      if (model_.hasLb(i) && model_.hasUb(i)) {
+        it_.zl[i] = 0.5 * val;
+        it_.zu[i] = -0.5 * val;
+      } else if (model_.hasLb(i)) {
+        it_.zl[i] = val;
+      } else if (model_.hasUb(i)) {
+        it_.zu[i] = -val;
+      }
+
+      violation = std::min(violation, it_.zl[i]);
+      violation = std::min(violation, it_.zu[i]);
     }
 
-    violation = std::min(violation, it_.zl[i]);
-    violation = std::min(violation, it_.zu[i]);
-  }
+    // shift to be positive
 
-  // shift to be positive
-  violation = 1.0 + std::max(0.0, -1.5 * violation);
-  for (int i = 0; i < n_; ++i) {
-    if (model_.hasLb(i)) {
-      it_.zl[i] += violation;
-    }
-    if (model_.hasUb(i)) {
-      it_.zu[i] += violation;
+    violation = 1.0 + std::max(0.0, -1.5 * violation);
+    for (int i = 0; i < n_; ++i) {
+      if (model_.hasLb(i)) {
+        it_.zl[i] += violation;
+      }
+      if (model_.hasUb(i)) {
+        it_.zu[i] += violation;
+      }
     }
   }
   // *********************************************************************
@@ -513,39 +511,46 @@ int Ipm::computeStartingPoint() {
   // *********************************************************************
   // improve centrality
   // *********************************************************************
-  double xsum{1.0};
-  double zsum{1.0};
-  double mu{1.0};
+  {
+    double xsum{1.0};
+    double zsum{1.0};
+    double mu{1.0};
 
-  for (int i = 0; i < n_; ++i) {
-    if (model_.hasLb(i)) {
-      xsum += it_.xl[i];
-      zsum += it_.zl[i];
-      mu += it_.xl[i] * it_.zl[i];
+    for (int i = 0; i < n_; ++i) {
+      if (model_.hasLb(i)) {
+        xsum += it_.xl[i];
+        zsum += it_.zl[i];
+        mu += it_.xl[i] * it_.zl[i];
+      }
+      if (model_.hasUb(i)) {
+        xsum += it_.xu[i];
+        zsum += it_.zu[i];
+        mu += it_.xu[i] * it_.zu[i];
+      }
     }
-    if (model_.hasUb(i)) {
-      xsum += it_.xu[i];
-      zsum += it_.zu[i];
-      mu += it_.xu[i] * it_.zu[i];
-    }
-  }
 
-  double dx = 0.5 * mu / zsum;
-  double dz = 0.5 * mu / xsum;
+    double dx = 0.5 * mu / zsum;
+    double dz = 0.5 * mu / xsum;
 
-  vectorAdd(it_.xl, dx);
-  vectorAdd(it_.xu, dx);
-  for (int i = 0; i < n_; ++i) {
-    if (model_.hasLb(i)) {
-      it_.zl[i] += dz;
-    }
-    if (model_.hasUb(i)) {
-      it_.zu[i] += dz;
+    vectorAdd(it_.xl, dx);
+    vectorAdd(it_.xu, dx);
+    for (int i = 0; i < n_; ++i) {
+      if (model_.hasLb(i)) {
+        it_.zl[i] += dz;
+      }
+      if (model_.hasUb(i)) {
+        it_.zu[i] += dz;
+      }
     }
   }
   // *********************************************************************
 
-  return kDecomposerStatusOk;
+  return false;
+
+failure:
+  std::cerr << "Error while computing starting point\n";
+  ipm_status_ = "Error";
+  return true;
 }
 
 void Ipm::computeSigma() {
@@ -661,9 +666,9 @@ void Ipm::printOutput() const {
       alpha_primal_, alpha_dual_, pd_gap_, getWallTime() - start_time_);
   if (options_.verbose) {
     printf(" |%9.2e %9.2e |%9.2e %9.2e |%9.2e %9.2e |%5d %10.2e %10.2e",
-           min_theta_, max_theta_, LS_->data.minD_, LS_->data.maxD_,
-           LS_->data.minL_, LS_->data.maxL_, LS_->data.num_reg_,
-           LS_->data.max_reg_, LS_->data.worst_res_);
+           min_theta_, max_theta_, LS_->data_.minD_, LS_->data_.maxD_,
+           LS_->data_.minL_, LS_->data_.maxL_, LS_->data_.n_reg_piv_,
+           LS_->data_.max_reg_, LS_->data_.worst_res_);
   }
   printf("\n");
 }

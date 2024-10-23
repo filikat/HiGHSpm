@@ -16,4 +16,4 @@ ipm.dSYM
 .clang-format
 debug_data
 netlib_*
-test_allocator.cpp
+test*

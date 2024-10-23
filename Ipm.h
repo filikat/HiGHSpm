@@ -226,7 +226,7 @@ class Ipm {
   // This task does not need a factorization and can continue to use CG, because
   // these linear systems are very easy to solve with CG.
   // ===================================================================================
-  int computeStartingPoint();
+  bool computeStartingPoint();
 
   // ===================================================================================
   // Given the predictor direction, compute predicted mu

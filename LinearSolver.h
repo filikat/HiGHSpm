@@ -30,7 +30,7 @@
 class LinearSolver {
  public:
   // object to handle times and statistics
-  DataCollector data{};
+  DataCollector data_{};
 
   bool valid_ = false;
 

@@ -3,11 +3,11 @@
 #include "Regularization.h"
 
 FactorHiGHSSolver::FactorHiGHSSolver(const Options& options)
-    : S_((FormatType)options.format), N_(S_, data) {}
+    : S_((FormatType)options.format), N_(S_, data_) {}
 
 void FactorHiGHSSolver::clear() {
   valid_ = false;
-  data.resetExtremeEntries();
+  data_.resetExtremeEntries();
 }
 
 int FactorHiGHSSolver::setup(const HighsSparseMatrix& A,
@@ -70,9 +70,9 @@ int FactorHiGHSSolver::setup(const HighsSparseMatrix& A,
   }
 
   // Perform analyse phase
-  Analyse analyse(S_, data, rowsLower, ptrLower, negative_pivots);
-  analyse.run();
-  S_.printShort();
+  Analyse analyse(S_, data_, rowsLower, ptrLower, negative_pivots);
+  if (int status = analyse.run()) return status;
+  data_.printSymbolic();
 
   return kRetOk;
 }
@@ -120,11 +120,8 @@ int FactorHiGHSSolver::factorAS(const HighsSparseMatrix& A,
   }
 
   // factorise matrix
-  Factorise factorise(S_, data, rowsLower, ptrLower, valLower);
-  int status = factorise.run(N_);
-  if (status) {
-    return kDecomposerStatusErrorFactorize;
-  }
+  Factorise factorise(S_, data_, rowsLower, ptrLower, valLower);
+  if (factorise.run(N_)) return kDecomposerStatusErrorFactorize;
 
   this->valid_ = true;
   use_as_ = true;
@@ -150,11 +147,8 @@ int FactorHiGHSSolver::factorNE(const HighsSparseMatrix& A,
   int status = computeLowerAThetaAT(A, scaling, AAt);
 
   // factorise
-  Factorise factorise(S_, data, AAt.index_, AAt.start_, AAt.value_);
-  int factorise_status = factorise.run(N_);
-  if (factorise_status) {
-    return kDecomposerStatusErrorFactorize;
-  }
+  Factorise factorise(S_, data_, AAt.index_, AAt.start_, AAt.value_);
+  if (factorise.run(N_)) return kDecomposerStatusErrorFactorize;
 
   this->valid_ = true;
   use_as_ = false;
@@ -360,7 +354,7 @@ void FactorHiGHSSolver::refine(const HighsSparseMatrix& A,
       delta_y = temp_y;
     } else {
       // printf(" %e xxx \n", norm_res);
-      data.worst_res_ = std::max(data.worst_res_, old_norm_res);
+      data_.worst_res_ = std::max(data_.worst_res_, old_norm_res);
       return;
     }
   }
@@ -368,7 +362,7 @@ void FactorHiGHSSolver::refine(const HighsSparseMatrix& A,
   norm_res = infNorm(res_x, res_y);
   // printf("%e\n", norm_res);
 
-  data.worst_res_ = std::max(data.worst_res_, norm_res);
+  data_.worst_res_ = std::max(data_.worst_res_, norm_res);
 }
 
-void FactorHiGHSSolver::finalise() { data.printTimes(); }
+void FactorHiGHSSolver::finalise() { data_.printTimes(); }

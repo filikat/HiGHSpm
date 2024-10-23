@@ -23,10 +23,10 @@ cpp_sources = \
 		../FactorHiGHS/FullFormatHandler.cpp \
 		../FactorHiGHS/HybridPackedFormatHandler.cpp \
 		../FactorHiGHS/HybridHybridFormatHandler.cpp \
-		../FactorHiGHS/DataCollector.cpp
-c_sources = ../FactorHiGHS/DenseFact.c \
-			../FactorHiGHS/CallAndTimeBlas.c \
-			../FactorHiGHS/timing.c
+		../FactorHiGHS/DataCollector.cpp \
+		../FactorHiGHS/DenseFact.cpp \
+		../FactorHiGHS/CallAndTimeBlas.cpp \
+		../FactorHiGHS/Timing.cpp
 
 # binary file name
 binary_name = ipm
@@ -35,20 +35,17 @@ binary_name = ipm
 OBJDIR = obj
 
 # compilers
-#CC=clang
 #CPP=clang++
  CPP = /opt/homebrew/Cellar/llvm/17.0.6_1/bin/clang++
- CC = /opt/homebrew/Cellar/llvm/17.0.6_1/bin/clang
 
 # compiler flags
 CPPFLAGS = -std=c++11 -O3 -g3 -Wno-deprecated #-fsanitize=address #ASAN_OPTIONS=detect_leaks=1
-CFLAGS = -O3 -g3 #-fsanitize=address
 
 # mess to link openmp on mac
 #OPENMP_FLAGS = -Xclang -fopenmp -I/opt/homebrew/opt/libomp/include -L/opt/homebrew/opt/libomp/lib -lomp
 
 # rpaths for shared libraries
-rpaths = -rpath $(CHOLMOD_PATH)/lib/ -rpath $(LOCAL_PATH)/lib/
+# rpaths = -rpath $(CHOLMOD_PATH)/lib/ -rpath $(LOCAL_PATH)/lib/
 
 # includes and libraries
 includes = -I$(HIGHS_PATH)/build -I$(HIGHS_PATH)/src/ -I$(METIS_PATH)/include -I$(LOCAL_PATH)/include
@@ -57,7 +54,6 @@ libs = -lhighs -lmetis -lGKlib -llapack -lblas
 
 # name of objects
 cpp_objects = $(cpp_sources:%.cpp=$(OBJDIR)/%.o)
-c_objects = $(c_sources:%.c=$(OBJDIR)/%.o)
 
 # dependency files
 dep = $(cpp_sources:%.cpp=$(OBJDIR)/%.d)
@@ -66,24 +62,18 @@ dep = $(cpp_sources:%.cpp=$(OBJDIR)/%.d)
 
 
 # link ipm
-$(binary_name): $(cpp_objects) $(c_objects)
+$(binary_name): $(cpp_objects)
 	@echo Linking objects into $@
-	@$(CPP) $(CPPFLAGS) $(libs_path) $(libs) $(rpaths) $^ -o $@
+	@$(CPP) $(CPPFLAGS) $(libs_path) $(libs) $^ -o $@
 
 # manage dependencies
 -include $(dep)
 
 # compile cpp
-$(cpp_objects): $(OBJDIR)/%.o: %.cpp
+$(cpp_objects): $(OBJDIR)/%.o: %.cpp Makefile
 	@echo Compiling $<
 	@mkdir -p $(@D)
 	@$(CPP) -MMD -c $(CPPFLAGS) $(includes) $< -o $@
-
-# compile c
-$(c_objects): $(OBJDIR)/%.o: %.c
-	@echo Compiling $<
-	@mkdir -p $(@D)
-	@$(CC) -MMD -c $(CFLAGS) $(includes) $< -o $@
 
 
 .PHONY : clean
