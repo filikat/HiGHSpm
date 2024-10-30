@@ -44,8 +44,7 @@ Output Ipm::solve() {
   res_ = Residuals(m_, n_);
 
   // initialize linear solver
-  FactorHiGHSSolver factorHiGHS_solver(options_);
-  LS_ = &factorHiGHS_solver;
+  LS_.reset(new FactorHiGHSSolver(options_));
   if (LS_->setup(model_.A_, options_)) return Output{};
 
   // initialize starting point, residuals and mu
@@ -232,32 +231,32 @@ void Ipm::computeScaling() {
     if (model_.hasUb(i)) {
       scaling_[i] += it_.zu[i] / it_.xu[i];
     }
+    // slow down the growth of theta
+    if (scaling_[i] < 1e-12) scaling_[i] = sqrt(1e-12 * scaling_[i]);
   }
 
   min_theta_ = kInf;
   max_theta_ = 0.0;
 
   for (int i = 0; i < n_; ++i) {
-    min_theta_ = std::min(min_theta_, 1.0 / scaling_[i]);
-    max_theta_ = std::max(max_theta_, 1.0 / scaling_[i]);
+    if (scaling_[i] != 0.0) {
+      min_theta_ = std::min(min_theta_, 1.0 / scaling_[i]);
+      max_theta_ = std::max(max_theta_, 1.0 / scaling_[i]);
+    }
   }
 }
 
 bool Ipm::solveNewtonSystem() {
   std::vector<double> res7{computeResiduals7()};
 
-  const bool use_as = options_.nla == kOptionNlaAugmented;
-
-  const bool first_call_with_theta = !LS_->valid_;
-
   // NORMAL EQUATIONS
-  if (!use_as) {
+  if (options_.nla == kOptionNlaNormEq) {
     std::vector<double> res8{computeResiduals8(res7)};
 
-    if (first_call_with_theta) {
-      if (LS_->factorNE(model_.A_, scaling_)) goto failure;
-    }
+    // factorise normal equations, if not yet done
+    if (!LS_->valid_ && LS_->factorNE(model_.A_, scaling_)) goto failure;
 
+    // solve with normal equations
     if (LS_->solveNE(res8, delta_.y)) goto failure;
 
     // Compute delta.x
@@ -274,15 +273,16 @@ bool Ipm::solveNewtonSystem() {
 
   // AUGMENTED SYSTEM
   else {
-    if (first_call_with_theta) {
-      if (LS_->factorAS(model_.A_, scaling_)) goto failure;
-    }
+    // factorise augmented system, if not yet done
+    if (!LS_->valid_ && LS_->factorAS(model_.A_, scaling_)) goto failure;
 
+    // solve with augmented system
     if (LS_->solveAS(res7, res_.res1, delta_.x, delta_.y)) goto failure;
   }
 
-  // REFINEMENT
+  // iterative refinement
   LS_->refine(model_.A_, scaling_, res7, res_.res1, delta_.x, delta_.y);
+
   return false;
 
 // Failure occured in factorisation or solve
@@ -293,23 +293,42 @@ failure:
 }
 
 bool Ipm::recoverDirection() {
-  //  Deltaxl
-  delta_.xl = delta_.x;
-  vectorAdd(delta_.xl, res_.res2, -1.0);
+  for (int i = 0; i < n_; ++i) {
+    if (model_.hasLb(i) || model_.hasUb(i)) {
+      delta_.xl[i] = delta_.x[i] - res_.res2[i];
+      delta_.zl[i] = (res_.res5[i] - it_.zl[i] * delta_.xl[i]) / it_.xl[i];
+    } else {
+      delta_.xl[i] = 0.0;
+      delta_.zl[i] = 0.0;
+    }
+  }
+  for (int i = 0; i < n_; ++i) {
+    if (model_.hasLb(i) || model_.hasUb(i)) {
+      delta_.xu[i] = res_.res3[i] - delta_.x[i];
+      delta_.zu[i] = (res_.res6[i] - it_.zu[i] * delta_.xu[i]) / it_.xu[i];
+    } else {
+      delta_.xu[i] = 0.0;
+      delta_.zu[i] = 0.0;
+    }
+  }
 
-  // Deltaxu
-  delta_.xu = res_.res3;
-  vectorAdd(delta_.xu, delta_.x, -1.0);
-
-  // Deltazl
-  delta_.zl = res_.res5;
-  vectorAddMult(delta_.zl, it_.zl, delta_.xl, -1.0);
-  vectorDivide(delta_.zl, it_.xl);
-
-  // Deltazu
-  delta_.zu = res_.res6;
-  vectorAddMult(delta_.zu, it_.zu, delta_.xu, -1.0);
-  vectorDivide(delta_.zu, it_.xu);
+  // not sure if this has any effect, but IPX uses it
+  std::vector<double> Atdy(n_);
+  model_.A_.alphaProductPlusY(1.0, delta_.y, Atdy, true);
+  for (int i = 0; i < n_; ++i) {
+    if (model_.hasLb(i) || model_.hasUb(i)) {
+      if (std::isfinite(it_.xl[i]) && std::isfinite(it_.xu[i])) {
+        if (it_.zl[i] * it_.xu[i] >= it_.zu[i] * it_.xl[i])
+          delta_.zl[i] = res_.res4[i] + delta_.zu[i] - Atdy[i];
+        else
+          delta_.zu[i] = -res_.res4[i] + delta_.zl[i] + Atdy[i];
+      } else if (std::isfinite(it_.xl[i])) {
+        delta_.zl[i] = res_.res4[i] + delta_.zu[i] - Atdy[i];
+      } else {
+        delta_.zu[i] = -res_.res4[i] + delta_.zl[i] + Atdy[i];
+      }
+    }
+  }
 
   // Check for NaN of Inf
   if (delta_.isNaN()) {
@@ -619,7 +638,7 @@ bool Ipm::checkIterate() {
 bool Ipm::checkBadIter() {
   // If too many bad iterations, stop
   if (bad_iter_ >= 5) {
-    printf("\n Failuer: no progress\n\n");
+    printf("\n Failure: no progress\n\n");
     ipm_status_ = "No progress";
     return true;
   }
@@ -646,7 +665,7 @@ void Ipm::printHeader() const {
   if (iter_ % 20 == 1) {
     printf(
         " iter      primal obj        dual obj        pinf      dinf "
-        "       mu     alpha_p   alpha_d   p/d gap    time");
+        "       mu      alpha_p  alpha_d   p/d gap    time");
     if (options_.verbose) {
       printf(
           " |   min T     max T  |   min D     max D  |   min L     max L  | "
@@ -666,9 +685,9 @@ void Ipm::printOutput() const {
       alpha_primal_, alpha_dual_, pd_gap_, getWallTime() - start_time_);
   if (options_.verbose) {
     printf(" |%9.2e %9.2e |%9.2e %9.2e |%9.2e %9.2e |%5d %10.2e %10.2e",
-           min_theta_, max_theta_, LS_->data_.minD_, LS_->data_.maxD_,
-           LS_->data_.minL_, LS_->data_.maxL_, LS_->data_.n_reg_piv_,
-           LS_->data_.max_reg_, LS_->data_.worst_res_);
+           min_theta_, max_theta_, LS_->data_.minD(), LS_->data_.maxD(),
+           LS_->data_.minL(), LS_->data_.maxL(), LS_->data_.nRegPiv(),
+           LS_->data_.maxReg(), LS_->data_.worstRes());
   }
   printf("\n");
 }

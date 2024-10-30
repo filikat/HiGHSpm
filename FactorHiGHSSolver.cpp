@@ -121,7 +121,7 @@ int FactorHiGHSSolver::factorAS(const HighsSparseMatrix& A,
 
   // factorise matrix
   Factorise factorise(S_, data_, rowsLower, ptrLower, valLower);
-  if (factorise.run(N_)) return kDecomposerStatusErrorFactorize;
+  if (factorise.run(N_)) return kDecomposerStatusErrorFactorise;
 
   this->valid_ = true;
   use_as_ = true;
@@ -148,7 +148,7 @@ int FactorHiGHSSolver::factorNE(const HighsSparseMatrix& A,
 
   // factorise
   Factorise factorise(S_, data_, AAt.index_, AAt.start_, AAt.value_);
-  if (factorise.run(N_)) return kDecomposerStatusErrorFactorize;
+  if (factorise.run(N_)) return kDecomposerStatusErrorFactorise;
 
   this->valid_ = true;
   use_as_ = false;
@@ -282,17 +282,6 @@ void FactorHiGHSSolver::refine(const HighsSparseMatrix& A,
 
   norm_res = infNorm(res_x, res_y);
 
-  /*std::ofstream out_file;
-  print(out_file, delta_x, "delta_x");
-  print(out_file, delta_y, "delta_y");
-  print(out_file, rhs_x, "rhs_x");
-  print(out_file, rhs_y, "rhs_y");
-  print(out_file, scaling, "scaling");
-  print(out_file, A.start_, "ptrA");
-  print(out_file, A.index_, "rowsA");
-  print(out_file, A.value_, "valA");
-  print(out_file, dynamic_reg, "dyn_reg");*/
-
   for (int iter = 0; iter < 5; ++iter) {
     // stop refinement if residual is small
     if (norm_res < 1e-8) {
@@ -354,7 +343,7 @@ void FactorHiGHSSolver::refine(const HighsSparseMatrix& A,
       delta_y = temp_y;
     } else {
       // printf(" %e xxx \n", norm_res);
-      data_.worst_res_ = std::max(data_.worst_res_, old_norm_res);
+      data_.setWorstRes(old_norm_res);
       return;
     }
   }
@@ -362,7 +351,7 @@ void FactorHiGHSSolver::refine(const HighsSparseMatrix& A,
   norm_res = infNorm(res_x, res_y);
   // printf("%e\n", norm_res);
 
-  data_.worst_res_ = std::max(data_.worst_res_, norm_res);
+  data_.setWorstRes(norm_res);
 }
 
 void FactorHiGHSSolver::finalise() { data_.printTimes(); }

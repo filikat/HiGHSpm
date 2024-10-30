@@ -14,7 +14,8 @@ enum OptionFormat {
   kOptionFormatFull = kOptionFormatMin,
   kOptionFormatHybridPacked,
   kOptionFormatHybridHybrid,
-  kOptionFormatMax = kOptionFormatHybridHybrid,
+  kOptionFormatPackedPacked,
+  kOptionFormatMax = kOptionFormatPackedPacked,
   kOptionFormatDefault = kOptionFormatHybridPacked
 };
 
@@ -25,7 +26,7 @@ struct Options {
 };
 
 const int kMaxIterations = 100;
-const double kIpmTolerance = 1e-8;
+const double kIpmTolerance = 1e-6;
 
 const double kInteriorScaling = 0.999;
 

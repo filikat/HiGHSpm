@@ -21,7 +21,7 @@ class Ipm {
   NewtonDir delta_{};
 
   // Linear solver interface
-  LinearSolver* LS_;
+  std::unique_ptr<LinearSolver> LS_;
 
   // Size of the problem
   int m_{};

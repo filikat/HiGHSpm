@@ -20,8 +20,8 @@ void vectorMultiply(std::vector<double>& v1, const std::vector<double>& v2,
 
 // alpha * v1[i] + beta * v2[i] * v3[i]
 void vectorAddMult(std::vector<double>& v1, const std::vector<double>& v2,
-                   const std::vector<double>& v3, double alpha = 1.0,
-                   double beta = 1.0);
+                   const std::vector<double>& v3, double beta = 1.0,
+                   double alpha = 1.0);
 
 // v1[i] / v2[i]
 void vectorDivide(std::vector<double>& v1, const std::vector<double>& v2);

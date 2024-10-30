@@ -7,6 +7,7 @@
 #include "../FactorHiGHS/DataCollector.h"
 #include "../FactorHiGHS/Factorise.h"
 #include "LinearSolver.h"
+#include "../FactorHiGHS/ReturnValues.h"
 
 class FactorHiGHSSolver : public LinearSolver {
   // symbolic factorization

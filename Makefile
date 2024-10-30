@@ -23,6 +23,7 @@ cpp_sources = \
 		../FactorHiGHS/FullFormatHandler.cpp \
 		../FactorHiGHS/HybridPackedFormatHandler.cpp \
 		../FactorHiGHS/HybridHybridFormatHandler.cpp \
+		../FactorHiGHS/PackedPackedFormatHandler.cpp \
 		../FactorHiGHS/DataCollector.cpp \
 		../FactorHiGHS/DenseFact.cpp \
 		../FactorHiGHS/CallAndTimeBlas.cpp \
@@ -70,6 +71,7 @@ $(binary_name): $(cpp_objects)
 -include $(dep)
 
 # compile cpp
+# (include Makefile as a prerequisite, to force recompilation if Makefile changes, e.g. if flags have changed)
 $(cpp_objects): $(OBJDIR)/%.o: %.cpp Makefile
 	@echo Compiling $<
 	@mkdir -p $(@D)

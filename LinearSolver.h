@@ -34,6 +34,16 @@ class LinearSolver {
 
   bool valid_ = false;
 
+  // default constructor
+  LinearSolver() = default;
+
+  // avoid copies
+  LinearSolver(const LinearSolver&) = delete;
+  LinearSolver& operator=(const LinearSolver&) = delete;
+
+  // virtual destructor
+  virtual ~LinearSolver() = default;
+
   // =================================================================
   // Pure virtual functions.
   // These need to be defined by any derived class.

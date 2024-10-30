@@ -89,14 +89,15 @@ int main(int argc, char** argv) {
   }
   if (num_free_col) {
     const double bound_on_free = 2e3;
-    printf("Model has %d/%d free columns: replacing bounds with [%g, %g]\n",
-           num_free_col, n, -bound_on_free, bound_on_free);
-    for (int i = 0; i < n; ++i) {
+    printf("Model has %d free columns\n",
+           num_free_col);  //: replacing bounds with [%g, %g]\n",
+                           // num_free_col, n, -bound_on_free, bound_on_free);
+    /*for (int i = 0; i < n; ++i) {
       if (lower[i] <= -kHighsInf && upper[i] >= kHighsInf) {
         lower[i] = -bound_on_free;
         upper[i] = bound_on_free;
       }
-    }
+    }*/
   }
 
   int num_slacks{};

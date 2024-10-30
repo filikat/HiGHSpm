@@ -11,7 +11,7 @@ enum DecomposerStatus {
   kDecomposerStatusMin = 0,
   kDecomposerStatusOk = kDecomposerStatusMin,
   kDecomposerStatusErrorOom,
-  kDecomposerStatusErrorFactorize,
+  kDecomposerStatusErrorFactorise,
   kDecomposerStatusErrorSolve,
   kDecomposerStatusErrorClear,
   kDecomposerStatusMax = kDecomposerStatusErrorClear
