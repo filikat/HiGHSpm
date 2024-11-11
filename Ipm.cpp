@@ -5,6 +5,7 @@
 #include <iostream>
 
 #include "Regularization.h"
+#include "parallel/HighsParallel.h"
 
 void Ipm::load(const int num_var, const int num_con, const double* obj,
                const double* rhs, const double* lower, const double* upper,
@@ -37,7 +38,7 @@ Output Ipm::solve() {
   // ------------------------------------------
 
   // start timer
-  start_time_ = getWallTime();
+  clock_.start();
 
   // initialize iterate and residuals
   it_ = Iterate(m_, n_);
@@ -682,7 +683,7 @@ void Ipm::printOutput() const {
       "%5d %16.8e %16.8e %10.2e %10.2e %10.2e %8.2f %8.2f %10.2e "
       "%7.1f",
       iter_, primal_obj_, dual_obj_, primal_infeas_, dual_infeas_, mu_,
-      alpha_primal_, alpha_dual_, pd_gap_, getWallTime() - start_time_);
+      alpha_primal_, alpha_dual_, pd_gap_, clock_.stop());
   if (options_.verbose) {
     printf(" |%9.2e %9.2e |%9.2e %9.2e |%9.2e %9.2e |%5d %10.2e %10.2e",
            min_theta_, max_theta_, LS_->data_.minD(), LS_->data_.maxD(),
@@ -700,6 +701,13 @@ void Ipm::printInfo() const {
   printf("Using %s\n", options_.nla == kOptionNlaAugmented
                            ? "augmented systems"
                            : "normal equations");
+                           
+#ifdef PARALLEL_TREE
+  printf("Running on %d threads\n", highs::parallel::num_threads());
+#else
+  printf("Running on 1 thread\n");
+#endif
+
   printf("\n");
 
   // print range of coefficients

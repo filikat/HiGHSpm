@@ -10,6 +10,7 @@
 #include "LinearSolver.h"
 #include "VectorOperations.h"
 #include "util/HighsSparseMatrix.h"
+#include "../FactorHiGHS/Auxiliary.h"
 
 class Ipm {
   // LP model
@@ -56,11 +57,11 @@ class Ipm {
   // Status of the solver
   std::string ipm_status_ = "Max iter";
 
-  // Timer for iterations
-  double start_time_{};
-
   // Run-time options
   Options options_{};
+
+  // Timer for iterations
+  Clock clock_;
 
  public:
   // ===================================================================================

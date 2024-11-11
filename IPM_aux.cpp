@@ -390,13 +390,6 @@ int computeLowerAThetaAT(const HighsSparseMatrix& matrix,
   return kDecomposerStatusOk;
 }
 
-double getWallTime() {
-  using namespace std::chrono;
-  using wall_clock = std::chrono::high_resolution_clock;
-  return duration_cast<duration<double>>(wall_clock::now().time_since_epoch())
-      .count();
-}
-
 void debug_print(std::string filestr, const std::vector<int>& data) {
   char filename[100];
   snprintf(filename, 100, "../FactorHiGHS/matlab/%s", filestr.c_str());

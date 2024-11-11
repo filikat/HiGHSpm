@@ -17,8 +17,6 @@ enum DecomposerStatus {
   kDecomposerStatusMax = kDecomposerStatusErrorClear
 };
 
-double getWallTime();
-
 // =======================================================================
 // RESIDUALS
 // =======================================================================

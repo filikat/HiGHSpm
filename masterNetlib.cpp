@@ -19,14 +19,14 @@ int main() {
   fprintf(results_file, "%15s %10s %10s %10s\n", "Problem", "Time", "Iter",
           "Status");
 
-  double total_time = getWallTime();
+  Clock clock;
   int converged{};
   int total_problems{};
 
   while (getline(netlib_names, pb_name)) {
     ++total_problems;
-    double start_time0 = getWallTime();
-    double start_time = start_time0;
+    Clock clock0;
+    Clock clock1;
     // ===================================================================================
     // READ PROBLEM
     // ===================================================================================
@@ -39,16 +39,16 @@ int main() {
     std::string model = extractModelName(model_file);
     HighsStatus status = highs.readModel(model_file);
     assert(status == HighsStatus::kOk);
-    double read_time = getWallTime() - start_time;
+    double read_time = clock1.stop();
     const bool presolve = true;
     HighsLp lp;
     double presolve_time = -1;
     if (presolve) {
-      start_time = getWallTime();
+      clock1.start();
       status = highs.presolve();
       assert(status == HighsStatus::kOk);
       lp = highs.getPresolvedLp();
-      presolve_time = getWallTime() - start_time;
+      presolve_time = clock1.stop();
     } else {
       lp = highs.getLp();
       presolve_time = 0;
@@ -69,7 +69,7 @@ int main() {
     // ===================================================================================
 
     // Make a local copy of LP data to be modified
-    start_time = getWallTime();
+    clock1.start();
     int n = lp.num_col_;
     int m = lp.num_row_;
     std::vector<double> obj(lp.col_cost_);
@@ -170,12 +170,12 @@ int main() {
         values.push_back(-1.0);
       }
     }
-    double setup_time = getWallTime() - start_time;
+    double setup_time = clock1.stop();
 
     // ===================================================================================
     // LOAD AND SOLVE THE PROBLEM
     // ===================================================================================
-    start_time = getWallTime();
+    clock1.start();
 
     // create instance of IPM
     Ipm ipm{};
@@ -185,7 +185,6 @@ int main() {
     // ===================================================================================
     Options options{};
     options.nla = 1;
-    options.fact = 1;
     options.format = 1;
 
     // extract problem name without mps
@@ -198,26 +197,25 @@ int main() {
     ipm.load(n, m, obj.data(), rhs.data(), lower.data(), upper.data(),
              colptr.data(), rowind.data(), values.data(), constraints.data(),
              pb_name, options);
-    double load_time = getWallTime() - start_time;
+    double load_time = clock1.stop();
 
     // solve LP
-    start_time = getWallTime();
+    clock1.start();
     Output out = ipm.solve();
-    double optimize_time = getWallTime() - start_time;
+    double optimize_time = clock1.stop();
     if (out.status == "Optimal") {
       ++converged;
     }
 
-    double run_time = getWallTime() - start_time0;
+    double run_time = clock0.stop();
 
     fprintf(results_file, "%15s %10.2f %10d %10s\n", pb_name.c_str(),
             optimize_time, out.iterations, out.status.c_str());
     fflush(results_file);
   }
 
-  total_time = getWallTime() - total_time;
   fprintf(results_file, "\n================\n");
-  fprintf(results_file, "Total time: %10.2f sec\n", total_time);
+  fprintf(results_file, "Total time: %10.2f sec\n", clock.stop());
   fprintf(results_file, "Optimal   : %10d / %d\n", converged, total_problems);
 
   netlib_names.close();

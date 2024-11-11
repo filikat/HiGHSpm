@@ -1,7 +1,6 @@
 
 # paths
 HIGHS_PATH = $(HOME)/Documents/HiGHS
-CHOLMOD_PATH = $(HOME)/Documents/SuiteSparse
 METIS_PATH = $(HOME)/Documents/METIS
 LOCAL_PATH = $(HOME)/local
 
@@ -26,8 +25,7 @@ cpp_sources = \
 		../FactorHiGHS/PackedPackedFormatHandler.cpp \
 		../FactorHiGHS/DataCollector.cpp \
 		../FactorHiGHS/DenseFact.cpp \
-		../FactorHiGHS/CallAndTimeBlas.cpp \
-		../FactorHiGHS/Timing.cpp
+		../FactorHiGHS/CallAndTimeBlas.cpp
 
 # binary file name
 binary_name = ipm
@@ -51,7 +49,7 @@ CPPFLAGS = -std=c++11 -O3 -g3 -Wno-deprecated #-fsanitize=address #ASAN_OPTIONS=
 # includes and libraries
 includes = -I$(HIGHS_PATH)/build -I$(HIGHS_PATH)/src/ -I$(METIS_PATH)/include -I$(LOCAL_PATH)/include
 libs_path = -L$(HIGHS_PATH)/build/lib -L$(METIS_PATH)/build/libmetis -L$(LOCAL_PATH)/lib
-libs = -lhighs -lmetis -lGKlib -llapack -lblas
+libs = -lhighs -lmetis -lGKlib -lblas
 
 # name of objects
 cpp_objects = $(cpp_sources:%.cpp=$(OBJDIR)/%.o)

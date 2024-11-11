@@ -6,6 +6,8 @@
 #include "Highs.h"
 #include "Ipm.h"
 #include "io/Filereader.h"
+#include "parallel/HighsParallel.h"
+#include "../FactorHiGHS/Auxiliary.h"
 
 enum ArgC {
   kMinArgC = 2,
@@ -26,8 +28,9 @@ int main(int argc, char** argv) {
     return 1;
   }
 
-  double start_time0 = getWallTime();
-  double start_time = start_time0;
+  Clock clock0;
+  Clock clock;
+
   // ===================================================================================
   // READ PROBLEM
   // ===================================================================================
@@ -39,16 +42,16 @@ int main(int argc, char** argv) {
   std::string model = extractModelName(model_file);
   HighsStatus status = highs.readModel(model_file);
   assert(status == HighsStatus::kOk);
-  double read_time = getWallTime() - start_time;
+  double read_time = clock.stop();
   const bool presolve = true;
   HighsLp lp;
   double presolve_time = -1;
   if (presolve) {
-    start_time = getWallTime();
+    clock.start();
     status = highs.presolve();
     assert(status == HighsStatus::kOk);
     lp = highs.getPresolvedLp();
-    presolve_time = getWallTime() - start_time;
+    presolve_time = clock.stop();
   } else {
     lp = highs.getLp();
     presolve_time = 0;
@@ -69,7 +72,7 @@ int main(int argc, char** argv) {
   // ===================================================================================
 
   // Make a local copy of LP data to be modified
-  start_time = getWallTime();
+  clock.start();
   int n = lp.num_col_;
   int m = lp.num_row_;
   std::vector<double> obj(lp.col_cost_);
@@ -169,15 +172,19 @@ int main(int argc, char** argv) {
       values.push_back(-1.0);
     }
   }
-  double setup_time = getWallTime() - start_time;
+  double setup_time = clock.stop();
 
   // ===================================================================================
   // LOAD AND SOLVE THE PROBLEM
   // ===================================================================================
-  start_time = getWallTime();
+  clock.start();
 
   // create instance of IPM
   Ipm ipm{};
+
+  // scheduler should be already initialized, but no harm in doing it again
+  //HighsTaskExecutor::shutdown(true);
+  highs::parallel::initialize_scheduler();
 
   // ===================================================================================
   // Identify the option values and check their validity
@@ -218,14 +225,14 @@ int main(int argc, char** argv) {
   ipm.load(n, m, obj.data(), rhs.data(), lower.data(), upper.data(),
            colptr.data(), rowind.data(), values.data(), constraints.data(),
            pb_name, options);
-  double load_time = getWallTime() - start_time;
+  double load_time = clock.stop();
 
   // solve LP
-  start_time = getWallTime();
+  clock.start();
   Output output = ipm.solve();
-  double optimize_time = getWallTime() - start_time;
+  double optimize_time = clock.stop();
 
-  double run_time = getWallTime() - start_time0;
+  double run_time = clock0.stop();
 
   if (run_time > 1e-3) {
     double sum_time =
