@@ -3,11 +3,11 @@
 #include <iostream>
 #include <regex>
 
+#include "../FactorHiGHS/Auxiliary.h"
 #include "Highs.h"
 #include "Ipm.h"
 #include "io/Filereader.h"
 #include "parallel/HighsParallel.h"
-#include "../FactorHiGHS/Auxiliary.h"
 
 enum ArgC {
   kMinArgC = 2,
@@ -23,7 +23,8 @@ int main(int argc, char** argv) {
     std::cerr << "======= How to use: ./ipm LP_name.mps(.gz) nla_option "
                  "format_option verbose_option =======\n";
     std::cerr << "nla_option     : 0 aug sys, 1 norm eq\n";
-    std::cerr << "format_option  : 0 full, 1 hybrid packed, 2 hybrid hybrid\n";
+    std::cerr << "format_option  : 0 full, 1 hybrid packed, 2 hybrid hybrid, 3 "
+                 "packed packed\n";
     std::cerr << "verbose_option : 0 short print, 1 full print\n";
     return 1;
   }
@@ -183,7 +184,7 @@ int main(int argc, char** argv) {
   Ipm ipm{};
 
   // scheduler should be already initialized, but no harm in doing it again
-  //HighsTaskExecutor::shutdown(true);
+  // HighsTaskExecutor::shutdown(true);
   highs::parallel::initialize_scheduler();
 
   // ===================================================================================

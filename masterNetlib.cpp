@@ -1,27 +1,51 @@
 #include <cassert>
 #include <cstring>  // For strchr
+#include <iomanip>
 #include <iostream>
 #include <regex>
+#include <sstream>
 
 #include "Highs.h"
 #include "Ipm.h"
 #include "io/Filereader.h"
+#include "parallel/HighsParallel.h"
 
-int main() {
+enum ArgC {
+  kMinArgC = 1,
+  kOptionNlaArg = 1,
+  kOptionFormat,
+  kOptionVerbose,
+  kMaxArgC
+};
+
+int main(int argc, char** argv) {
   // run all Netlib collection
+
+  if (argc < kMinArgC || argc > kMaxArgC) {
+    std::cerr << "======= How to use: ./test nla_option format_option "
+                 "verbose_option =======\n";
+    std::cerr << "nla_option     : 0 aug sys, 1 norm eq\n";
+    std::cerr << "format_option  : 0 full, 1 hybrid packed, 2 hybrid hybrid, 3 "
+                 "packed packed\n";
+    std::cerr << "verbose_option : 0 short print, 1 full print\n";
+    return 1;
+  }
 
   std::ifstream netlib_names("../../Netlib/netlib_names.txt");
   std::string pb_name;
   std::string netlibPath = "../../Netlib/data/";
 
-  FILE* results_file;
-  results_file = fopen("netlib_results.txt", "a");
-  fprintf(results_file, "%15s %10s %10s %10s\n", "Problem", "Time", "Iter",
-          "Status");
-
   Clock clock;
   int converged{};
   int total_problems{};
+
+  std::stringstream ss{};
+  ss << std::setw(20) << "Pb name";
+  ss << std::setw(12) << "Status";
+  ss << std::setw(6) << "iter";
+  ss << std::setw(12) << "Time" << '\n';
+
+  highs::parallel::initialize_scheduler();
 
   while (getline(netlib_names, pb_name)) {
     ++total_problems;
@@ -89,14 +113,15 @@ int main() {
     }
     if (num_free_col) {
       const double bound_on_free = 2e3;
-      printf("Model has %d/%d free columns: replacing bounds with [%g, %g]\n",
-             num_free_col, n, -bound_on_free, bound_on_free);
-      for (int i = 0; i < n; ++i) {
+      printf("Model has %d free columns\n",
+             num_free_col);  //: replacing bounds with [%g, %g]\n",
+                             // num_free_col, n, -bound_on_free, bound_on_free);
+      /*for (int i = 0; i < n; ++i) {
         if (lower[i] <= -kHighsInf && upper[i] >= kHighsInf) {
           lower[i] = -bound_on_free;
           upper[i] = bound_on_free;
         }
-      }
+      }*/
     }
 
     int num_slacks{};
@@ -184,8 +209,30 @@ int main() {
     // Identify the option values and check their validity
     // ===================================================================================
     Options options{};
-    options.nla = 1;
-    options.format = 1;
+
+    // option to choose normal equations or augmented system
+    options.nla =
+        argc > kOptionNlaArg ? atoi(argv[kOptionNlaArg]) : kOptionNlaDefault;
+    if (options.nla < kOptionNlaMin || options.nla > kOptionNlaMax) {
+      std::cerr << "Illegal value of " << options.nla
+                << " for option_nla: must be in [" << kOptionNlaMin << ", "
+                << kOptionNlaMax << "]\n";
+      return 1;
+    }
+
+    // option to choose storage format inside FactorHiGHS
+    options.format =
+        argc > kOptionFormat ? atoi(argv[kOptionFormat]) : kOptionFormatDefault;
+    if (options.format < kOptionFormatMin ||
+        options.format > kOptionFormatMax) {
+      std::cerr << "Illegal value of " << options.format
+                << " for option_format: must be in [" << kOptionFormatMin
+                << ", " << kOptionFormatMax << "]\n";
+      return 1;
+    }
+
+    options.verbose =
+        argc > kOptionVerbose ? atoi(argv[kOptionVerbose]) : false;
 
     // extract problem name without mps
     std::regex rgx("(.+)\\.mps");
@@ -209,17 +256,18 @@ int main() {
 
     double run_time = clock0.stop();
 
-    fprintf(results_file, "%15s %10.2f %10d %10s\n", pb_name.c_str(),
-            optimize_time, out.iterations, out.status.c_str());
-    fflush(results_file);
+    ss << std::setw(20) << pb_name << ' ';
+    ss << std::setw(12) << out.status << ' ';
+    ss << std::setw(6) << out.iterations << ' ';
+    ss << std::setw(12) << std::fixed << std::setprecision(3) << optimize_time
+       << '\n';
   }
 
-  fprintf(results_file, "\n================\n");
-  fprintf(results_file, "Total time: %10.2f sec\n", clock.stop());
-  fprintf(results_file, "Optimal   : %10d / %d\n", converged, total_problems);
-
   netlib_names.close();
-  fclose(results_file);
+
+  std::cout << ss.str();
+  std::cout << "Converged: " << converged << " / " << total_problems << '\n';
+  std::cout << "Time: " << clock.stop() << '\n';
 
   return 0;
 }
