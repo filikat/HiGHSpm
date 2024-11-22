@@ -3,6 +3,7 @@
 HIGHS_PATH = $(HOME)/Documents/HiGHS
 METIS_PATH = $(HOME)/Documents/METIS
 LOCAL_PATH = $(HOME)/local
+BLAS_PATH  = /Library/Developer/CommandLineTools/SDKs/MacOSX14.4.sdk/System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/Headers
 
 # source files
 cpp_sources = \
@@ -22,8 +23,14 @@ cpp_sources = \
 		../FactorHiGHS/HybridPackedFormatHandler.cpp \
 		../FactorHiGHS/HybridHybridFormatHandler.cpp \
 		../FactorHiGHS/PackedPackedFormatHandler.cpp \
+		../FactorHiGHS/SolveHandler.cpp \
+		../FactorHiGHS/FullSolveHandler.cpp \
+		../FactorHiGHS/PackedSolveHandler.cpp \
+		../FactorHiGHS/HybridSolveHandler.cpp \
 		../FactorHiGHS/DataCollector.cpp \
-		../FactorHiGHS/DenseFact.cpp \
+		../FactorHiGHS/DenseFactKernel.cpp \
+		../FactorHiGHS/DenseFactFull.cpp \
+		../FactorHiGHS/DenseFactHybrid.cpp \
 		../FactorHiGHS/CallAndTimeBlas.cpp
 
 # binary file name
@@ -42,11 +49,8 @@ CPPFLAGS = -std=c++11 -O3 -g3 -Wno-deprecated #-fsanitize=address #ASAN_OPTIONS=
 # mess to link openmp on mac
 #OPENMP_FLAGS = -Xclang -fopenmp -I/opt/homebrew/opt/libomp/include -L/opt/homebrew/opt/libomp/lib -lomp
 
-# rpaths for shared libraries
-# rpaths = -rpath $(CHOLMOD_PATH)/lib/ -rpath $(LOCAL_PATH)/lib/
-
 # includes and libraries
-includes = -I$(HIGHS_PATH)/build -I$(HIGHS_PATH)/src/ -I$(METIS_PATH)/include -I$(LOCAL_PATH)/include
+includes = -I$(HIGHS_PATH)/build -I$(HIGHS_PATH)/src/ -I$(METIS_PATH)/include -I$(LOCAL_PATH)/include -I$(BLAS_PATH)
 libs_path = -L$(HIGHS_PATH)/build/lib -L$(METIS_PATH)/build/libmetis -L$(LOCAL_PATH)/lib
 libs = -lhighs -lmetis -lGKlib -lblas
 

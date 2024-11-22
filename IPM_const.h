@@ -22,7 +22,6 @@ enum OptionFormat {
 struct Options {
   int nla = kOptionNlaDefault;
   int format = kOptionFormatDefault;
-  int verbose = false;
 };
 
 const int kMaxIterations = 100;

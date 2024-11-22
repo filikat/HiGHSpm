@@ -3,11 +3,11 @@
 #include "Regularization.h"
 
 FactorHiGHSSolver::FactorHiGHSSolver(const Options& options)
-    : S_((FormatType)options.format), N_(S_, data_) {}
+    : S_((FormatType)options.format), N_(S_) {}
 
 void FactorHiGHSSolver::clear() {
   valid_ = false;
-  data_.resetExtremeEntries();
+  DataCollector::get()->resetExtremeEntries();
 }
 
 int FactorHiGHSSolver::setup(const HighsSparseMatrix& A,
@@ -70,9 +70,9 @@ int FactorHiGHSSolver::setup(const HighsSparseMatrix& A,
   }
 
   // Perform analyse phase
-  Analyse analyse(S_, data_, rowsLower, ptrLower, negative_pivots);
+  Analyse analyse(S_, rowsLower, ptrLower, negative_pivots);
   if (int status = analyse.run()) return status;
-  data_.printSymbolic();
+  DataCollector::get()->printSymbolic();
 
   return kRetOk;
 }
@@ -120,7 +120,7 @@ int FactorHiGHSSolver::factorAS(const HighsSparseMatrix& A,
   }
 
   // factorise matrix
-  Factorise factorise(S_, data_, rowsLower, ptrLower, valLower);
+  Factorise factorise(S_, rowsLower, ptrLower, valLower);
   if (factorise.run(N_)) return kDecomposerStatusErrorFactorise;
 
   this->valid_ = true;
@@ -147,7 +147,7 @@ int FactorHiGHSSolver::factorNE(const HighsSparseMatrix& A,
   int status = computeLowerAThetaAT(A, scaling, AAt);
 
   // factorise
-  Factorise factorise(S_, data_, AAt.index_, AAt.start_, AAt.value_);
+  Factorise factorise(S_, AAt.index_, AAt.start_, AAt.value_);
   if (factorise.run(N_)) return kDecomposerStatusErrorFactorise;
 
   this->valid_ = true;
@@ -343,7 +343,7 @@ void FactorHiGHSSolver::refine(const HighsSparseMatrix& A,
       delta_y = temp_y;
     } else {
       // printf(" %e xxx \n", norm_res);
-      data_.setWorstRes(old_norm_res);
+      DataCollector::get()->setWorstRes(old_norm_res);
       return;
     }
   }
@@ -351,7 +351,7 @@ void FactorHiGHSSolver::refine(const HighsSparseMatrix& A,
   norm_res = infNorm(res_x, res_y);
   // printf("%e\n", norm_res);
 
-  data_.setWorstRes(norm_res);
+  DataCollector::get()->setWorstRes(norm_res);
 }
 
-void FactorHiGHSSolver::finalise() { data_.printTimes(); }
+void FactorHiGHSSolver::finalise() { DataCollector::get()->printTimes(); }

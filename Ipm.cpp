@@ -4,6 +4,7 @@
 #include <cmath>
 #include <iostream>
 
+#include "../FactorHiGHS/FactorHiGHSSettings.h"
 #include "Regularization.h"
 #include "parallel/HighsParallel.h"
 
@@ -104,6 +105,8 @@ Output Ipm::solve() {
   out.dual_infeas = dual_infeas_;
   out.mu = mu_;
   out.status = ipm_status_;
+
+  DataCollector::destruct();
 
   return out;
 }
@@ -666,12 +669,14 @@ void Ipm::printHeader() const {
   if (iter_ % 20 == 1) {
     printf(
         " iter      primal obj        dual obj        pinf      dinf "
-        "       mu      alpha_p  alpha_d   p/d gap    time");
-    if (options_.verbose) {
-      printf(
-          " |   min T     max T  |   min D     max D  |   min L     max L  | "
-          " #reg   max reg    max res");
-    }
+        "       mu      alpha p/d     p/d gap    time");
+
+#ifdef DATA_COLLECTION
+    printf(
+        " |  min T    max T  |  min D    max D  |  min L    max L  | "
+        " #reg  max reg   max res |  swaps  piv2x2");
+#endif
+
     printf("\n");
   }
 }
@@ -680,16 +685,20 @@ void Ipm::printOutput() const {
   printHeader();
 
   printf(
-      "%5d %16.8e %16.8e %10.2e %10.2e %10.2e %8.2f %8.2f %10.2e "
+      "%5d %16.8e %16.8e %10.2e %10.2e %10.2e %6.2f %5.2f %10.2e "
       "%7.1f",
       iter_, primal_obj_, dual_obj_, primal_infeas_, dual_infeas_, mu_,
       alpha_primal_, alpha_dual_, pd_gap_, clock_.stop());
-  if (options_.verbose) {
-    printf(" |%9.2e %9.2e |%9.2e %9.2e |%9.2e %9.2e |%5d %10.2e %10.2e",
-           min_theta_, max_theta_, LS_->data_.minD(), LS_->data_.maxD(),
-           LS_->data_.minL(), LS_->data_.maxL(), LS_->data_.nRegPiv(),
-           LS_->data_.maxReg(), LS_->data_.worstRes());
-  }
+
+#ifdef DATA_COLLECTION
+  printf(" |%8.1e %8.1e |%8.1e %8.1e |%8.1e %8.1e |%5d %9.1e %9.1e |%7d %7d",
+         min_theta_, max_theta_, DataCollector::get()->minD(),
+         DataCollector::get()->maxD(), DataCollector::get()->minL(),
+         DataCollector::get()->maxL(), DataCollector::get()->nRegPiv(),
+         DataCollector::get()->maxReg(), DataCollector::get()->worstRes(),
+         DataCollector::get()->nSwaps(), DataCollector::get()->n2x2());
+#endif
+
   printf("\n");
 }
 
@@ -701,7 +710,7 @@ void Ipm::printInfo() const {
   printf("Using %s\n", options_.nla == kOptionNlaAugmented
                            ? "augmented systems"
                            : "normal equations");
-                           
+
 #ifdef PARALLEL_TREE
   printf("Running on %d threads\n", highs::parallel::num_threads());
 #else
