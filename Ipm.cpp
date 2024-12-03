@@ -4,8 +4,6 @@
 #include <cmath>
 #include <iostream>
 
-#include "../FactorHiGHS/FactorHiGHSSettings.h"
-#include "Regularization.h"
 #include "parallel/HighsParallel.h"
 
 void Ipm::load(const int num_var, const int num_con, const double* obj,
@@ -48,6 +46,7 @@ Output Ipm::solve() {
   // initialize linear solver
   LS_.reset(new FactorHiGHSSolver(options_));
   if (LS_->setup(model_.A_, options_)) return Output{};
+  LS_->clear();
 
   // initialize starting point, residuals and mu
   if (computeStartingPoint()) return Output{};
@@ -91,6 +90,7 @@ Output Ipm::solve() {
     computeResiduals1234();
     computeMu();
     computeIndicators();
+    collectData();
     printOutput();
   }
 
@@ -106,6 +106,7 @@ Output Ipm::solve() {
   out.mu = mu_;
   out.status = ipm_status_;
 
+  DataCollector::get()->printIter();
   DataCollector::destruct();
 
   return out;
@@ -669,15 +670,7 @@ void Ipm::printHeader() const {
   if (iter_ % 20 == 1) {
     printf(
         " iter      primal obj        dual obj        pinf      dinf "
-        "       mu      alpha p/d     p/d gap    time");
-
-#ifdef DATA_COLLECTION
-    printf(
-        " |  min T    max T  |  min D    max D  |  min L    max L  | "
-        " #reg  max reg   max res |  swaps  piv2x2");
-#endif
-
-    printf("\n");
+        "       mu      alpha p/d    p/d gap    time\n");
   }
 }
 
@@ -685,21 +678,10 @@ void Ipm::printOutput() const {
   printHeader();
 
   printf(
-      "%5d %16.8e %16.8e %10.2e %10.2e %10.2e %6.2f %5.2f %10.2e "
-      "%7.1f",
+      "%5d %16.8e %16.8e %10.2e %10.2e %10.2e %6.2f %5.2f %9.2e "
+      "%7.1f\n",
       iter_, primal_obj_, dual_obj_, primal_infeas_, dual_infeas_, mu_,
       alpha_primal_, alpha_dual_, pd_gap_, clock_.stop());
-
-#ifdef DATA_COLLECTION
-  printf(" |%8.1e %8.1e |%8.1e %8.1e |%8.1e %8.1e |%5d %9.1e %9.1e |%7d %7d",
-         min_theta_, max_theta_, DataCollector::get()->minD(),
-         DataCollector::get()->maxD(), DataCollector::get()->minL(),
-         DataCollector::get()->maxL(), DataCollector::get()->nRegPiv(),
-         DataCollector::get()->maxReg(), DataCollector::get()->worstRes(),
-         DataCollector::get()->nSwaps(), DataCollector::get()->n2x2());
-#endif
-
-  printf("\n");
 }
 
 void Ipm::printInfo() const {
@@ -721,4 +703,41 @@ void Ipm::printInfo() const {
 
   // print range of coefficients
   model_.checkCoefficients();
+}
+
+void Ipm::collectData() const {
+#ifdef DATA_COLLECTION
+  DataCollector::back().p_obj = primal_obj_;
+  DataCollector::back().d_obj = dual_obj_;
+  DataCollector::back().p_inf = primal_infeas_;
+  DataCollector::back().d_inf = dual_infeas_;
+  DataCollector::back().mu = mu_;
+  DataCollector::back().pd_gap = pd_gap_;
+  DataCollector::back().p_alpha = alpha_primal_;
+  DataCollector::back().d_alpha = alpha_dual_;
+  DataCollector::back().min_theta = min_theta_;
+  DataCollector::back().max_theta = max_theta_;
+
+  // compute min and max complementarity product
+  // (x_l)_j * (z_l)_j / mu or (x_u)_j * (z_u)_j / mu
+
+  double min_prod = std::numeric_limits<double>::max();
+  double max_prod{};
+
+  for (int i = 0; i < n_; ++i) {
+    if (model_.hasLb(i)) {
+      double prod = it_.xl[i] * it_.zl[i];
+      min_prod = std::min(min_prod, prod);
+      max_prod = std::max(max_prod, prod);
+    }
+    if (model_.hasUb(i)) {
+      double prod = it_.xu[i] * it_.zu[i];
+      min_prod = std::min(min_prod, prod);
+      max_prod = std::max(max_prod, prod);
+    }
+  }
+
+  DataCollector::back().min_prod = min_prod / mu_;
+  DataCollector::back().max_prod = max_prod / mu_;
+#endif
 }

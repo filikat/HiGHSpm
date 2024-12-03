@@ -3,7 +3,6 @@
 
 #include <vector>
 
-#include "../FactorHiGHS/DataCollector.h"
 #include "Ipm_aux.h"
 #include "Ipm_const.h"
 #include "VectorOperations.h"

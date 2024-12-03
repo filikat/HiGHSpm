@@ -3,6 +3,7 @@
 
 #include <string>
 
+#include "../FactorHiGHS/FactorHiGHS.h"
 #include "FactorHiGHSSolver.h"
 #include "IpmModel.h"
 #include "Ipm_aux.h"
@@ -10,7 +11,6 @@
 #include "LinearSolver.h"
 #include "VectorOperations.h"
 #include "util/HighsSparseMatrix.h"
-#include "../FactorHiGHS/Auxiliary.h"
 
 class Ipm {
   // LP model
@@ -271,6 +271,7 @@ class Ipm {
   void printInfo() const;
   void printHeader() const;
   void printOutput() const;
+  void collectData() const;
 };
 
 #endif

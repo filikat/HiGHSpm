@@ -3,11 +3,8 @@
 
 #include <algorithm>
 
-#include "../FactorHiGHS/Analyse.h"
-#include "../FactorHiGHS/DataCollector.h"
-#include "../FactorHiGHS/Factorise.h"
+#include "../FactorHiGHS/FactorHiGHS.h"
 #include "LinearSolver.h"
-#include "../FactorHiGHS/ReturnValues.h"
 
 class FactorHiGHSSolver : public LinearSolver {
   // symbolic factorization

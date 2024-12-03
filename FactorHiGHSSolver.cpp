@@ -1,13 +1,11 @@
 #include "FactorHiGHSSolver.h"
 
-#include "Regularization.h"
-
 FactorHiGHSSolver::FactorHiGHSSolver(const Options& options)
     : S_((FormatType)options.format), N_(S_) {}
 
 void FactorHiGHSSolver::clear() {
   valid_ = false;
-  DataCollector::get()->resetExtremeEntries();
+  DataCollector::get()->append();
 }
 
 int FactorHiGHSSolver::setup(const HighsSparseMatrix& A,
@@ -72,7 +70,7 @@ int FactorHiGHSSolver::setup(const HighsSparseMatrix& A,
   // Perform analyse phase
   Analyse analyse(S_, rowsLower, ptrLower, negative_pivots);
   if (int status = analyse.run()) return status;
-  DataCollector::get()->printSymbolic();
+  DataCollector::get()->printSymbolic(1);
 
   return kRetOk;
 }
@@ -264,7 +262,9 @@ void FactorHiGHSSolver::refine(const HighsSparseMatrix& A,
   }
   A.alphaProductPlusY(-1.0, delta_y, res_x, true);
 
-  // printf("Res x %e\n", infNorm(res_x));
+#ifdef PRINT_ITER_REF
+  printf("Res x %e\n", infNorm(res_x));
+#endif
 
   // compute residual y
   // res_y = rhs_y - A * Dx - Rd * Dy
@@ -278,17 +278,21 @@ void FactorHiGHSSolver::refine(const HighsSparseMatrix& A,
     res_y[i] -= dual_reg * delta_y[i];
   }
 
-  // printf("Res y %e\n", infNorm(res_y));
+#ifdef PRINT_ITER_REF
+  printf("Res y %e\n", infNorm(res_y));
+#endif
 
   norm_res = infNorm(res_x, res_y);
 
-  for (int iter = 0; iter < 5; ++iter) {
+  for (int iter = 0; iter < kMaxRefinementIter; ++iter) {
     // stop refinement if residual is small
-    if (norm_res < 1e-8) {
+    if (norm_res < kRefinementTolerance) {
       break;
     }
 
-    // printf("%e  --> ", norm_res);
+#ifdef PRINT_ITER_REF
+    printf("%e  --> ", norm_res);
+#endif
 
     // compute correction
     // cor = M^-1 res
@@ -342,14 +346,18 @@ void FactorHiGHSSolver::refine(const HighsSparseMatrix& A,
       delta_x = temp_x;
       delta_y = temp_y;
     } else {
-      // printf(" %e xxx \n", norm_res);
+#ifdef PRINT_ITER_REF
+      printf(" %e xxx \n", norm_res);
+#endif
       DataCollector::get()->setWorstRes(old_norm_res);
       return;
     }
   }
 
   norm_res = infNorm(res_x, res_y);
-  // printf("%e\n", norm_res);
+#ifdef PRINT_ITER_REF
+  printf("%e\n", norm_res);
+#endif
 
   DataCollector::get()->setWorstRes(norm_res);
 }

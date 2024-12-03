@@ -4,7 +4,7 @@
 #include <iostream>
 
 #include "VectorOperations.h"
-#include "Regularization.h"
+#include "../FactorHiGHS/FactorHiGHSSettings.h"
 
 Residuals::Residuals(int m, int n)
     : res1(m, 0.0),
