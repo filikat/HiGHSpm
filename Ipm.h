@@ -40,12 +40,12 @@ class Ipm {
   double pd_gap_{};
   double mu_{};
 
+  // Other statistics
+  double min_prod_{};
+  double max_prod_{};
+
   // Theta^-1
   std::vector<double> scaling_{};
-
-  // Statistics on Theta
-  double max_theta_{};
-  double min_theta_{};
 
   // Stepsizes
   double alpha_primal_{};
@@ -62,6 +62,9 @@ class Ipm {
 
   // Timer for iterations
   Clock clock_;
+
+  // flag to use centrality correctors
+  bool mcc_ = true;
 
  public:
   // ===================================================================================
@@ -214,7 +217,7 @@ class Ipm {
   // Step-sizes are scaled down by kInteriorScaling < 1, to guarantee that no
   // component of the new iterate is equal to zero.
   // ===================================================================================
-  void computeStepSizes(double& alpha_primal, double& alpha_dual);
+  void computeStepSizes(double& alpha_primal, double& alpha_dual) const;
 
   // ===================================================================================
   // Make the step in the Newton direction with appropriate stepsizes.
@@ -239,6 +242,9 @@ class Ipm {
   //    sigma = ( mu_aff / mu )^3
   // ===================================================================================
   void computeSigma();
+
+  void computeResidualsMcc();
+  bool centralityCorrectors();
 
   // ===================================================================================
   // Compute

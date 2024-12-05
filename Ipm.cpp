@@ -75,15 +75,24 @@ Output Ipm::solve() {
 
     // ===== PREDICTOR =====
     sigma_ = 0.0;
+    if (mcc_) sigma_ = kSigmaAffine;
+
     computeResiduals56();
     if (solveNewtonSystem()) break;
     if (recoverDirection()) break;
 
-    // ===== CORRECTOR =====
-    computeSigma();
-    computeResiduals56();
-    if (solveNewtonSystem()) break;
-    if (recoverDirection()) break;
+    // ===== CORRECTORS =====
+    if (mcc_) {
+      // Multiple centrality correctors
+      computeSigma();
+      if (centralityCorrectors()) break;
+    } else {
+      // Mehrotra corrector
+      computeSigma();
+      computeResiduals56();
+      if (solveNewtonSystem()) break;
+      if (recoverDirection()) break;
+    }
 
     // ===== STEP =====
     makeStep();
@@ -176,18 +185,25 @@ void Ipm::computeResiduals56() {
   for (int i = 0; i < n_; ++i) {
     // res5
     if (model_.hasLb(i)) {
-      res_.res5[i] =
-          sigma_ * mu_ - it_.xl[i] * it_.zl[i] - delta_.xl[i] * delta_.zl[i];
+      res_.res5[i] = sigma_ * mu_ - it_.xl[i] * it_.zl[i];
     } else {
       res_.res5[i] = 0.0;
     }
 
     // res6
     if (model_.hasUb(i)) {
-      res_.res6[i] =
-          sigma_ * mu_ - it_.xu[i] * it_.zu[i] - delta_.xu[i] * delta_.zu[i];
+      res_.res6[i] = sigma_ * mu_ - it_.xu[i] * it_.zu[i];
     } else {
       res_.res6[i] = 0.0;
+    }
+  }
+
+  if (!mcc_) {
+    for (int i = 0; i < n_; ++i) {
+      // res5
+      if (model_.hasLb(i)) res_.res5[i] -= delta_.xl[i] * delta_.zl[i];
+      // res6
+      if (model_.hasUb(i)) res_.res6[i] -= delta_.xu[i] * delta_.zu[i];
     }
   }
 }
@@ -238,16 +254,6 @@ void Ipm::computeScaling() {
     }
     // slow down the growth of theta
     if (scaling_[i] < 1e-12) scaling_[i] = sqrt(1e-12 * scaling_[i]);
-  }
-
-  min_theta_ = kInf;
-  max_theta_ = 0.0;
-
-  for (int i = 0; i < n_; ++i) {
-    if (scaling_[i] != 0.0) {
-      min_theta_ = std::min(min_theta_, 1.0 / scaling_[i]);
-      max_theta_ = std::max(max_theta_, 1.0 / scaling_[i]);
-    }
   }
 }
 
@@ -348,7 +354,7 @@ bool Ipm::recoverDirection() {
   return false;
 }
 
-void Ipm::computeStepSizes(double& alpha_primal, double& alpha_dual) {
+void Ipm::computeStepSizes(double& alpha_primal, double& alpha_dual) const {
   alpha_primal = 1.0;
   for (int i = 0; i < n_; ++i) {
     if (delta_.xl[i] < 0 && model_.hasLb(i)) {
@@ -578,38 +584,196 @@ failure:
 }
 
 void Ipm::computeSigma() {
-  // delta_ should contain the affine scaling direction
+  if (mcc_) {
+    if (min_prod_ < kSmallProduct || max_prod_ > kLargeProduct) {
+      // bad complementarity products, perform centring
+      sigma_ = 0.9;
+    } else
+      // good complementarity products, decide based on previous iteration
+      if ((alpha_primal_ > 0.5 && alpha_dual_ > 0.5) || iter_ == 1) {
+        sigma_ = 0.01;
+      } else if (alpha_primal_ > 0.1 && alpha_dual_ > 0.1) {
+        sigma_ = 0.1;
+      } else if (alpha_primal_ > 0.05 && alpha_dual_ > 0.05) {
+        sigma_ = 0.25;
+      } else if (alpha_primal_ > 0.02 && alpha_dual_ > 0.02) {
+        sigma_ = 0.5;
+      } else {
+        sigma_ = 0.9;
+      }
+  } else {
+    // Mehrotra heuristic
+    // delta_ should contain the affine scaling direction
 
-  // stepsizes of predictor direction
-  double alpha_p{};
-  double alpha_d{};
+    // stepsizes of predictor direction
+    double alpha_p, alpha_d;
+    computeStepSizes(alpha_p, alpha_d);
+
+    // mu using predictor direction
+    double mu_aff = 0.0;
+    int number_finite_bounds{};
+    for (int i = 0; i < n_; ++i) {
+      if (model_.hasLb(i)) {
+        mu_aff += (it_.xl[i] + alpha_p * delta_.xl[i]) *
+                  (it_.zl[i] + alpha_d * delta_.zl[i]);
+        ++number_finite_bounds;
+      }
+      if (model_.hasUb(i)) {
+        mu_aff += (it_.xu[i] + alpha_p * delta_.xu[i]) *
+                  (it_.zu[i] + alpha_d * delta_.zu[i]);
+        ++number_finite_bounds;
+      }
+    }
+    mu_aff /= number_finite_bounds;
+
+    // heuristic to choose sigma
+    double ratio = mu_aff / mu_;
+    sigma_ = ratio * ratio * ratio;
+  }
+
+  DataCollector::back().sigma = sigma_;
+}
+
+void Ipm::computeResidualsMcc() {
+  // compute right-hand side for multiple centrality correctors
+
+  // stepsizes of current direction
+  double alpha_p, alpha_d;
   computeStepSizes(alpha_p, alpha_d);
 
-  // mu using predictor direction
-  double mu_aff = 0.0;
-  int number_finite_bounds{};
+  // compute increased stepsizes
+  alpha_p = std::max(1.0, alpha_p + kMccIncreaseAlpha);
+  alpha_d = std::max(1.0, alpha_d + kMccIncreaseAlpha);
+
+  // compute trial point
+  std::vector<double> xlt = it_.xl;
+  std::vector<double> xut = it_.xu;
+  std::vector<double> zlt = it_.zl;
+  std::vector<double> zut = it_.zu;
+  vectorAdd(xlt, delta_.xl, alpha_p);
+  vectorAdd(xut, delta_.xu, alpha_p);
+  vectorAdd(zlt, delta_.zl, alpha_d);
+  vectorAdd(zut, delta_.zu, alpha_d);
+
+  double max_v1{};
+  double max_v2{};
+
+  // compute right-hand side for mcc
   for (int i = 0; i < n_; ++i) {
+    // res5
     if (model_.hasLb(i)) {
-      mu_aff += (it_.xl[i] + alpha_p * delta_.xl[i]) *
-                (it_.zl[i] + alpha_d * delta_.zl[i]);
-      ++number_finite_bounds;
+      double prod = xlt[i] * zlt[i];
+      if (prod < sigma_ * mu_ * kGammaCorrector) {
+        // prod is small, we add something positive to res5
+
+        double temp = sigma_ * mu_ * kGammaCorrector - prod;
+        res_.res5[i] += temp;
+        max_v1 = std::max(max_v1, temp);
+
+      } else if (prod > sigma_ * mu_ / kGammaCorrector) {
+        // prod is large, we may subtract something large from res5.
+        // limit the amount to subtract to -sigma*mu/gamma
+
+        double temp = sigma_ * mu_ / kGammaCorrector - prod;
+        temp = std::max(temp, -sigma_ * mu_ / kGammaCorrector);
+        res_.res5[i] += temp;
+        max_v2 = std::max(max_v2, std::abs(temp));
+      }
+    } else {
+      res_.res5[i] = 0.0;
     }
+
+    // res6
     if (model_.hasUb(i)) {
-      mu_aff += (it_.xu[i] + alpha_p * delta_.xu[i]) *
-                (it_.zu[i] + alpha_d * delta_.zu[i]);
-      ++number_finite_bounds;
+      double prod = xut[i] * zut[i];
+      if (prod < sigma_ * mu_ * kGammaCorrector) {
+        // prod is small, we add something positive to res6
+
+        double temp = sigma_ * mu_ * kGammaCorrector - prod;
+        res_.res6[i] += temp;
+        max_v1 = std::max(max_v1, temp);
+
+      } else if (prod > sigma_ * mu_ / kGammaCorrector) {
+        // prod is large, we may subtract something large from res6.
+        // limit the amount to subtract to -sigma*mu/gamma
+
+        double temp = sigma_ * mu_ / kGammaCorrector - prod;
+        temp = std::max(temp, -sigma_ * mu_ / kGammaCorrector);
+        res_.res6[i] += temp;
+        max_v2 = std::max(max_v2, std::abs(temp));
+      }
+    } else {
+      res_.res6[i] = 0.0;
     }
   }
-  mu_aff /= number_finite_bounds;
 
-  // heuristic to choose sigma
-  double ratio = mu_aff / mu_;
-  sigma_ = ratio * ratio * ratio;
+  // printf("%e %e\n", max_v1, max_v2);
+}
+
+bool Ipm::centralityCorrectors() {
+  // compute stepsizes of current direction
+  double alpha_p_old, alpha_d_old;
+  computeStepSizes(alpha_p_old, alpha_d_old);
+
+#ifdef PRINT_CORRECTORS
+  printf("(%.2f,%.2f) -> ", alpha_p_old, alpha_d_old);
+#endif
+
+  int cor;
+  for (cor = 0; cor < kMaxCorrectors; ++cor) {
+    // compute rhs for corrector
+    computeResidualsMcc();
+
+    // make a copy of old direction
+    NewtonDir old_delta = delta_;
+
+    // compute new direction
+    if (solveNewtonSystem()) return true;
+    if (recoverDirection()) return true;
+
+    // stepsizes of new corrected direction
+    double alpha_p, alpha_d;
+    computeStepSizes(alpha_p, alpha_d);
+
+#ifdef PRINT_CORRECTORS
+    printf("(%.2f,%.2f) -> ", alpha_p, alpha_d);
+#endif
+
+    if (alpha_p < alpha_p_old || alpha_d < alpha_d_old ||
+        (alpha_p < alpha_p_old + kMccIncreaseAlpha * kMccIncreaseMin &&
+         alpha_d < alpha_d_old + kMccIncreaseAlpha * kMccIncreaseMin)) {
+      // reject corrector, reset direction to previous one
+      delta_ = old_delta;
+#ifdef PRINT_CORRECTORS
+      printf(" x");
+#endif
+      break;
+    } else if (alpha_p > 0.95 && alpha_d > 0.95) {
+      // stepsizes are large enough, accept correctors and stop
+      ++cor;
+      break;
+    }
+
+    // else, keep computing correctors
+    alpha_p_old = alpha_p;
+    alpha_d_old = alpha_d;
+  }
+#ifdef PRINT_CORRECTORS
+  printf("\n");
+#endif
+
+  DataCollector::back().correctors = cor;
+  return false;
 }
 
 void Ipm::computeIndicators() {
-  primal_infeas_ = norm2(res_.res1) / (1 + norm2(model_.b_));
-  dual_infeas_ = norm2(res_.res4) / (1 + norm2(model_.c_));
+  primal_infeas_ = infNorm(res_.res1);
+  primal_infeas_ = std::max(primal_infeas_, infNorm(res_.res2));
+  primal_infeas_ = std::max(primal_infeas_, infNorm(res_.res3));
+  primal_infeas_ /= (1 + model_.normRhs());
+
+  dual_infeas_ = infNorm(res_.res4) / (1 + model_.normObj());
+
   primal_obj_ = dotProd(it_.x, model_.c_);
 
   dual_obj_ = dotProd(it_.y, model_.b_);
@@ -624,6 +788,27 @@ void Ipm::computeIndicators() {
 
   pd_gap_ = std::fabs(primal_obj_ - dual_obj_) /
             (1 + 0.5 * std::fabs(primal_obj_ + dual_obj_));
+
+  if (iter_ > 0) {
+    // compute min and max complementarity product
+    // (x_l)_j * (z_l)_j / mu or (x_u)_j * (z_u)_j / mu
+
+    min_prod_ = std::numeric_limits<double>::max();
+    max_prod_ = 0.0;
+
+    for (int i = 0; i < n_; ++i) {
+      if (model_.hasLb(i)) {
+        double prod = it_.xl[i] * it_.zl[i] / mu_;
+        min_prod_ = std::min(min_prod_, prod);
+        max_prod_ = std::max(max_prod_, prod);
+      }
+      if (model_.hasUb(i)) {
+        double prod = it_.xu[i] * it_.zu[i] / mu_;
+        min_prod_ = std::min(min_prod_, prod);
+        max_prod_ = std::max(max_prod_, prod);
+      }
+    }
+  }
 }
 
 bool Ipm::checkIterate() {
@@ -642,7 +827,7 @@ bool Ipm::checkIterate() {
 
 bool Ipm::checkBadIter() {
   // If too many bad iterations, stop
-  if (bad_iter_ >= 5) {
+  if (bad_iter_ >= kMaxBadIter) {
     printf("\n Failure: no progress\n\n");
     ipm_status_ = "No progress";
     return true;
@@ -715,29 +900,37 @@ void Ipm::collectData() const {
   DataCollector::back().pd_gap = pd_gap_;
   DataCollector::back().p_alpha = alpha_primal_;
   DataCollector::back().d_alpha = alpha_dual_;
-  DataCollector::back().min_theta = min_theta_;
-  DataCollector::back().max_theta = max_theta_;
+  DataCollector::back().min_prod = min_prod_;
+  DataCollector::back().max_prod = max_prod_;
 
-  // compute min and max complementarity product
-  // (x_l)_j * (z_l)_j / mu or (x_u)_j * (z_u)_j / mu
+  // compute min and max entry in Theta
+  double& min_theta = DataCollector::back().min_theta;
+  double& max_theta = DataCollector::back().max_theta;
 
-  double min_prod = std::numeric_limits<double>::max();
-  double max_prod{};
-
+  min_theta = kInf;
+  max_theta = 0.0;
   for (int i = 0; i < n_; ++i) {
-    if (model_.hasLb(i)) {
-      double prod = it_.xl[i] * it_.zl[i];
-      min_prod = std::min(min_prod, prod);
-      max_prod = std::max(max_prod, prod);
-    }
-    if (model_.hasUb(i)) {
-      double prod = it_.xu[i] * it_.zu[i];
-      min_prod = std::min(min_prod, prod);
-      max_prod = std::max(max_prod, prod);
+    if (scaling_[i] != 0.0) {
+      min_theta = std::min(min_theta, 1.0 / scaling_[i]);
+      max_theta = std::max(max_theta, 1.0 / scaling_[i]);
     }
   }
 
-  DataCollector::back().min_prod = min_prod / mu_;
-  DataCollector::back().max_prod = max_prod / mu_;
+  // compute number of outlier complementarity products
+  int& num_small = DataCollector::back().num_small_prod;
+  int& num_large = DataCollector::back().num_large_prod;
+  for (int i = 0; i < n_; ++i) {
+    if (model_.hasLb(i)) {
+      double prod = it_.xl[i] * it_.zl[i] / mu_;
+      if (prod < kSmallProduct) ++num_small;
+      if (prod > kLargeProduct) ++num_large;
+    }
+    if (model_.hasUb(i)) {
+      double prod = it_.xu[i] * it_.zu[i] / mu_;
+      if (prod < kSmallProduct) ++num_small;
+      if (prod > kLargeProduct) ++num_large;
+    }
+  }
+
 #endif
 }

@@ -241,3 +241,21 @@ void IpmModel::unscale(Iterate& it) {
     }
   }
 }
+
+double IpmModel::normRhs() {
+  if (norm_rhs_ < 0) {
+    norm_rhs_ = infNorm(b_);
+    for (double d : lower_)
+      if (std::isfinite(d)) norm_rhs_ = std::max(norm_rhs_, std::abs(d));
+    for (double d : upper_)
+      if (std::isfinite(d)) norm_rhs_ = std::max(norm_rhs_, std::abs(d));
+  }
+  return norm_rhs_;
+}
+
+double IpmModel::normObj() {
+  if (norm_obj_ < 0) {
+    norm_obj_ = infNorm(c_);
+  }
+  return norm_obj_;
+}
