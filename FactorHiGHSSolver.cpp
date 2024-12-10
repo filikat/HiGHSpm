@@ -192,7 +192,7 @@ int FactorHiGHSSolver::solveAS(const std::vector<double>& rhs_x,
 void FactorHiGHSSolver::solveForRefineNE(const HighsSparseMatrix& A,
                                          const std::vector<double>& scaling,
                                          std::vector<double>& res_x,
-                                         std::vector<double>& res_y) {
+                                         std::vector<double>& res_y) const {
   // size of the matrix
   int n = A.num_col_;
   int m = A.num_row_;
@@ -212,6 +212,59 @@ void FactorHiGHSSolver::solveForRefineNE(const HighsSparseMatrix& A,
   A.alphaProductPlusY(-1.0, res_y, res_x, true);
   for (int i = 0; i < n; ++i) {
     res_x[i] /= -(scaling[i] + kPrimalStaticRegularization);
+  }
+}
+
+void residual_x(const HighsSparseMatrix& A, const std::vector<double>& scaling,
+                const std::vector<double>& rhs_x,
+                const std::vector<double>& delta_x,
+                const std::vector<double>& delta_y,
+                const std::vector<double>& total_reg, bool use_as, bool use_reg,
+                std::vector<double>& res_x) {
+  // compute residual x
+
+  int n = A.num_col_;
+
+  // res_x = rhs_x + (theta^-1 + Rp) * Dx - A^T * Dy
+  res_x = rhs_x;
+  for (int i = 0; i < n; ++i) {
+    // primal reg is only static for NE. For AS, it is extracted from
+    // total_reg, already including static and dynamic.
+    double primal_reg{};
+    if (use_as)
+      primal_reg = total_reg[i];
+    else
+      primal_reg = kPrimalStaticRegularization;
+
+    if (use_reg)
+      res_x[i] += delta_x[i] * (scaling[i] + primal_reg);
+    else
+      res_x[i] += delta_x[i] * scaling[i];
+  }
+  A.alphaProductPlusY(-1.0, delta_y, res_x, true);
+}
+
+void residual_y(const HighsSparseMatrix& A, const std::vector<double>& rhs_y,
+                const std::vector<double>& delta_x,
+                const std::vector<double>& delta_y,
+                const std::vector<double>& total_reg, bool use_as, bool use_reg,
+                std::vector<double>& res_y) {
+  // compute residual y
+
+  int n = A.num_col_;
+  int m = A.num_row_;
+
+  // res_y = rhs_y - A * Dx - Rd * Dy
+  res_y = rhs_y;
+  A.alphaProductPlusY(-1.0, delta_x, res_y);
+  if (use_reg) {
+    for (int i = 0; i < m; ++i) {
+      // total_reg_ stored only Rd for NE, stores both Rd, Rp for AS
+      int offset = use_as ? n : 0;
+      double dual_reg = total_reg[i + offset];
+
+      res_y[i] -= dual_reg * delta_y[i];
+    }
   }
 }
 
@@ -240,49 +293,19 @@ void FactorHiGHSSolver::refine(const HighsSparseMatrix& A,
   const double norm_rhs = infNorm(rhs_x, rhs_y);
 
   // extract dynamic regularizaiton and un-permute it
-  std::vector<double> total_reg_ = N_.total_reg_;
-  permuteVector(total_reg_, S_.iperm());
+  std::vector<double> total_reg = N_.total_reg_;
+  permuteVector(total_reg, S_.iperm());
 
-  // dynamic_reg corresponds to either primal-dual (for AS), or only dual (for
-  // NE).
+  // total_reg corresponds to primal-dual (for AS), or only dual (for NE).
 
-  // compute residual x
-  // res_x = rhs_x + (theta^-1 + Rp) * Dx - A^T * Dy
-  res_x = rhs_x;
-  for (int i = 0; i < n; ++i) {
-    // primal reg is only static for NE. For AS, it is extracted from
-    // total_reg, already including static and dynamic.
-    double primal_reg{};
-    if (use_as_)
-      primal_reg = total_reg_[i];
-    else
-      primal_reg = kPrimalStaticRegularization;
-
-    res_x[i] += delta_x[i] * (scaling[i] + primal_reg);
-  }
-  A.alphaProductPlusY(-1.0, delta_y, res_x, true);
+  residual_x(A, scaling, rhs_x, delta_x, delta_y, total_reg, use_as_, 1, res_x);
+  residual_y(A, rhs_y, delta_x, delta_y, total_reg, use_as_, 1, res_y);
+  norm_res = infNorm(res_x, res_y);
 
 #ifdef PRINT_ITER_REF
   printf("Res x %e\n", infNorm(res_x));
-#endif
-
-  // compute residual y
-  // res_y = rhs_y - A * Dx - Rd * Dy
-  res_y = rhs_y;
-  A.alphaProductPlusY(-1.0, delta_x, res_y);
-  for (int i = 0; i < m; ++i) {
-    // total_reg_ stored only Rd for NE, stores both Rd, Rp for AS
-    int offset = use_as_ ? n : 0;
-    double dual_reg = total_reg_[i + offset];
-
-    res_y[i] -= dual_reg * delta_y[i];
-  }
-
-#ifdef PRINT_ITER_REF
   printf("Res y %e\n", infNorm(res_y));
 #endif
-
-  norm_res = infNorm(res_x, res_y);
 
   for (int iter = 0; iter < kMaxRefinementIter; ++iter) {
     // stop refinement if residual is small
@@ -318,25 +341,8 @@ void FactorHiGHSSolver::refine(const HighsSparseMatrix& A,
     vectorAdd(temp_y, res_y);
 
     // compute new residual
-    res_x = rhs_x;
-    for (int i = 0; i < n; ++i) {
-      double primal_reg{};
-      if (use_as_)
-        primal_reg = total_reg_[i];
-      else
-        primal_reg = kPrimalStaticRegularization;
-
-      res_x[i] += temp_x[i] * (scaling[i] + primal_reg);
-    }
-    A.alphaProductPlusY(-1.0, temp_y, res_x, true);
-
-    res_y = rhs_y;
-    A.alphaProductPlusY(-1.0, temp_x, res_y);
-    for (int i = 0; i < m; ++i) {
-      int offset = use_as_ ? n : 0;
-      double dual_reg = total_reg_[i + offset];
-      res_y[i] -= dual_reg * temp_y[i];
-    }
+    residual_x(A, scaling, rhs_x, temp_x, temp_y, total_reg, use_as_, 1, res_x);
+    residual_y(A, rhs_y, temp_x, temp_y, total_reg, use_as_, 1, res_y);
 
     old_norm_res = norm_res;
     norm_res = infNorm(res_x, res_y);
@@ -347,19 +353,26 @@ void FactorHiGHSSolver::refine(const HighsSparseMatrix& A,
       delta_y = temp_y;
     } else {
 #ifdef PRINT_ITER_REF
-      printf(" %e xxx \n", norm_res);
+      printf(" xxx ");
 #endif
-      DataCollector::get()->setWorstRes(old_norm_res);
-      return;
+      norm_res = old_norm_res;
+      break;
     }
   }
 
-  norm_res = infNorm(res_x, res_y);
 #ifdef PRINT_ITER_REF
   printf("%e\n", norm_res);
 #endif
 
-  DataCollector::get()->setWorstRes(norm_res);
+  double& p_res = DataCollector::get()->back().perturbed_res;
+  double& o_res = DataCollector::get()->back().original_res;
+
+  p_res = std::max(p_res, norm_res);
+
+  // compute residual with respect to original linear system
+  residual_x(A, scaling, rhs_x, delta_x, delta_y, total_reg, use_as_, 0, res_x);
+  residual_y(A, rhs_y, delta_x, delta_y, total_reg, use_as_, 0, res_y);
+  o_res = std::max(o_res, infNorm(res_x, res_y));
 }
 
 void FactorHiGHSSolver::finalise() { DataCollector::get()->printTimes(); }

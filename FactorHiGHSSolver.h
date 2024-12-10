@@ -40,7 +40,8 @@ class FactorHiGHSSolver : public LinearSolver {
   // Other functions
   void solveForRefineNE(const HighsSparseMatrix& A,
                         const std::vector<double>& scaling,
-                        std::vector<double>& res_x, std::vector<double>& res_y);
+                        std::vector<double>& res_x,
+                        std::vector<double>& res_y) const;
 };
 
 #endif

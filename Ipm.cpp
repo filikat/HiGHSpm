@@ -43,6 +43,8 @@ Output Ipm::solve() {
   it_ = Iterate(m_, n_);
   res_ = Residuals(m_, n_);
 
+  DataCollector::start();
+
   // initialize linear solver
   LS_.reset(new FactorHiGHSSolver(options_));
   if (LS_->setup(model_.A_, options_)) return Output{};
@@ -631,7 +633,7 @@ void Ipm::computeSigma() {
     sigma_ = ratio * ratio * ratio;
   }
 
-  DataCollector::back().sigma = sigma_;
+  DataCollector::get()->back().sigma = sigma_;
 }
 
 void Ipm::computeResidualsMcc() {
@@ -762,7 +764,8 @@ bool Ipm::centralityCorrectors() {
   printf("\n");
 #endif
 
-  DataCollector::back().correctors = cor;
+  DataCollector::get()->back().correctors = cor;
+
   return false;
 }
 
@@ -790,24 +793,44 @@ void Ipm::computeIndicators() {
             (1 + 0.5 * std::fabs(primal_obj_ + dual_obj_));
 
   if (iter_ > 0) {
+    // compute min and max entry in Theta
+    double& min_theta = DataCollector::get()->back().min_theta;
+    double& max_theta = DataCollector::get()->back().max_theta;
+    min_theta = kInf;
+    max_theta = 0.0;
+    for (int i = 0; i < n_; ++i) {
+      if (scaling_[i] != 0.0) {
+        min_theta = std::min(min_theta, 1.0 / scaling_[i]);
+        max_theta = std::max(max_theta, 1.0 / scaling_[i]);
+      }
+    }
+
     // compute min and max complementarity product
     // (x_l)_j * (z_l)_j / mu or (x_u)_j * (z_u)_j / mu
 
     min_prod_ = std::numeric_limits<double>::max();
     max_prod_ = 0.0;
+    int& num_small = DataCollector::get()->back().num_small_prod;
+    int& num_large = DataCollector::get()->back().num_large_prod;
 
     for (int i = 0; i < n_; ++i) {
       if (model_.hasLb(i)) {
         double prod = it_.xl[i] * it_.zl[i] / mu_;
         min_prod_ = std::min(min_prod_, prod);
         max_prod_ = std::max(max_prod_, prod);
+        if (prod < kSmallProduct) ++num_small;
+        if (prod > kLargeProduct) ++num_large;
       }
       if (model_.hasUb(i)) {
         double prod = it_.xu[i] * it_.zu[i] / mu_;
         min_prod_ = std::min(min_prod_, prod);
         max_prod_ = std::max(max_prod_, prod);
+        if (prod < kSmallProduct) ++num_small;
+        if (prod > kLargeProduct) ++num_large;
       }
     }
+    DataCollector::get()->back().min_prod = min_prod_;
+    DataCollector::get()->back().max_prod = max_prod_;
   }
 }
 
@@ -891,46 +914,26 @@ void Ipm::printInfo() const {
 }
 
 void Ipm::collectData() const {
-#ifdef DATA_COLLECTION
-  DataCollector::back().p_obj = primal_obj_;
-  DataCollector::back().d_obj = dual_obj_;
-  DataCollector::back().p_inf = primal_infeas_;
-  DataCollector::back().d_inf = dual_infeas_;
-  DataCollector::back().mu = mu_;
-  DataCollector::back().pd_gap = pd_gap_;
-  DataCollector::back().p_alpha = alpha_primal_;
-  DataCollector::back().d_alpha = alpha_dual_;
-  DataCollector::back().min_prod = min_prod_;
-  DataCollector::back().max_prod = max_prod_;
+  DataCollector::get()->back().p_obj = primal_obj_;
+  DataCollector::get()->back().d_obj = dual_obj_;
+  DataCollector::get()->back().p_inf = primal_infeas_;
+  DataCollector::get()->back().d_inf = dual_infeas_;
+  DataCollector::get()->back().mu = mu_;
+  DataCollector::get()->back().pd_gap = pd_gap_;
+  DataCollector::get()->back().p_alpha = alpha_primal_;
+  DataCollector::get()->back().d_alpha = alpha_dual_;
 
-  // compute min and max entry in Theta
-  double& min_theta = DataCollector::back().min_theta;
-  double& max_theta = DataCollector::back().max_theta;
+  DataCollector::get()->back().norm_x = norm2(it_.x);
+  DataCollector::get()->back().norm_xl = norm2(it_.xl);
+  DataCollector::get()->back().norm_xu = norm2(it_.xu);
+  DataCollector::get()->back().norm_y = norm2(it_.y);
+  DataCollector::get()->back().norm_zl = norm2(it_.zl);
+  DataCollector::get()->back().norm_zu = norm2(it_.zu);
 
-  min_theta = kInf;
-  max_theta = 0.0;
-  for (int i = 0; i < n_; ++i) {
-    if (scaling_[i] != 0.0) {
-      min_theta = std::min(min_theta, 1.0 / scaling_[i]);
-      max_theta = std::max(max_theta, 1.0 / scaling_[i]);
-    }
-  }
-
-  // compute number of outlier complementarity products
-  int& num_small = DataCollector::back().num_small_prod;
-  int& num_large = DataCollector::back().num_large_prod;
-  for (int i = 0; i < n_; ++i) {
-    if (model_.hasLb(i)) {
-      double prod = it_.xl[i] * it_.zl[i] / mu_;
-      if (prod < kSmallProduct) ++num_small;
-      if (prod > kLargeProduct) ++num_large;
-    }
-    if (model_.hasUb(i)) {
-      double prod = it_.xu[i] * it_.zu[i] / mu_;
-      if (prod < kSmallProduct) ++num_small;
-      if (prod > kLargeProduct) ++num_large;
-    }
-  }
-
-#endif
+  DataCollector::get()->back().norm_dx = norm2(delta_.x);
+  DataCollector::get()->back().norm_dxl = norm2(delta_.xl);
+  DataCollector::get()->back().norm_dxu = norm2(delta_.xu);
+  DataCollector::get()->back().norm_dy = norm2(delta_.y);
+  DataCollector::get()->back().norm_dzl = norm2(delta_.zl);
+  DataCollector::get()->back().norm_dzu = norm2(delta_.zu);
 }
