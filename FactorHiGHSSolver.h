@@ -20,9 +20,9 @@ class FactorHiGHSSolver : public LinearSolver {
   FactorHiGHSSolver(const Options& options);
 
   // Override functions
-  int factorAS(const HighsSparseMatrix& highs_a,
+  int factorAS(const HighsSparseMatrix& A,
                const std::vector<double>& scaling) override;
-  int factorNE(const HighsSparseMatrix& highs_a,
+  int factorNE(const HighsSparseMatrix& A,
                const std::vector<double>& scaling) override;
   int solveNE(const std::vector<double>& rhs,
               std::vector<double>& lhs) override;

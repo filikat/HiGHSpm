@@ -400,6 +400,9 @@ void Ipm::makeStep() {
 }
 
 bool Ipm::computeStartingPoint() {
+  // use conjugate gradient for starting point
+  CgSolver CG;
+
   // *********************************************************************
   // x starting point
   // *********************************************************************
@@ -413,34 +416,20 @@ bool Ipm::computeStartingPoint() {
   const std::vector<double> temp_scaling(n_, 1.0);
   std::vector<double> temp_m(m_);
 
-  if (options_.nla == kOptionNlaNormEq) {
-    // use y to store b-A*x
-    it_.y = model_.b_;
-    model_.A_.alphaProductPlusY(-1.0, it_.x, it_.y);
+  // use y to store b-A*x
+  it_.y = model_.b_;
+  model_.A_.alphaProductPlusY(-1.0, it_.x, it_.y);
 
-    // solve A*A^T * dx = b-A*x with factorization and store the result in
-    // temp_m
+  // solve A*A^T * dx = b-A*x with factorization and store the result in
+  // temp_m
 
-    // factorize A*A^T
-    if (LS_->factorNE(model_.A_, temp_scaling)) goto failure;
+  // factorize A*A^T
+  if (CG.factorNE(model_.A_, temp_scaling)) goto failure;
 
-    if (LS_->solveNE(it_.y, temp_m)) goto failure;
-
-  } else if (options_.nla == kOptionNlaAugmented) {
-    // obtain solution of A*A^T * dx = b-A*x by solving
-    // [ -I  A^T] [...] = [ -x]
-    // [  A   0 ] [ dx] = [ b ]
-
-    if (LS_->factorAS(model_.A_, temp_scaling)) goto failure;
-
-    std::vector<double> rhs_x(n_);
-    for (int i = 0; i < n_; ++i) rhs_x[i] = -it_.x[i];
-    std::vector<double> lhs_x(n_);
-    if (LS_->solveAS(rhs_x, model_.b_, lhs_x, temp_m)) goto failure;
-  }
+  if (CG.solveNE(it_.y, temp_m)) goto failure;
 
   // compute dx = A^T * (A*A^T)^{-1} * (b-A*x) and store the result in xl
-  std::fill(it_.xl.begin(), it_.xl.end(), 0.0);
+  it_.xl.assign(n_, 0.0);
   model_.A_.alphaProductPlusY(1.0, temp_m, it_.xl, true);
 
   // x += dx;
@@ -479,23 +468,12 @@ bool Ipm::computeStartingPoint() {
   // y starting point
   // *********************************************************************
 
-  if (options_.nla == kOptionNlaNormEq) {
-    // compute A*c
-    std::fill(temp_m.begin(), temp_m.end(), 0.0);
-    model_.A_.alphaProductPlusY(1.0, model_.c_, temp_m);
+  // compute A*c
+  temp_m.assign(m_, 0.0);
+  model_.A_.alphaProductPlusY(1.0, model_.c_, temp_m);
 
-    if (LS_->solveNE(temp_m, it_.y)) goto failure;
+  if (CG.solveNE(temp_m, it_.y)) goto failure;
 
-  } else if (options_.nla == kOptionNlaAugmented) {
-    // obtain solution of A*A^T * y = A*c by solving
-    // [ -I  A^T] [...] = [ c ]
-    // [  A   0 ] [ y ] = [ 0 ]
-
-    std::vector<double> rhs_y(m_, 0.0);
-    std::vector<double> lhs_x(n_);
-
-    if (LS_->solveAS(model_.c_, rhs_y, lhs_x, it_.y)) goto failure;
-  }
   // *********************************************************************
 
   // *********************************************************************

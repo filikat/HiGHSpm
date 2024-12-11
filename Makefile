@@ -13,6 +13,7 @@ cpp_sources = \
 		Ipm_aux.cpp \
 		FactorHiGHSSolver.cpp \
 		CurtisReidScaling.cpp \
+		CgSolver.cpp \
 		../FactorHiGHS/Analyse.cpp \
 		../FactorHiGHS/Auxiliary.cpp \
 		../FactorHiGHS/Factorise.cpp \
@@ -31,7 +32,8 @@ cpp_sources = \
 		../FactorHiGHS/DenseFactKernel.cpp \
 		../FactorHiGHS/DenseFactFull.cpp \
 		../FactorHiGHS/DenseFactHybrid.cpp \
-		../FactorHiGHS/CallAndTimeBlas.cpp
+		../FactorHiGHS/CallAndTimeBlas.cpp \
+		../FactorHiGHS/KrylovMethods.cpp
 
 # binary file name
 binary_name = ipm

@@ -5,6 +5,7 @@
 
 #include "../FactorHiGHS/FactorHiGHS.h"
 #include "FactorHiGHSSolver.h"
+#include "CgSolver.h"
 #include "IpmModel.h"
 #include "Ipm_aux.h"
 #include "Ipm_const.h"
