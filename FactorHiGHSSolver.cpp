@@ -1,5 +1,7 @@
 #include "FactorHiGHSSolver.h"
 
+#include "../FactorHiGHS/KrylovMethods.h"
+
 FactorHiGHSSolver::FactorHiGHSSolver(const Options& options)
     : S_((FormatType)options.format), N_(S_) {}
 
@@ -363,6 +365,39 @@ void FactorHiGHSSolver::refine(const HighsSparseMatrix& A,
 #ifdef PRINT_ITER_REF
   printf("%e\n", norm_res);
 #endif
+
+  /*{
+    IpmMatrix M;
+    M.reset(A, scaling, use_as_);
+    IpmFactor P(N_);
+
+    if (use_as_) {
+      std::vector<double> rhs;
+      rhs.insert(rhs.end(), rhs_x.begin(), rhs_x.end());
+      rhs.insert(rhs.end(), rhs_y.begin(), rhs_y.end());
+
+      std::vector<double> delta;
+      delta.insert(delta.end(), delta_x.begin(), delta_x.end());
+      delta.insert(delta.end(), delta_y.begin(), delta_y.end());
+
+      int iter = Gmres(&M, &P, rhs, delta, 1e-6, 100);
+      printf("gmres iter %d\n", iter);
+
+      delta_x = std::vector<double>(delta.begin(), delta.begin() + n);
+      delta_y = std::vector<double>(delta.begin() + n, delta.end());
+    } else {
+      std::vector<double> rhs = rhs_y;
+      std::vector<double> temp(n);
+      for (int i = 0; i < n; ++i) temp[i] = rhs_x[i] / scaling[i];
+      A.alphaProductPlusY(1.0, temp, rhs);
+      int iter = Cg(&M, &P, rhs, delta_y, 1e-6, 100);
+      printf("cg iter %d\n", iter);
+
+      temp = rhs_x;
+      A.alphaProductPlusY(-1.0, delta_y, temp, true);
+      for (int i = 0; i < n; ++i) delta_x[i] = -temp[i] / scaling[i];
+    }
+  }*/
 
   double& p_res = DataCollector::get()->back().perturbed_res;
   double& o_res = DataCollector::get()->back().original_res;
