@@ -48,11 +48,6 @@ class IpmModel {
   int cexp_{};
   int bexp_{};
 
-  std::vector<double> colscale_{};
-  std::vector<double> rowscale_{};
-  double cscale_{};
-  double bscale_{};
-
   double norm_rhs_ = -1.0;
   double norm_obj_ = -1.0;
 
@@ -75,9 +70,7 @@ class IpmModel {
 
   // (Un)scale the matrix
   void scale();
-  void scale2();
   void unscale(Iterate& it);
-  void unscale2(Iterate& it);
 
   double normRhs();
   double normObj();
