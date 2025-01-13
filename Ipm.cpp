@@ -358,26 +358,55 @@ bool Ipm::recoverDirection() {
 
 void Ipm::computeStepSizes(double& alpha_primal, double& alpha_dual) const {
   alpha_primal = 1.0;
+  double p_limit_x = 0.0;
+  double p_limit_dx = 0.0;
   for (int i = 0; i < n_; ++i) {
     if (delta_.xl[i] < 0 && model_.hasLb(i)) {
-      alpha_primal = std::min(alpha_primal, -it_.xl[i] / delta_.xl[i]);
+      double val = -it_.xl[i] / delta_.xl[i];
+      if (val < alpha_primal) {
+        alpha_primal = val;
+        p_limit_x = it_.xl[i];
+        p_limit_dx = -delta_.xl[i];
+      }
     }
     if (delta_.xu[i] < 0 && model_.hasUb(i)) {
-      alpha_primal = std::min(alpha_primal, -it_.xu[i] / delta_.xu[i]);
+      double val = -it_.xu[i] / delta_.xu[i];
+      if (val < alpha_primal) {
+        alpha_primal = val;
+        p_limit_x = it_.xu[i];
+        p_limit_dx = -delta_.xu[i];
+      }
     }
   }
   alpha_primal *= kInteriorScaling;
 
   alpha_dual = 1.0;
+  double d_limit_z = 0.0;
+  double d_limit_dz = 0.0;
   for (int i = 0; i < n_; ++i) {
     if (delta_.zl[i] < 0 && model_.hasLb(i)) {
-      alpha_dual = std::min(alpha_dual, -it_.zl[i] / delta_.zl[i]);
+      double val = -it_.zl[i] / delta_.zl[i];
+      if (val < alpha_dual) {
+        alpha_dual = val;
+        d_limit_z = it_.zl[i];
+        d_limit_dz = -delta_.zl[i];
+      }
     }
     if (delta_.zu[i] < 0 && model_.hasUb(i)) {
-      alpha_dual = std::min(alpha_dual, -it_.zu[i] / delta_.zu[i]);
+      double val = -it_.zu[i] / delta_.zu[i];
+      if (val < alpha_dual) {
+        alpha_dual = val;
+        d_limit_z = it_.zu[i];
+        d_limit_dz = -delta_.zu[i];
+      }
     }
   }
   alpha_dual *= kInteriorScaling;
+
+  DataCollector::get()->back().p_limit_x = p_limit_x;
+  DataCollector::get()->back().p_limit_dx = p_limit_dx;
+  DataCollector::get()->back().d_limit_z = d_limit_z;
+  DataCollector::get()->back().d_limit_dz = d_limit_dz;
 
   assert(alpha_primal > 0 && alpha_primal < 1 && alpha_dual > 0 &&
          alpha_dual < 1);
@@ -414,7 +443,7 @@ bool Ipm::computeStartingPoint() {
   }
 
   const std::vector<double> temp_scaling(n_, 1.0);
-  std::vector<double> temp_m(m_);
+  std::vector<double> temp_m(m_, 1.0);
 
   // use y to store b-A*x
   it_.y = model_.b_;
@@ -565,22 +594,22 @@ failure:
 
 void Ipm::computeSigma() {
   if (mcc_) {
-    if (min_prod_ < kSmallProduct || max_prod_ > kLargeProduct) {
+    /*if (min_prod_ < kSmallProduct || max_prod_ > kLargeProduct) {
       // bad complementarity products, perform centring
       sigma_ = 0.9;
-    } else
-      // good complementarity products, decide based on previous iteration
-      if ((alpha_primal_ > 0.5 && alpha_dual_ > 0.5) || iter_ == 1) {
-        sigma_ = 0.01;
-      } else if (alpha_primal_ > 0.1 && alpha_dual_ > 0.1) {
-        sigma_ = 0.1;
-      } else if (alpha_primal_ > 0.05 && alpha_dual_ > 0.05) {
-        sigma_ = 0.25;
-      } else if (alpha_primal_ > 0.02 && alpha_dual_ > 0.02) {
-        sigma_ = 0.5;
-      } else {
-        sigma_ = 0.9;
-      }
+    } else*/
+    // good complementarity products, decide based on previous iteration
+    if ((alpha_primal_ > 0.5 && alpha_dual_ > 0.5) || iter_ == 1) {
+      sigma_ = 0.01;
+    } else if (alpha_primal_ > 0.1 && alpha_dual_ > 0.1) {
+      sigma_ = 0.1;
+    } else if (alpha_primal_ > 0.05 && alpha_dual_ > 0.05) {
+      sigma_ = 0.25;
+    } else if (alpha_primal_ > 0.02 && alpha_dual_ > 0.02) {
+      sigma_ = 0.5;
+    } else {
+      sigma_ = 0.9;
+    }
   } else {
     // Mehrotra heuristic
     // delta_ should contain the affine scaling direction
@@ -755,7 +784,9 @@ void Ipm::computeIndicators() {
 
   dual_infeas_ = infNorm(res_.res4) / (1 + model_.normObj());
 
+  // compute unscaled primal and dual objectives
   primal_obj_ = dotProd(it_.x, model_.c_);
+  primal_obj_ = std::ldexp(primal_obj_, -model_.cexp_ - model_.bexp_);
 
   dual_obj_ = dotProd(it_.y, model_.b_);
   for (int i = 0; i < n_; ++i) {
@@ -766,50 +797,107 @@ void Ipm::computeIndicators() {
       dual_obj_ -= model_.upper_[i] * it_.zu[i];
     }
   }
+  dual_obj_ = std::ldexp(dual_obj_, -model_.cexp_ - model_.bexp_);
 
   pd_gap_ = std::fabs(primal_obj_ - dual_obj_) /
             (1 + 0.5 * std::fabs(primal_obj_ + dual_obj_));
 
-  if (iter_ > 0) {
-    // compute min and max entry in Theta
-    double& min_theta = DataCollector::get()->back().min_theta;
-    double& max_theta = DataCollector::get()->back().max_theta;
-    min_theta = kInf;
-    max_theta = 0.0;
-    for (int i = 0; i < n_; ++i) {
-      if (scaling_[i] != 0.0) {
-        min_theta = std::min(min_theta, 1.0 / scaling_[i]);
-        max_theta = std::max(max_theta, 1.0 / scaling_[i]);
-      }
+  computeProducts();
+}
+
+void Ipm::computeProducts() {
+  if (iter_ == 0) return;
+
+  // compute min and max entry in Theta
+  double& min_theta = DataCollector::get()->back().min_theta;
+  double& max_theta = DataCollector::get()->back().max_theta;
+  min_theta = kInf;
+  max_theta = 0.0;
+  for (int i = 0; i < n_; ++i) {
+    if (scaling_[i] != 0.0) {
+      min_theta = std::min(min_theta, 1.0 / scaling_[i]);
+      max_theta = std::max(max_theta, 1.0 / scaling_[i]);
     }
-
-    // compute min and max complementarity product
-    // (x_l)_j * (z_l)_j / mu or (x_u)_j * (z_u)_j / mu
-
-    min_prod_ = std::numeric_limits<double>::max();
-    max_prod_ = 0.0;
-    int& num_small = DataCollector::get()->back().num_small_prod;
-    int& num_large = DataCollector::get()->back().num_large_prod;
-
-    for (int i = 0; i < n_; ++i) {
-      if (model_.hasLb(i)) {
-        double prod = it_.xl[i] * it_.zl[i] / mu_;
-        min_prod_ = std::min(min_prod_, prod);
-        max_prod_ = std::max(max_prod_, prod);
-        if (prod < kSmallProduct) ++num_small;
-        if (prod > kLargeProduct) ++num_large;
-      }
-      if (model_.hasUb(i)) {
-        double prod = it_.xu[i] * it_.zu[i] / mu_;
-        min_prod_ = std::min(min_prod_, prod);
-        max_prod_ = std::max(max_prod_, prod);
-        if (prod < kSmallProduct) ++num_small;
-        if (prod > kLargeProduct) ++num_large;
-      }
-    }
-    DataCollector::get()->back().min_prod = min_prod_;
-    DataCollector::get()->back().max_prod = max_prod_;
   }
+
+  // compute min and max complementarity product
+  // (x_l)_j * (z_l)_j / mu or (x_u)_j * (z_u)_j / mu
+
+  min_prod_ = std::numeric_limits<double>::max();
+  max_prod_ = 0.0;
+  int& num_small = DataCollector::get()->back().num_small_prod;
+  int& num_large = DataCollector::get()->back().num_large_prod;
+
+  for (int i = 0; i < n_; ++i) {
+    if (model_.hasLb(i)) {
+      double prod = it_.xl[i] * it_.zl[i] / mu_;
+      min_prod_ = std::min(min_prod_, prod);
+      max_prod_ = std::max(max_prod_, prod);
+      if (prod < kSmallProduct) {
+        ++num_small;
+        /*printf("Small product %e %e\n", it_.xl[i], it_.zl[i]);
+        double ratio = it_.xl[i] / it_.zl[i];
+        if (ratio < 1.0 / kThreshProduct) {
+          // xl[i] is too small, perturb it
+          it_.xl[i] = kSmallProduct * mu_ / it_.zl[i];
+          printf("\txl set to %e\n", it_.xl[i]);
+        } else if (ratio > kThreshProduct) {
+          // zl[i] is too small, perturb it
+          it_.zl[i] = kSmallProduct * mu_ / it_.xl[i];
+          printf("\tzl set to %e\n", it_.zl[i]);
+        }*/
+      }
+      if (prod > kLargeProduct) {
+        ++num_large;
+        /*printf("Large product %e %e\n", it_.xl[i], it_.zl[i]);
+        double ratio = it_.xl[i] / it_.zl[i];
+        if (ratio < 1.0 / kThreshProduct) {
+          // zl[i] is too large, perturb it
+          it_.zl[i] = kLargeProduct * mu_ / it_.xl[i];
+          printf("\tzl set to %e\n", it_.zl[i]);
+        } else if (ratio > kThreshProduct) {
+          // xl[i] is too large, perturb it
+          it_.xl[i] = kLargeProduct * mu_ / it_.zl[i];
+          printf("\txl set to %e\n", it_.xl[i]);
+        }*/
+      }
+    }
+    if (model_.hasUb(i)) {
+      double prod = it_.xu[i] * it_.zu[i] / mu_;
+      min_prod_ = std::min(min_prod_, prod);
+      max_prod_ = std::max(max_prod_, prod);
+      if (prod < kSmallProduct) {
+        ++num_small;
+        /*printf("Small product %e %e\n", it_.xu[i], it_.zu[i]);
+        double ratio = it_.xu[i] / it_.zu[i];
+        if (ratio < 1.0 / kThreshProduct) {
+          // xu[i] is too small, perturb it
+          it_.xu[i] = kSmallProduct * mu_ / it_.zu[i];
+          printf("\txu set to %e\n", it_.xu[i]);
+        } else if (ratio > kThreshProduct) {
+          // zu[i] is too small, perturb it
+          it_.zu[i] = kSmallProduct * mu_ / it_.xu[i];
+          printf("\tzu set to %e\n", it_.zu[i]);
+        }*/
+      }
+      if (prod > kLargeProduct) {
+        ++num_large;
+        /*printf("Large product %e %e\n", it_.xu[i], it_.zu[i]);
+        double ratio = it_.xu[i] / it_.zu[i];
+        if (ratio < 1.0 / kThreshProduct) {
+          // zu[i] is too large, perturb it
+          it_.zu[i] = kLargeProduct * mu_ / it_.xu[i];
+          printf("\tzu set to %e\n", it_.zu[i]);
+        } else if (ratio > kThreshProduct) {
+          // xu[i] is too large, perturb it
+          it_.xu[i] = kLargeProduct * mu_ / it_.zu[i];
+          printf("\txu set to %e\n", it_.xu[i]);
+        }*/
+      }
+    }
+  }
+  DataCollector::get()->back().min_prod = min_prod_;
+  DataCollector::get()->back().max_prod = max_prod_;
 }
 
 bool Ipm::checkIterate() {
@@ -841,10 +929,6 @@ bool Ipm::checkTermination() {
       primal_infeas_ < kIpmTolerance &&  // primal feasibility
       dual_infeas_ < kIpmTolerance) {    // dual feasibility
     printf("\n===== Optimal solution found =====\n");
-
-    // Compute and print final objective
-    primal_obj_ = std::ldexp(dotProd(it_.x, model_.c_), -model_.cexp_);
-    printf("Objective value: %e\n\n", primal_obj_);
 
     ipm_status_ = "Optimal";
     return true;
@@ -901,17 +985,53 @@ void Ipm::collectData() const {
   DataCollector::get()->back().p_alpha = alpha_primal_;
   DataCollector::get()->back().d_alpha = alpha_dual_;
 
-  DataCollector::get()->back().norm_x = norm2(it_.x);
-  DataCollector::get()->back().norm_xl = norm2(it_.xl);
-  DataCollector::get()->back().norm_xu = norm2(it_.xu);
-  DataCollector::get()->back().norm_y = norm2(it_.y);
-  DataCollector::get()->back().norm_zl = norm2(it_.zl);
-  DataCollector::get()->back().norm_zu = norm2(it_.zu);
+  double& minxl = DataCollector::get()->back().min_xl;
+  double& minxu = DataCollector::get()->back().min_xu;
+  double& minzl = DataCollector::get()->back().min_zl;
+  double& minzu = DataCollector::get()->back().min_zu;
+  double& maxxl = DataCollector::get()->back().max_xl;
+  double& maxxu = DataCollector::get()->back().max_xu;
+  double& maxzl = DataCollector::get()->back().max_zl;
+  double& maxzu = DataCollector::get()->back().max_zu;
 
-  DataCollector::get()->back().norm_dx = norm2(delta_.x);
-  DataCollector::get()->back().norm_dxl = norm2(delta_.xl);
-  DataCollector::get()->back().norm_dxu = norm2(delta_.xu);
-  DataCollector::get()->back().norm_dy = norm2(delta_.y);
-  DataCollector::get()->back().norm_dzl = norm2(delta_.zl);
-  DataCollector::get()->back().norm_dzu = norm2(delta_.zu);
+  double& mindxl = DataCollector::get()->back().min_dxl;
+  double& mindxu = DataCollector::get()->back().min_dxu;
+  double& mindzl = DataCollector::get()->back().min_dzl;
+  double& mindzu = DataCollector::get()->back().min_dzu;
+  double& maxdxl = DataCollector::get()->back().max_dxl;
+  double& maxdxu = DataCollector::get()->back().max_dxu;
+  double& maxdzl = DataCollector::get()->back().max_dzl;
+  double& maxdzu = DataCollector::get()->back().max_dzu;
+
+  for (int i = 0; i < n_; ++i) {
+    if (model_.hasLb(i)) {
+      minxl = std::min(minxl, std::abs(it_.xl[i]));
+      maxxl = std::max(maxxl, std::abs(it_.xl[i]));
+      minzl = std::min(minzl, std::abs(it_.zl[i]));
+      maxzl = std::max(maxzl, std::abs(it_.zl[i]));
+      mindxl = std::min(mindxl, std::abs(delta_.xl[i]));
+      maxdxl = std::max(maxdxl, std::abs(delta_.xl[i]));
+      mindzl = std::min(mindzl, std::abs(delta_.zl[i]));
+      maxdzl = std::max(maxdzl, std::abs(delta_.zl[i]));
+    }
+    if (model_.hasUb(i)) {
+      minxu = std::min(minxu, std::abs(it_.xu[i]));
+      maxxu = std::max(maxxu, std::abs(it_.xu[i]));
+      minzu = std::min(minzu, std::abs(it_.zu[i]));
+      maxzu = std::max(maxzu, std::abs(it_.zu[i]));
+      mindxu = std::min(mindxu, std::abs(delta_.xu[i]));
+      maxdxu = std::max(maxdxu, std::abs(delta_.xu[i]));
+      mindzu = std::min(mindzu, std::abs(delta_.zu[i]));
+      maxdzu = std::max(maxdzu, std::abs(delta_.zu[i]));
+    }
+  }
+
+  if (minxl == std::numeric_limits<double>::max()) minxl = 0.0;
+  if (minxu == std::numeric_limits<double>::max()) minxu = 0.0;
+  if (minzl == std::numeric_limits<double>::max()) minzl = 0.0;
+  if (minzu == std::numeric_limits<double>::max()) minzu = 0.0;
+  if (mindxl == std::numeric_limits<double>::max()) mindxl = 0.0;
+  if (mindxu == std::numeric_limits<double>::max()) mindxu = 0.0;
+  if (mindzl == std::numeric_limits<double>::max()) mindzl = 0.0;
+  if (mindzu == std::numeric_limits<double>::max()) mindzu = 0.0;
 }

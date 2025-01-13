@@ -4,8 +4,8 @@
 #include <string>
 
 #include "../FactorHiGHS/FactorHiGHS.h"
-#include "FactorHiGHSSolver.h"
 #include "CgSolver.h"
+#include "FactorHiGHSSolver.h"
 #include "IpmModel.h"
 #include "Ipm_aux.h"
 #include "Ipm_const.h"
@@ -256,6 +256,11 @@ class Ipm {
   // - primal-dual relative gap
   // ===================================================================================
   void computeIndicators();
+
+  // ===================================================================================
+  // Compute the complementarity products and potentially alter them.
+  // ===================================================================================
+  void computeProducts();
 
   // ===================================================================================
   // If the current iterate is nan or inf, abort the iterations.

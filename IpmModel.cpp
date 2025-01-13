@@ -216,16 +216,16 @@ void IpmModel::unscale(Iterate& it) {
       it.xu[i] = std::ldexp(it.xu[i], -bexp_);
 
       it.zl[i] = std::ldexp(it.zl[i], -colexp_[i]);
-      it.zl[i] = std::ldexp(it.zl[i], cexp_);
+      it.zl[i] = std::ldexp(it.zl[i], -cexp_);
 
       it.zu[i] = std::ldexp(it.zu[i], -colexp_[i]);
-      it.zu[i] = std::ldexp(it.zu[i], cexp_);
+      it.zu[i] = std::ldexp(it.zu[i], -cexp_);
     }
   }
   if (rowexp_.size() > 0) {
     for (int i = 0; i < num_con_; ++i) {
       it.y[i] = std::ldexp(it.y[i], rowexp_[i]);
-      it.y[i] = std::ldexp(it.y[i], cexp_);
+      it.y[i] = std::ldexp(it.y[i], -cexp_);
     }
   }
 
