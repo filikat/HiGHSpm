@@ -59,6 +59,9 @@ void IpmModel::reformulate() {
       if (colexp_.size() > 0) {
         colexp_.push_back(0);
       }
+      if (colscale_.size() > 0) {
+        colscale_.push_back(1.0);
+      }
     }
   }
 }
@@ -138,6 +141,18 @@ void IpmModel::checkCoefficients() const {
       scalemax = std::max(scalemax, scaling);
     }
   }
+  if (colscale_.size()>0){
+    for (int i = 0; i < num_var_; ++i) {
+      scalemin = std::min(scalemin, colscale_[i]);
+      scalemax = std::max(scalemax, colscale_[i]);
+    }
+  }
+  if (rowscale_.size()>0){
+    for (int i = 0; i < num_con_; ++i) {
+      scalemin = std::min(scalemin, rowscale_[i]);
+      scalemax = std::max(scalemax, rowscale_[i]);
+    }
+  }
   if (scalemin == kInf) scalemin = 0.0;
 
   // print ranges
@@ -155,6 +170,16 @@ void IpmModel::checkCoefficients() const {
 
 void IpmModel::scale() {
   // Apply Curtis-Reid scaling and scale the problem accordingly
+
+  // Transformation:
+  // A -> R * A * C
+  // b -> beta * R * b
+  // c -> gamma * C * c
+  // x -> beta * C^-1 * x
+  // y -> gamma * R^-1 * y
+  // z -> gamma * C * z
+  // where R is row scaling, C is col scaling, beta is unif scaling of b, gamma
+  // is unif scaling of c.
 
   colexp_.resize(num_var_);
   rowexp_.resize(num_con_);
@@ -258,4 +283,143 @@ double IpmModel::normObj() {
     norm_obj_ = infNorm(c_);
   }
   return norm_obj_;
+}
+
+void IpmModel::scale2() {
+  colscale_.resize(num_var_, 1.0);
+  rowscale_.resize(num_con_, 1.0);
+  cscale_ = 1.0;
+  bscale_ = 1.0;
+
+  for (int pass = 0; pass < 2; ++pass) {
+    // find largest and smallest entry in columns
+    std::vector<double> col_max(num_var_, 0.0);
+    std::vector<double> col_min(num_var_, std::numeric_limits<double>::max());
+    for (int col = 0; col < num_var_; ++col) {
+      for (int el = A_.start_[col]; el < A_.start_[col + 1]; ++el) {
+        double val = A_.value_[el];
+        col_max[col] = std::max(col_max[col], std::abs(val));
+        if (val != 0.0) col_min[col] = std::min(col_min[col], std::abs(val));
+      }
+
+      // consider objective row
+      col_max[col] = std::max(col_max[col], std::abs(c_[col]));
+      if (c_[col] != 0.0)
+        col_min[col] = std::min(col_min[col], std::abs(c_[col]));
+    }
+
+    // consider rhs column
+    double b_max = 0.0;
+    double b_min = std::numeric_limits<double>::max();
+    for (int i = 0; i < num_con_; ++i) {
+      b_max = std::max(b_max, std::abs(b_[i]));
+      if (b_[i] != 0.0) b_min = std::min(b_min, std::abs(b_[i]));
+    }
+
+    // scale columns by 1 / sqrt(colmax * colmin)
+    for (int col = 0; col < num_var_; ++col) {
+      double scale = 1.0 / sqrt(col_max[col] * col_min[col]);
+      for (int el = A_.start_[col]; el < A_.start_[col + 1]; ++el) {
+        A_.value_[el] *= scale;
+      }
+      c_[col] *= scale;
+      colscale_[col] *= scale;
+    }
+    double bscl = 1.0 / sqrt(b_max * b_min);
+    for (int i = 0; i < num_con_; ++i) {
+      b_[i] *= bscl;
+    }
+    bscale_ *= bscl;
+
+    // find largest and smallest entry in rows
+    std::vector<double> row_max(num_con_, 0.0);
+    std::vector<double> row_min(num_con_, std::numeric_limits<double>::max());
+    double c_max = 0.0;
+    double c_min = std::numeric_limits<double>::max();
+    for (int col = 0; col < num_var_; ++col) {
+      for (int el = A_.start_[col]; el < A_.start_[col + 1]; ++el) {
+        int row = A_.index_[el];
+        double val = A_.value_[el];
+        row_max[row] = std::max(row_max[row], std::abs(val));
+        if (val != 0.0) row_min[row] = std::min(row_min[row], std::abs(val));
+      }
+
+      // consider objective row
+      c_max = std::max(c_max, std::abs(c_[col]));
+      if (c_[col] != 0.0) c_min = std::min(c_min, std::abs(c_[col]));
+    }
+
+    // consider rhs column
+    for (int i = 0; i < num_con_; ++i) {
+      row_max[i] = std::max(row_max[i], std::abs(b_[i]));
+      if (b_[i] != 0.0) row_min[i] = std::min(row_min[i], std::abs(b_[i]));
+    }
+
+    // scale rows by 1 / sqrt(rowmax * rowmin)
+    for (int i = 0; i < num_con_; ++i) {
+      row_max[i] = 1.0 / sqrt(row_max[i] * row_min[i]);
+      rowscale_[i] *= row_max[i];
+    }
+    double cscl = 1.0 / sqrt(c_max * c_min);
+    cscale_ *= cscl;
+    for (int col = 0; col < num_var_; ++col) {
+      for (int el = A_.start_[col]; el < A_.start_[col + 1]; ++el) {
+        int row = A_.index_[el];
+        A_.value_[el] *= row_max[row];
+      }
+      c_[col] *= cscl;
+    }
+    for (int i = 0; i < num_con_; ++i) {
+      b_[i] *= row_max[i];
+    }
+  }
+
+  // scale bounds
+  for (int col = 0; col < num_var_; ++col) {
+    lower_[col] /= colscale_[col];
+    lower_[col] *= bscale_;
+    upper_[col] /= colscale_[col];
+    upper_[col] *= bscale_;
+  }
+}
+
+void IpmModel::unscale2(Iterate& it) {
+  // Undo the scaling
+
+  if (colscale_.size() > 0) {
+    for (int i = 0; i < num_var_; ++i) {
+      it.x[i] *= colscale_[i];
+      it.x[i] /= bscale_;
+
+      it.xl[i] *= colscale_[i];
+      it.xl[i] /= bscale_;
+
+      it.xu[i] *= colscale_[i];
+      it.xu[i] /= bscale_;
+
+      it.zl[i] /= colscale_[i];
+      it.zl[i] /= cscale_;
+
+      it.zu[i] /= colscale_[i];
+      it.zu[i] /= cscale_;
+    }
+  }
+  if (rowscale_.size() > 0) {
+    for (int i = 0; i < num_con_; ++i) {
+      it.y[i] *= rowscale_[i];
+      it.y[i] /= cscale_;
+    }
+  }
+
+  // set variables that were ignored
+  for (int i = 0; i < num_var_; ++i) {
+    if (!hasLb(i)) {
+      it.xl[i] = kInf;
+      it.zl[i] = kInf;
+    }
+    if (!hasUb(i)) {
+      it.xu[i] = kInf;
+      it.zu[i] = kInf;
+    }
+  }
 }

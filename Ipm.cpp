@@ -18,7 +18,7 @@ void Ipm::load(const int num_var, const int num_con, const double* obj,
   model_.init(num_var, num_con, obj, rhs, lower, upper, A_ptr, A_rows, A_vals,
               constraints, pb_name);
 
-  model_.scale();
+  model_.scale2();
   model_.reformulate();
 
   m_ = model_.num_con_;
@@ -106,7 +106,7 @@ Output Ipm::solve() {
   }
 
   LS_->finalise();
-  model_.unscale(it_);
+  model_.unscale2(it_);
 
   // output struct
   Output out{};
@@ -786,7 +786,11 @@ void Ipm::computeIndicators() {
 
   // compute unscaled primal and dual objectives
   primal_obj_ = dotProd(it_.x, model_.c_);
-  primal_obj_ = std::ldexp(primal_obj_, -model_.cexp_ - model_.bexp_);
+
+  if (model_.colexp_.size() > 0)
+    primal_obj_ = std::ldexp(primal_obj_, -model_.cexp_ - model_.bexp_);
+  else if (model_.colscale_.size() > 0)
+    primal_obj_ /= (model_.cscale_ * model_.bscale_);
 
   dual_obj_ = dotProd(it_.y, model_.b_);
   for (int i = 0; i < n_; ++i) {
@@ -797,10 +801,14 @@ void Ipm::computeIndicators() {
       dual_obj_ -= model_.upper_[i] * it_.zu[i];
     }
   }
-  dual_obj_ = std::ldexp(dual_obj_, -model_.cexp_ - model_.bexp_);
 
-  pd_gap_ = std::fabs(primal_obj_ - dual_obj_) /
-            (1 + 0.5 * std::fabs(primal_obj_ + dual_obj_));
+  if (model_.colexp_.size() > 0)
+    dual_obj_ = std::ldexp(dual_obj_, -model_.cexp_ - model_.bexp_);
+  else if (model_.colscale_.size() > 0)
+    dual_obj_ /= (model_.cscale_ * model_.bscale_);
+
+  pd_gap_ = std::abs(primal_obj_ - dual_obj_) /
+            (1 + 0.5 * std::abs(primal_obj_ + dual_obj_));
 
   computeProducts();
 }
