@@ -1,5 +1,7 @@
 #include "CurtisReidScaling.h"
 
+#include "../FactorHiGHS/KrylovMethods.h"
+
 void product(const double* x, std::vector<double>& y,
              const std::vector<int>& ptr, const std::vector<int>& rows) {
   // Multiply by matrix E, i.e. matrix A with all entries equal to one
@@ -25,78 +27,59 @@ void product_transpose(const double* x, std::vector<double>& y,
   }
 }
 
-void mult_by_CR_matrix(const std::vector<double>& rhs, std::vector<double>& lhs,
-                       const std::vector<double>& M,
-                       const std::vector<double>& N,
-                       const std::vector<int>& ptr,
-                       const std::vector<int>& rows) {
-  int n = N.size();
-  int m = M.size();
+// class to apply matrix
+class CRscalingMatrix : public AbstractMatrix {
+  const std::vector<double>& M_;
+  const std::vector<double>& N_;
+  const std::vector<int>& ptr_;
+  const std::vector<int>& rows_;
 
-  // split rhs
-  const double* rho = &rhs.data()[0];
-  const double* gamma = &rhs.data()[m];
+ public:
+  CRscalingMatrix(const std::vector<double>& M, const std::vector<double>& N,
+                  const std::vector<int>& ptr, const std::vector<int>& rows)
+      : M_{M}, N_{N}, ptr_{ptr}, rows_{rows} {}
 
-  // compute E*gamma
-  std::vector<double> Egamma(m);
-  product(gamma, Egamma, ptr, rows);
+  void apply(std::vector<double>& x) const override {
+    int n = N_.size();
+    int m = M_.size();
 
-  // compute E^T*rho
-  std::vector<double> ETrho(n);
-  product_transpose(rho, ETrho, ptr, rows);
+    // split rhs
+    const double* rho = &x.data()[0];
+    const double* gamma = &x.data()[m];
 
-  // populate lhs
+    // compute E*gamma
+    std::vector<double> Egamma(m);
+    product(gamma, Egamma, ptr_, rows_);
 
-  // 0...m-1
-  for (int i = 0; i < m; ++i) lhs[i] = M[i] * rho[i] + Egamma[i];
+    // compute E^T*rho
+    std::vector<double> ETrho(n);
+    product_transpose(rho, ETrho, ptr_, rows_);
 
-  // m...m+n-1
-  for (int j = 0; j < n; ++j) lhs[m + j] = ETrho[j] + N[j] * gamma[j];
-}
+    // populate lhs
 
-void CG_for_CR_scaling(const std::vector<double>& b, std::vector<double>& x,
-                       const std::vector<double>& M,
-                       const std::vector<double>& N,
-                       const std::vector<int>& ptr,
-                       const std::vector<int>& rows) {
-  int m = M.size();
-  int n = N.size();
+    // 0...m-1
+    for (int i = 0; i < m; ++i) x[i] = M_[i] * rho[i] + Egamma[i];
 
-  // initial residual
-  std::vector<double> r = b;
-
-  // initial approximation
-  x.assign(m + n, 0.0);
-
-  // direction
-  std::vector<double> p = r;
-
-  int iter{};
-  std::vector<double> Ap(m + n);
-
-  while (iter < 100) {
-    mult_by_CR_matrix(p, Ap, M, N, ptr, rows);
-
-    double norm_r = dotProd(r, r);
-    double alpha = norm_r / dotProd(p, Ap);
-
-    // x = x + alpha * p
-    vectorAdd(x, p, alpha);
-
-    // r = r - alpha * Ap;
-    vectorAdd(r, Ap, -alpha);
-
-    // exit test
-    if (norm2(r) / norm2(b) < 1e-6) break;
-
-    double beta = dotProd(r, r) / norm_r;
-
-    // p = r + beta * p
-    vectorAdd(p, r, 1.0, beta);
-
-    ++iter;
+    // m...m+n-1
+    for (int j = 0; j < n; ++j) x[m + j] = ETrho[j] + N_[j] * gamma[j];
   }
-}
+};
+
+// class to apply diagonal preconditioner
+class CRscalingPrec : public AbstractMatrix {
+  const std::vector<double>& M_;
+  const std::vector<double>& N_;
+
+ public:
+  CRscalingPrec(const std::vector<double>& M, const std::vector<double>& N)
+      : M_{M}, N_{N} {}
+
+  void apply(std::vector<double>& x) const override {
+    int m = M_.size();
+    for (int i = 0; i < m; ++i) x[i] /= M_[i];
+    for (int j = 0; j < N_.size(); ++j) x[m + j] /= N_[j];
+  }
+};
 
 void CurtisReidScaling(const std::vector<int>& ptr,
                        const std::vector<int>& rows,
@@ -111,13 +94,13 @@ void CurtisReidScaling(const std::vector<int>& ptr,
   // rhs for CG
   std::vector<double> rhs(m + n, 0.0);
 
-  // log2 abs b_i plus sum abs log2 A_i:
+  // sum abs log2 A_i:
   double* sumlogrow = &rhs.data()[0];
 
-  // log2 abs c_j plus sum abs log2 A_:j
+  // sum abs log2 A_:j
   double* sumlogcol = &rhs.data()[m];
 
-  // number of entries in each row and column
+  // number of nonzero entries in each row and column
   std::vector<double> row_entries(m, 0.0);
   std::vector<double> col_entries(n, 0.0);
 
@@ -135,9 +118,12 @@ void CurtisReidScaling(const std::vector<int>& ptr,
     }
   }
 
-  // solve linear system with CG
+  // solve linear system with CG and diagonal preconditioner
   std::vector<double> exponents(m + n);
-  CG_for_CR_scaling(rhs, exponents, row_entries, col_entries, ptr, rows);
+  CRscalingMatrix CRmat(row_entries, col_entries, ptr, rows);
+  CRscalingPrec CRprec(row_entries, col_entries);
+  int cgiter = Cg(&CRmat, &CRprec, rhs, exponents, 1e-6, 1000);
+  printf("CR scaling required %d CG iterations\n", cgiter);
 
   // unpack exponents into various components
   for (int i = 0; i < m; ++i) rowexp[i] = -std::round(exponents[i]);
