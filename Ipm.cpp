@@ -431,6 +431,7 @@ void Ipm::makeStep() {
 bool Ipm::computeStartingPoint() {
   // use conjugate gradient for starting point
   CgSolver CG;
+  int itercg1, itercg2;
 
   // *********************************************************************
   // x starting point
@@ -455,7 +456,7 @@ bool Ipm::computeStartingPoint() {
   // factorize A*A^T
   if (CG.factorNE(model_.A_, temp_scaling)) goto failure;
 
-  if (CG.solveNE(it_.y, temp_m)) goto failure;
+  itercg1 = CG.solveNE(it_.y, temp_m);
 
   // compute dx = A^T * (A*A^T)^{-1} * (b-A*x) and store the result in xl
   it_.xl.assign(n_, 0.0);
@@ -501,7 +502,7 @@ bool Ipm::computeStartingPoint() {
   temp_m.assign(m_, 0.0);
   model_.A_.alphaProductPlusY(1.0, model_.c_, temp_m);
 
-  if (CG.solveNE(temp_m, it_.y)) goto failure;
+  itercg2 = CG.solveNE(temp_m, it_.y);
 
   // *********************************************************************
 
@@ -583,6 +584,8 @@ bool Ipm::computeStartingPoint() {
     }
   }
   // *********************************************************************
+
+  printf("Starting point required %d + %d CG iterations\n\n", itercg1, itercg2);
 
   return false;
 
