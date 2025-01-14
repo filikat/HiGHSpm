@@ -213,7 +213,7 @@ int main(int argc, char** argv) {
 
   // extract problem name witout mps from path
   std::string pb_name{};
-  std::regex rgx("([^/]+)\\.mps");
+  std::regex rgx("([^/]+)\\.(mps|lp)");
   std::smatch match;
   std::regex_search(model_file, match, rgx);
   pb_name = match[1];
