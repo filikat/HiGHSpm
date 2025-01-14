@@ -141,21 +141,24 @@ void IpmModel::checkCoefficients() const {
   if (scalemin == kInf) scalemin = 0.0;
 
   // print ranges
-  printf("Range of A      : [%5.1e, %5.1e], ratio %.1e\n", Amin, Amax,
-         Amax / Amin);
-  printf("Range of b      : [%5.1e, %5.1e], ratio %.1e\n", bmin, bmax,
-         bmax / bmin);
-  printf("Range of c      : [%5.1e, %5.1e], ratio %.1e\n", cmin, cmax,
-         cmax / cmin);
-  printf("Range of bounds : [%5.1e, %5.1e], ratio %.1e\n", boundmin, boundmax,
-         boundmax / boundmin);
-  printf("Scaling coeff   : [%5.1e, %5.1e], ratio %.1e\n", scalemin, scalemax,
-         scalemax / scalemin);
+  printf("Range of A      : [%5.1e, %5.1e], ratio ", Amin, Amax);
+  Amin == 0.0 ? printf("-\n") : printf("%.1e\n", Amax / Amin);
+  printf("Range of b      : [%5.1e, %5.1e], ratio ", bmin, bmax);
+  bmin == 0.0 ? printf("-\n") : printf("%.1e\n", bmax / bmin);
+  printf("Range of c      : [%5.1e, %5.1e], ratio ", cmin, cmax);
+  cmin == 0.0 ? printf("-\n") : printf("%.1e\n", cmax / cmin);
+  printf("Range of bounds : [%5.1e, %5.1e], ratio ", boundmin, boundmax);
+  boundmin == 0.0 ? printf("-\n") : printf("%.1e\n", boundmax / boundmin);
+  printf("Scaling coeff   : [%5.1e, %5.1e], ratio ", scalemin, scalemax);
+  scalemin == 0.0 ? printf("-\n") : printf("%.1e\n", scalemax / scalemin);
 }
 
 void IpmModel::scale() {
   // Apply Curtis-Reid scaling and scale the problem accordingly
 
+  // *********************************************************************
+  // Compute scaling
+  // *********************************************************************
   // Transformation:
   // A -> R * A * C
   // b -> beta * R * b
@@ -166,13 +169,37 @@ void IpmModel::scale() {
   // where R is row scaling, C is col scaling, beta is unif scaling of b, gamma
   // is unif scaling of c.
 
+  // compute exponents for CR scaling of matrix A
   colexp_.resize(num_var_);
   rowexp_.resize(num_con_);
+  CurtisReidScaling(A_.start_, A_.index_, A_.value_, rowexp_, colexp_);
 
-  // compute exponents for CR scaling
-  CurtisReidScaling(A_.start_, A_.index_, A_.value_, b_, c_, cexp_, bexp_,
-                    rowexp_, colexp_);
+  // compute uniform scaling of b and c
+  // (it doesn't seem to help and it can actually hamper convergence)
+  /*
+  double bmax = 0.0;
+  double bmin = std::numeric_limits<double>::max();
+  for (int i = 0; i < num_con_; ++i) {
+    if (b_[i] != 0.0) {
+      bmax = std::max(bmax, std::abs(b_[i]));
+      bmin = std::min(bmin, std::abs(b_[i]));
+    }
+  }
+  std::frexp(1.0 / sqrt(bmax * bmin), &bexp_);
+  double cmax = 0.0;
+  double cmin = std::numeric_limits<double>::max();
+  for (int i = 0; i < num_var_; ++i) {
+    if (c_[i] != 0.0) {
+      cmax = std::max(cmax, std::abs(c_[i]));
+      cmin = std::min(cmin, std::abs(c_[i]));
+    }
+  }
+  std::frexp(1.0 / sqrt(cmax * cmin), &cexp_);
+  */
 
+  // *********************************************************************
+  // Apply scaling
+  // *********************************************************************
   // The scaling is given by exponents.
   // To multiply by the scaling a quantity x: std::ldexp(x,  exp).
   // To divide   by the scaling a quantity x: std::ldexp(x, -exp).
