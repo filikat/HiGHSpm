@@ -705,9 +705,8 @@ bool Ipm::centralityCorrectors() {
     printf("(%.2f,%.2f) -> ", alpha_p, alpha_d);
 #endif
 
-    if (alpha_p < alpha_p_old || alpha_d < alpha_d_old ||
-        (alpha_p < alpha_p_old + kMccIncreaseAlpha * kMccIncreaseMin &&
-         alpha_d < alpha_d_old + kMccIncreaseAlpha * kMccIncreaseMin)) {
+    if (alpha_p < alpha_p_old + kMccIncreaseAlpha * kMccIncreaseMin &&
+        alpha_d < alpha_d_old + kMccIncreaseAlpha * kMccIncreaseMin) {
       // reject corrector
 #ifdef PRINT_CORRECTORS
       printf(" x");
@@ -715,13 +714,20 @@ bool Ipm::centralityCorrectors() {
       break;
     }
 
-    // corrector accepted, sum it to delta
-    vectorAdd(delta_.x, corr.x);
-    vectorAdd(delta_.xl, corr.xl);
-    vectorAdd(delta_.xu, corr.xu);
-    vectorAdd(delta_.y, corr.y);
-    vectorAdd(delta_.zl, corr.zl);
-    vectorAdd(delta_.zu, corr.zu);
+    if (alpha_p >= alpha_p_old + kMccIncreaseAlpha * kMccIncreaseMin) {
+      // accept primal corrector
+      vectorAdd(delta_.x, corr.x);
+      vectorAdd(delta_.xl, corr.xl);
+      vectorAdd(delta_.xu, corr.xu);
+      alpha_p_old = alpha_p;
+    }
+    if (alpha_d >= alpha_d_old + kMccIncreaseAlpha * kMccIncreaseMin) {
+      // accept dual corrector
+      vectorAdd(delta_.y, corr.y);
+      vectorAdd(delta_.zl, corr.zl);
+      vectorAdd(delta_.zu, corr.zu);
+      alpha_d_old = alpha_d;
+    }
 
     if (alpha_p > 0.95 && alpha_d > 0.95) {
       // stepsizes are large enough, stop
@@ -730,8 +736,6 @@ bool Ipm::centralityCorrectors() {
     }
 
     // else, keep computing correctors
-    alpha_p_old = alpha_p;
-    alpha_d_old = alpha_d;
   }
 #ifdef PRINT_CORRECTORS
   printf("\n");
