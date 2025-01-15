@@ -190,7 +190,7 @@ class Ipm {
   // with:
   //  res8 = res1 + A * Theta * res7
   // ===================================================================================
-  bool solveNewtonSystem();
+  bool solveNewtonSystem(NewtonDir& delta);
 
   // ===================================================================================
   // Reconstruct the solution of the full Newton system:
@@ -231,7 +231,7 @@ class Ipm {
   // This task does not need a factorization and can continue to use CG, because
   // these linear systems are very easy to solve with CG.
   // ===================================================================================
-  bool computeStartingPoint();
+  void computeStartingPoint();
 
   // ===================================================================================
   // Given the predictor direction, compute predicted mu

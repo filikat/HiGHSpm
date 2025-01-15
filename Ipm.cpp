@@ -51,7 +51,7 @@ Output Ipm::solve() {
   LS_->clear();
 
   // initialize starting point, residuals and mu
-  if (computeStartingPoint()) return Output{};
+  computeStartingPoint();
   computeResiduals1234();
   computeMu();
   computeIndicators();
@@ -80,7 +80,7 @@ Output Ipm::solve() {
     if (mcc_) sigma_ = kSigmaAffine;
 
     computeResiduals56();
-    if (solveNewtonSystem()) break;
+    if (solveNewtonSystem(delta_)) break;
     if (recoverDirection()) break;
 
     // ===== CORRECTORS =====
@@ -92,7 +92,7 @@ Output Ipm::solve() {
       // Mehrotra corrector
       computeSigma();
       computeResiduals56();
-      if (solveNewtonSystem()) break;
+      if (solveNewtonSystem(delta_)) break;
       if (recoverDirection()) break;
     }
 
@@ -259,7 +259,7 @@ void Ipm::computeScaling() {
   }
 }
 
-bool Ipm::solveNewtonSystem() {
+bool Ipm::solveNewtonSystem(NewtonDir& delta) {
   std::vector<double> res7{computeResiduals7()};
 
   // NORMAL EQUATIONS
@@ -270,17 +270,17 @@ bool Ipm::solveNewtonSystem() {
     if (!LS_->valid_ && LS_->factorNE(model_.A_, scaling_)) goto failure;
 
     // solve with normal equations
-    if (LS_->solveNE(res8, delta_.y)) goto failure;
+    if (LS_->solveNE(res8, delta.y)) goto failure;
 
     // Compute delta.x
     // Deltax = A^T * Deltay - res7;
-    delta_.x = res7;
-    model_.A_.alphaProductPlusY(-1.0, delta_.y, delta_.x, true);
-    vectorScale(delta_.x, -1.0);
+    delta.x = res7;
+    model_.A_.alphaProductPlusY(-1.0, delta.y, delta.x, true);
+    vectorScale(delta.x, -1.0);
 
     // Deltax = (Theta^-1+Rp)^-1 * Deltax
     for (int i = 0; i < n_; ++i)
-      delta_.x[i] /= scaling_[i] + kPrimalStaticRegularization;
+      delta.x[i] /= scaling_[i] + kPrimalStaticRegularization;
 
   }
 
@@ -290,11 +290,11 @@ bool Ipm::solveNewtonSystem() {
     if (!LS_->valid_ && LS_->factorAS(model_.A_, scaling_)) goto failure;
 
     // solve with augmented system
-    if (LS_->solveAS(res7, res_.res1, delta_.x, delta_.y)) goto failure;
+    if (LS_->solveAS(res7, res_.res1, delta.x, delta.y)) goto failure;
   }
 
   // iterative refinement
-  LS_->refine(model_.A_, scaling_, res7, res_.res1, delta_.x, delta_.y);
+  LS_->refine(model_.A_, scaling_, res7, res_.res1, delta.x, delta.y);
 
   return false;
 
@@ -428,10 +428,9 @@ void Ipm::makeStep() {
   vectorAdd(it_.zu, delta_.zu, alpha_dual_);
 }
 
-bool Ipm::computeStartingPoint() {
+void Ipm::computeStartingPoint() {
   // use conjugate gradient for starting point
   CgSolver CG;
-  int itercg1, itercg2;
 
   // *********************************************************************
   // x starting point
@@ -454,9 +453,9 @@ bool Ipm::computeStartingPoint() {
   // temp_m
 
   // factorize A*A^T
-  if (CG.factorNE(model_.A_, temp_scaling)) goto failure;
+  CG.factorNE(model_.A_, temp_scaling);
 
-  itercg1 = CG.solveNE(it_.y, temp_m);
+  int itercg1 = CG.solveNE(it_.y, temp_m);
 
   // compute dx = A^T * (A*A^T)^{-1} * (b-A*x) and store the result in xl
   it_.xl.assign(n_, 0.0);
@@ -502,7 +501,7 @@ bool Ipm::computeStartingPoint() {
   temp_m.assign(m_, 0.0);
   model_.A_.alphaProductPlusY(1.0, model_.c_, temp_m);
 
-  itercg2 = CG.solveNE(temp_m, it_.y);
+  int itercg2 = CG.solveNE(temp_m, it_.y);
 
   // *********************************************************************
 
@@ -586,13 +585,6 @@ bool Ipm::computeStartingPoint() {
   // *********************************************************************
 
   printf("Starting point required %d + %d CG iterations\n\n", itercg1, itercg2);
-
-  return false;
-
-failure:
-  std::cerr << "Error while computing starting point\n";
-  ipm_status_ = "Error";
-  return true;
 }
 
 void Ipm::computeSigma() {
@@ -740,7 +732,7 @@ bool Ipm::centralityCorrectors() {
     NewtonDir old_delta = delta_;
 
     // compute new direction
-    if (solveNewtonSystem()) return true;
+    if (solveNewtonSystem(delta_)) return true;
     if (recoverDirection()) return true;
 
     // stepsizes of new corrected direction
