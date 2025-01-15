@@ -64,9 +64,6 @@ class Ipm {
   // Timer for iterations
   Clock clock_;
 
-  // flag to use centrality correctors
-  bool mcc_ = true;
-
  public:
   // ===================================================================================
   // Load an LP:

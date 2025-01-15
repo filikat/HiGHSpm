@@ -76,25 +76,15 @@ Output Ipm::solve() {
     computeScaling();
 
     // ===== PREDICTOR =====
-    sigma_ = 0.0;
-    if (mcc_) sigma_ = kSigmaAffine;
+    sigma_ = kSigmaAffine;
 
     computeResiduals56();
     if (solveNewtonSystem(delta_)) break;
     if (recoverDirection()) break;
 
     // ===== CORRECTORS =====
-    if (mcc_) {
-      // Multiple centrality correctors
-      computeSigma();
-      if (centralityCorrectors()) break;
-    } else {
-      // Mehrotra corrector
-      computeSigma();
-      computeResiduals56();
-      if (solveNewtonSystem(delta_)) break;
-      if (recoverDirection()) break;
-    }
+    computeSigma();
+    if (centralityCorrectors()) break;
 
     // ===== STEP =====
     makeStep();
@@ -197,15 +187,6 @@ void Ipm::computeResiduals56() {
       res_.res6[i] = sigma_ * mu_ - it_.xu[i] * it_.zu[i];
     } else {
       res_.res6[i] = 0.0;
-    }
-  }
-
-  if (!mcc_) {
-    for (int i = 0; i < n_; ++i) {
-      // res5
-      if (model_.hasLb(i)) res_.res5[i] -= delta_.xl[i] * delta_.zl[i];
-      // res6
-      if (model_.hasUb(i)) res_.res6[i] -= delta_.xu[i] * delta_.zu[i];
     }
   }
 }
@@ -588,51 +569,21 @@ void Ipm::computeStartingPoint() {
 }
 
 void Ipm::computeSigma() {
-  if (mcc_) {
-    /*if (min_prod_ < kSmallProduct || max_prod_ > kLargeProduct) {
-      // bad complementarity products, perform centring
-      sigma_ = 0.9;
-    } else*/
-    // good complementarity products, decide based on previous iteration
-    if ((alpha_primal_ > 0.5 && alpha_dual_ > 0.5) || iter_ == 1) {
-      sigma_ = 0.01;
-    } else if (alpha_primal_ > 0.1 && alpha_dual_ > 0.1) {
-      sigma_ = 0.1;
-    } else if (alpha_primal_ > 0.05 && alpha_dual_ > 0.05) {
-      sigma_ = 0.25;
-    } else if (alpha_primal_ > 0.02 && alpha_dual_ > 0.02) {
-      sigma_ = 0.5;
-    } else {
-      sigma_ = 0.9;
-    }
+  /*if (min_prod_ < kSmallProduct || max_prod_ > kLargeProduct) {
+    // bad complementarity products, perform centring
+    sigma_ = 0.9;
+  } else*/
+  // good complementarity products, decide based on previous iteration
+  if ((alpha_primal_ > 0.5 && alpha_dual_ > 0.5) || iter_ == 1) {
+    sigma_ = 0.01;
+  } else if (alpha_primal_ > 0.1 && alpha_dual_ > 0.1) {
+    sigma_ = 0.1;
+  } else if (alpha_primal_ > 0.05 && alpha_dual_ > 0.05) {
+    sigma_ = 0.25;
+  } else if (alpha_primal_ > 0.02 && alpha_dual_ > 0.02) {
+    sigma_ = 0.5;
   } else {
-    // Mehrotra heuristic
-    // delta_ should contain the affine scaling direction
-
-    // stepsizes of predictor direction
-    double alpha_p, alpha_d;
-    computeStepSizes(alpha_p, alpha_d);
-
-    // mu using predictor direction
-    double mu_aff = 0.0;
-    int number_finite_bounds{};
-    for (int i = 0; i < n_; ++i) {
-      if (model_.hasLb(i)) {
-        mu_aff += (it_.xl[i] + alpha_p * delta_.xl[i]) *
-                  (it_.zl[i] + alpha_d * delta_.zl[i]);
-        ++number_finite_bounds;
-      }
-      if (model_.hasUb(i)) {
-        mu_aff += (it_.xu[i] + alpha_p * delta_.xu[i]) *
-                  (it_.zu[i] + alpha_d * delta_.zu[i]);
-        ++number_finite_bounds;
-      }
-    }
-    mu_aff /= number_finite_bounds;
-
-    // heuristic to choose sigma
-    double ratio = mu_aff / mu_;
-    sigma_ = ratio * ratio * ratio;
+    sigma_ = 0.9;
   }
 
   DataCollector::get()->back().sigma = sigma_;
