@@ -215,7 +215,8 @@ class Ipm {
   // Step-sizes are scaled down by kInteriorScaling < 1, to guarantee that no
   // component of the new iterate is equal to zero.
   // ===================================================================================
-  void computeStepSizes(double& alpha_primal, double& alpha_dual) const;
+  void computeStepSizes(const NewtonDir& delta, const NewtonDir* corr,
+                        double& alpha_primal, double& alpha_dual) const;
 
   // ===================================================================================
   // Make the step in the Newton direction with appropriate stepsizes.

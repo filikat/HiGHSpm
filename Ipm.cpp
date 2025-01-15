@@ -77,7 +77,6 @@ Output Ipm::solve() {
 
     // ===== PREDICTOR =====
     sigma_ = kSigmaAffine;
-
     computeResiduals56();
     if (solveNewtonSystem(delta_)) break;
     if (recoverDirection()) break;
@@ -170,7 +169,7 @@ void Ipm::computeResiduals1234() {
 }
 
 void Ipm::computeResiduals56() {
-  // For predictor, delta_ and sigma_ should be zero.
+  // For predictor, sigma_ should be zero (or small).
   // For corrector, delta_ should be the affine scaling direction and sigma_
   // should be computed with computeSigma().
 
@@ -337,25 +336,28 @@ bool Ipm::recoverDirection() {
   return false;
 }
 
-void Ipm::computeStepSizes(double& alpha_primal, double& alpha_dual) const {
+void Ipm::computeStepSizes(const NewtonDir& delta, const NewtonDir* corr,
+                           double& alpha_primal, double& alpha_dual) const {
   alpha_primal = 1.0;
   double p_limit_x = 0.0;
   double p_limit_dx = 0.0;
   for (int i = 0; i < n_; ++i) {
-    if (delta_.xl[i] < 0 && model_.hasLb(i)) {
-      double val = -it_.xl[i] / delta_.xl[i];
+    double add = (corr ? corr->xl[i] : 0.0);
+    if ((delta.xl[i] + add) < 0 && model_.hasLb(i)) {
+      double val = -it_.xl[i] / (delta.xl[i] + add);
       if (val < alpha_primal) {
         alpha_primal = val;
         p_limit_x = it_.xl[i];
-        p_limit_dx = -delta_.xl[i];
+        p_limit_dx = -(delta.xl[i] + add);
       }
     }
-    if (delta_.xu[i] < 0 && model_.hasUb(i)) {
-      double val = -it_.xu[i] / delta_.xu[i];
+    add = (corr ? corr->xu[i] : 0.0);
+    if ((delta.xu[i] + add) < 0 && model_.hasUb(i)) {
+      double val = -it_.xu[i] / (delta.xu[i] + add);
       if (val < alpha_primal) {
         alpha_primal = val;
         p_limit_x = it_.xu[i];
-        p_limit_dx = -delta_.xu[i];
+        p_limit_dx = -(delta.xu[i] + add);
       }
     }
   }
@@ -365,20 +367,22 @@ void Ipm::computeStepSizes(double& alpha_primal, double& alpha_dual) const {
   double d_limit_z = 0.0;
   double d_limit_dz = 0.0;
   for (int i = 0; i < n_; ++i) {
-    if (delta_.zl[i] < 0 && model_.hasLb(i)) {
-      double val = -it_.zl[i] / delta_.zl[i];
+    double add = (corr ? corr->zl[i] : 0.0);
+    if ((delta.zl[i] + add) < 0 && model_.hasLb(i)) {
+      double val = -it_.zl[i] / (delta.zl[i] + add);
       if (val < alpha_dual) {
         alpha_dual = val;
         d_limit_z = it_.zl[i];
-        d_limit_dz = -delta_.zl[i];
+        d_limit_dz = -(delta.zl[i] + add);
       }
     }
-    if (delta_.zu[i] < 0 && model_.hasUb(i)) {
-      double val = -it_.zu[i] / delta_.zu[i];
+    add = (corr ? corr->zu[i] : 0.0);
+    if ((delta.zu[i] + add) < 0 && model_.hasUb(i)) {
+      double val = -it_.zu[i] / (delta.zu[i] + add);
       if (val < alpha_dual) {
         alpha_dual = val;
         d_limit_z = it_.zu[i];
-        d_limit_dz = -delta_.zu[i];
+        d_limit_dz = -(delta.zu[i] + add);
       }
     }
   }
@@ -394,7 +398,7 @@ void Ipm::computeStepSizes(double& alpha_primal, double& alpha_dual) const {
 }
 
 void Ipm::makeStep() {
-  computeStepSizes(alpha_primal_, alpha_dual_);
+  computeStepSizes(delta_, nullptr, alpha_primal_, alpha_dual_);
 
   if (std::min(alpha_primal_, alpha_dual_) < 0.05)
     ++bad_iter_;
@@ -594,7 +598,7 @@ void Ipm::computeResidualsMcc() {
 
   // stepsizes of current direction
   double alpha_p, alpha_d;
-  computeStepSizes(alpha_p, alpha_d);
+  computeStepSizes(delta_, nullptr, alpha_p, alpha_d);
 
   // compute increased stepsizes
   alpha_p = std::max(1.0, alpha_p + kMccIncreaseAlpha);
@@ -668,7 +672,7 @@ void Ipm::computeResidualsMcc() {
 bool Ipm::centralityCorrectors() {
   // compute stepsizes of current direction
   double alpha_p_old, alpha_d_old;
-  computeStepSizes(alpha_p_old, alpha_d_old);
+  computeStepSizes(delta_, nullptr, alpha_p_old, alpha_d_old);
 
 #ifdef PRINT_CORRECTORS
   printf("(%.2f,%.2f) -> ", alpha_p_old, alpha_d_old);
@@ -688,7 +692,7 @@ bool Ipm::centralityCorrectors() {
 
     // stepsizes of new corrected direction
     double alpha_p, alpha_d;
-    computeStepSizes(alpha_p, alpha_d);
+    computeStepSizes(delta_, nullptr, alpha_p, alpha_d);
 
 #ifdef PRINT_CORRECTORS
     printf("(%.2f,%.2f) -> ", alpha_p, alpha_d);
