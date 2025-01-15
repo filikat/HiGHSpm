@@ -79,7 +79,7 @@ Output Ipm::solve() {
     sigma_ = kSigmaAffine;
     computeResiduals56();
     if (solveNewtonSystem(delta_)) break;
-    if (recoverDirection()) break;
+    if (recoverDirection(delta_)) break;
 
     // ===== CORRECTORS =====
     computeSigma();
@@ -285,50 +285,52 @@ failure:
   return true;
 }
 
-bool Ipm::recoverDirection() {
+bool Ipm::recoverDirection(NewtonDir& delta) {
+  // Recover components xl, xu, zl, zu of partial direction delta.
+
   for (int i = 0; i < n_; ++i) {
     if (model_.hasLb(i) || model_.hasUb(i)) {
-      delta_.xl[i] = delta_.x[i] - res_.res2[i];
-      delta_.zl[i] = (res_.res5[i] - it_.zl[i] * delta_.xl[i]) / it_.xl[i];
+      delta.xl[i] = delta.x[i] - res_.res2[i];
+      delta.zl[i] = (res_.res5[i] - it_.zl[i] * delta.xl[i]) / it_.xl[i];
     } else {
-      delta_.xl[i] = 0.0;
-      delta_.zl[i] = 0.0;
+      delta.xl[i] = 0.0;
+      delta.zl[i] = 0.0;
     }
   }
   for (int i = 0; i < n_; ++i) {
     if (model_.hasLb(i) || model_.hasUb(i)) {
-      delta_.xu[i] = res_.res3[i] - delta_.x[i];
-      delta_.zu[i] = (res_.res6[i] - it_.zu[i] * delta_.xu[i]) / it_.xu[i];
+      delta.xu[i] = res_.res3[i] - delta.x[i];
+      delta.zu[i] = (res_.res6[i] - it_.zu[i] * delta.xu[i]) / it_.xu[i];
     } else {
-      delta_.xu[i] = 0.0;
-      delta_.zu[i] = 0.0;
+      delta.xu[i] = 0.0;
+      delta.zu[i] = 0.0;
     }
   }
 
   // not sure if this has any effect, but IPX uses it
   std::vector<double> Atdy(n_);
-  model_.A_.alphaProductPlusY(1.0, delta_.y, Atdy, true);
+  model_.A_.alphaProductPlusY(1.0, delta.y, Atdy, true);
   for (int i = 0; i < n_; ++i) {
     if (model_.hasLb(i) || model_.hasUb(i)) {
       if (std::isfinite(it_.xl[i]) && std::isfinite(it_.xu[i])) {
         if (it_.zl[i] * it_.xu[i] >= it_.zu[i] * it_.xl[i])
-          delta_.zl[i] = res_.res4[i] + delta_.zu[i] - Atdy[i];
+          delta.zl[i] = res_.res4[i] + delta.zu[i] - Atdy[i];
         else
-          delta_.zu[i] = -res_.res4[i] + delta_.zl[i] + Atdy[i];
+          delta.zu[i] = -res_.res4[i] + delta.zl[i] + Atdy[i];
       } else if (std::isfinite(it_.xl[i])) {
-        delta_.zl[i] = res_.res4[i] + delta_.zu[i] - Atdy[i];
+        delta.zl[i] = res_.res4[i] + delta.zu[i] - Atdy[i];
       } else {
-        delta_.zu[i] = -res_.res4[i] + delta_.zl[i] + Atdy[i];
+        delta.zu[i] = -res_.res4[i] + delta.zl[i] + Atdy[i];
       }
     }
   }
 
   // Check for NaN of Inf
-  if (delta_.isNaN()) {
+  if (delta.isNaN()) {
     std::cerr << "Direction is nan\n";
     ipm_status_ = "Error";
     return true;
-  } else if (delta_.isInf()) {
+  } else if (delta.isInf()) {
     std::cerr << "Direciton is inf\n";
     ipm_status_ = "Error";
     return true;
@@ -338,6 +340,10 @@ bool Ipm::recoverDirection() {
 
 void Ipm::computeStepSizes(const NewtonDir& delta, const NewtonDir* corr,
                            double& alpha_primal, double& alpha_dual) const {
+  // Compute primal and dual stepsizes, based on direction delta.
+  // If corr is valid, then the stepsizes are computed based on direction
+  // delta+corr.
+
   alpha_primal = 1.0;
   double p_limit_x = 0.0;
   double p_limit_dx = 0.0;
@@ -596,6 +602,9 @@ void Ipm::computeSigma() {
 void Ipm::computeResidualsMcc() {
   // compute right-hand side for multiple centrality correctors
 
+  // clear existing residuals
+  res_ = Residuals(m_, n_);
+
   // stepsizes of current direction
   double alpha_p, alpha_d;
   computeStepSizes(delta_, nullptr, alpha_p, alpha_d);
@@ -683,16 +692,14 @@ bool Ipm::centralityCorrectors() {
     // compute rhs for corrector
     computeResidualsMcc();
 
-    // make a copy of old direction
-    NewtonDir old_delta = delta_;
-
-    // compute new direction
-    if (solveNewtonSystem(delta_)) return true;
-    if (recoverDirection()) return true;
+    // compute corrector
+    NewtonDir corr(m_, n_);
+    if (solveNewtonSystem(corr)) return true;
+    if (recoverDirection(corr)) return true;
 
     // stepsizes of new corrected direction
     double alpha_p, alpha_d;
-    computeStepSizes(delta_, nullptr, alpha_p, alpha_d);
+    computeStepSizes(delta_, &corr, alpha_p, alpha_d);
 
 #ifdef PRINT_CORRECTORS
     printf("(%.2f,%.2f) -> ", alpha_p, alpha_d);
@@ -701,14 +708,23 @@ bool Ipm::centralityCorrectors() {
     if (alpha_p < alpha_p_old || alpha_d < alpha_d_old ||
         (alpha_p < alpha_p_old + kMccIncreaseAlpha * kMccIncreaseMin &&
          alpha_d < alpha_d_old + kMccIncreaseAlpha * kMccIncreaseMin)) {
-      // reject corrector, reset direction to previous one
-      delta_ = old_delta;
+      // reject corrector
 #ifdef PRINT_CORRECTORS
       printf(" x");
 #endif
       break;
-    } else if (alpha_p > 0.95 && alpha_d > 0.95) {
-      // stepsizes are large enough, accept correctors and stop
+    }
+
+    // corrector accepted, sum it to delta
+    vectorAdd(delta_.x, corr.x);
+    vectorAdd(delta_.xl, corr.xl);
+    vectorAdd(delta_.xu, corr.xu);
+    vectorAdd(delta_.y, corr.y);
+    vectorAdd(delta_.zl, corr.zl);
+    vectorAdd(delta_.zu, corr.zu);
+
+    if (alpha_p > 0.95 && alpha_d > 0.95) {
+      // stepsizes are large enough, stop
       ++cor;
       break;
     }

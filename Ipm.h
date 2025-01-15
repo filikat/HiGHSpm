@@ -197,7 +197,7 @@ class Ipm {
   //  Deltazl = Xl^{-1} * (res5 - zl * Deltaxl)
   //  Deltazu = Xu^{-1} * (res6 - zu * Deltaxu)
   // ===================================================================================
-  bool recoverDirection();
+  bool recoverDirection(NewtonDir& delta);
 
   // ===================================================================================
   // Find alpha_primal:
