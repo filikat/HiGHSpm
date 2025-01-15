@@ -424,9 +424,6 @@ void Ipm::makeStep() {
 }
 
 void Ipm::computeStartingPoint() {
-  // use conjugate gradient for starting point
-  CgSolver CG;
-
   // *********************************************************************
   // x starting point
   // *********************************************************************
@@ -438,19 +435,33 @@ void Ipm::computeStartingPoint() {
   }
 
   const std::vector<double> temp_scaling(n_, 1.0);
-  std::vector<double> temp_m(m_, 1.0);
+  std::vector<double> temp_m(m_);
 
-  // use y to store b-A*x
-  it_.y = model_.b_;
-  model_.A_.alphaProductPlusY(-1.0, it_.x, it_.y);
+  if (options_.nla == kOptionNlaNormEq) {
+    // use y to store b-A*x
+    it_.y = model_.b_;
+    model_.A_.alphaProductPlusY(-1.0, it_.x, it_.y);
 
-  // solve A*A^T * dx = b-A*x with factorization and store the result in
-  // temp_m
+    // solve A*A^T * dx = b-A*x with factorization and store the result in
+    // temp_m
 
-  // factorize A*A^T
-  CG.factorNE(model_.A_, temp_scaling);
+    // factorize A*A^T
+    if (LS_->factorNE(model_.A_, temp_scaling)) goto failure;
 
-  int itercg1 = CG.solveNE(it_.y, temp_m);
+    if (LS_->solveNE(it_.y, temp_m)) goto failure;
+
+  } else if (options_.nla == kOptionNlaAugmented) {
+    // obtain solution of A*A^T * dx = b-A*x by solving
+    // [ -I  A^T] [...] = [ -x]
+    // [  A   0 ] [ dx] = [ b ]
+
+    if (LS_->factorAS(model_.A_, temp_scaling)) goto failure;
+
+    std::vector<double> rhs_x(n_);
+    for (int i = 0; i < n_; ++i) rhs_x[i] = -it_.x[i];
+    std::vector<double> lhs_x(n_);
+    if (LS_->solveAS(rhs_x, model_.b_, lhs_x, temp_m)) goto failure;
+  }
 
   // compute dx = A^T * (A*A^T)^{-1} * (b-A*x) and store the result in xl
   it_.xl.assign(n_, 0.0);
@@ -492,12 +503,23 @@ void Ipm::computeStartingPoint() {
   // y starting point
   // *********************************************************************
 
-  // compute A*c
-  temp_m.assign(m_, 0.0);
-  model_.A_.alphaProductPlusY(1.0, model_.c_, temp_m);
+  if (options_.nla == kOptionNlaNormEq) {
+    // compute A*c
+    std::fill(temp_m.begin(), temp_m.end(), 0.0);
+    model_.A_.alphaProductPlusY(1.0, model_.c_, temp_m);
 
-  int itercg2 = CG.solveNE(temp_m, it_.y);
+    if (LS_->solveNE(temp_m, it_.y)) goto failure;
 
+  } else if (options_.nla == kOptionNlaAugmented) {
+    // obtain solution of A*A^T * y = A*c by solving
+    // [ -I  A^T] [...] = [ c ]
+    // [  A   0 ] [ y ] = [ 0 ]
+
+    std::vector<double> rhs_y(m_, 0.0);
+    std::vector<double> lhs_x(n_);
+
+    if (LS_->solveAS(model_.c_, rhs_y, lhs_x, it_.y)) goto failure;
+  }
   // *********************************************************************
 
   // *********************************************************************
@@ -579,7 +601,11 @@ void Ipm::computeStartingPoint() {
   }
   // *********************************************************************
 
-  printf("Starting point required %d + %d CG iterations\n\n", itercg1, itercg2);
+  return;
+
+failure:
+  std::cerr << "Error while computing starting point\n";
+  ipm_status_ = "Error";
 }
 
 void Ipm::computeSigma() {

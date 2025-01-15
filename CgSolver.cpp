@@ -28,6 +28,6 @@ int CgSolver::factorNE(const HighsSparseMatrix& A,
 int CgSolver::solveNE(const std::vector<double>& rhs,
                       std::vector<double>& lhs) {
   assert(valid_);
-  int iter = Cg(&M, &P, rhs, lhs, 1e-4, 100);
+  int iter = Cg(&M, &P, rhs, lhs, 1e-6, 1000);
   return iter;
 }
