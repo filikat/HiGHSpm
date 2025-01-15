@@ -214,9 +214,13 @@ class Ipm {
   //
   // Step-sizes are scaled down by kInteriorScaling < 1, to guarantee that no
   // component of the new iterate is equal to zero.
+  //
+  // If corrector is valid, the direction used is delta + weight * corrector
   // ===================================================================================
-  void computeStepSizes(const NewtonDir& delta, const NewtonDir* corr,
-                        double& alpha_primal, double& alpha_dual) const;
+  void computeStepSizes(double& alpha_primal, double& alpha_dual,
+                        const NewtonDir& delta,
+                        const NewtonDir* corrector = nullptr,
+                        double weight = 1.0) const;
 
   // ===================================================================================
   // Make the step in the Newton direction with appropriate stepsizes.
@@ -242,8 +246,27 @@ class Ipm {
   // ===================================================================================
   void computeSigma();
 
+  // ===================================================================================
+  // Compute the residuals for the computation of multiple centrality
+  // correctors.
+  // ===================================================================================
   void computeResidualsMcc();
+
+  // ===================================================================================
+  // Iteratively compute correctors, until they improve the stepsizes.
+  // Based on Gondzio, "Multiple centrality corrections in a primal-dual method
+  // for linear programming" and Colombo, Gondzio, "Further Development of
+  // Multiple Centrality Correctors for Interior Point Methods".
+  // ===================================================================================
   bool centralityCorrectors();
+
+  // ===================================================================================
+  // Given the current direction delta and the latest corrector, compute the
+  // best primal and dual weights, that maximize the primal and dual stepsize.
+  // ===================================================================================
+  void computeBestWeight(const NewtonDir& delta, const NewtonDir& corrector,
+                         double& wp, double& wd, double& alpha_p,
+                         double& alpha_d) const;
 
   // ===================================================================================
   // Compute

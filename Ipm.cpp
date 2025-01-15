@@ -338,32 +338,33 @@ bool Ipm::recoverDirection(NewtonDir& delta) {
   return false;
 }
 
-void Ipm::computeStepSizes(const NewtonDir& delta, const NewtonDir* corr,
-                           double& alpha_primal, double& alpha_dual) const {
+void Ipm::computeStepSizes(double& alpha_primal, double& alpha_dual,
+                           const NewtonDir& delta, const NewtonDir* corrector,
+                           double weight) const {
   // Compute primal and dual stepsizes, based on direction delta.
-  // If corr is valid, then the stepsizes are computed based on direction
-  // delta+corr.
+  // If corrector is valid, then the stepsizes are computed based on direction
+  // delta + weight * corrector, to allow for weighted correctors.
 
   alpha_primal = 1.0;
   double p_limit_x = 0.0;
   double p_limit_dx = 0.0;
   for (int i = 0; i < n_; ++i) {
-    double add = (corr ? corr->xl[i] : 0.0);
-    if ((delta.xl[i] + add) < 0 && model_.hasLb(i)) {
-      double val = -it_.xl[i] / (delta.xl[i] + add);
+    double cor = (corrector ? corrector->xl[i] * weight : 0.0);
+    if ((delta.xl[i] + cor) < 0 && model_.hasLb(i)) {
+      double val = -it_.xl[i] / (delta.xl[i] + cor);
       if (val < alpha_primal) {
         alpha_primal = val;
         p_limit_x = it_.xl[i];
-        p_limit_dx = -(delta.xl[i] + add);
+        p_limit_dx = -(delta.xl[i] + cor);
       }
     }
-    add = (corr ? corr->xu[i] : 0.0);
-    if ((delta.xu[i] + add) < 0 && model_.hasUb(i)) {
-      double val = -it_.xu[i] / (delta.xu[i] + add);
+    cor = (corrector ? corrector->xu[i] * weight : 0.0);
+    if ((delta.xu[i] + cor) < 0 && model_.hasUb(i)) {
+      double val = -it_.xu[i] / (delta.xu[i] + cor);
       if (val < alpha_primal) {
         alpha_primal = val;
         p_limit_x = it_.xu[i];
-        p_limit_dx = -(delta.xu[i] + add);
+        p_limit_dx = -(delta.xu[i] + cor);
       }
     }
   }
@@ -373,38 +374,41 @@ void Ipm::computeStepSizes(const NewtonDir& delta, const NewtonDir* corr,
   double d_limit_z = 0.0;
   double d_limit_dz = 0.0;
   for (int i = 0; i < n_; ++i) {
-    double add = (corr ? corr->zl[i] : 0.0);
-    if ((delta.zl[i] + add) < 0 && model_.hasLb(i)) {
-      double val = -it_.zl[i] / (delta.zl[i] + add);
+    double cor = (corrector ? corrector->zl[i] * weight : 0.0);
+    if ((delta.zl[i] + cor) < 0 && model_.hasLb(i)) {
+      double val = -it_.zl[i] / (delta.zl[i] + cor);
       if (val < alpha_dual) {
         alpha_dual = val;
         d_limit_z = it_.zl[i];
-        d_limit_dz = -(delta.zl[i] + add);
+        d_limit_dz = -(delta.zl[i] + cor);
       }
     }
-    add = (corr ? corr->zu[i] : 0.0);
-    if ((delta.zu[i] + add) < 0 && model_.hasUb(i)) {
-      double val = -it_.zu[i] / (delta.zu[i] + add);
+    cor = (corrector ? corrector->zu[i] * weight : 0.0);
+    if ((delta.zu[i] + cor) < 0 && model_.hasUb(i)) {
+      double val = -it_.zu[i] / (delta.zu[i] + cor);
       if (val < alpha_dual) {
         alpha_dual = val;
         d_limit_z = it_.zu[i];
-        d_limit_dz = -(delta.zu[i] + add);
+        d_limit_dz = -(delta.zu[i] + cor);
       }
     }
   }
   alpha_dual *= kInteriorScaling;
 
-  DataCollector::get()->back().p_limit_x = p_limit_x;
-  DataCollector::get()->back().p_limit_dx = p_limit_dx;
-  DataCollector::get()->back().d_limit_z = d_limit_z;
-  DataCollector::get()->back().d_limit_dz = d_limit_dz;
+  if (!corrector) {
+    // save limiting components
+    DataCollector::get()->back().p_limit_x = p_limit_x;
+    DataCollector::get()->back().p_limit_dx = p_limit_dx;
+    DataCollector::get()->back().d_limit_z = d_limit_z;
+    DataCollector::get()->back().d_limit_dz = d_limit_dz;
+  }
 
   assert(alpha_primal > 0 && alpha_primal < 1 && alpha_dual > 0 &&
          alpha_dual < 1);
 }
 
 void Ipm::makeStep() {
-  computeStepSizes(delta_, nullptr, alpha_primal_, alpha_dual_);
+  computeStepSizes(alpha_primal_, alpha_dual_, delta_);
 
   if (std::min(alpha_primal_, alpha_dual_) < 0.05)
     ++bad_iter_;
@@ -607,7 +611,7 @@ void Ipm::computeResidualsMcc() {
 
   // stepsizes of current direction
   double alpha_p, alpha_d;
-  computeStepSizes(delta_, nullptr, alpha_p, alpha_d);
+  computeStepSizes(alpha_p, alpha_d, delta_);
 
   // compute increased stepsizes
   alpha_p = std::max(1.0, alpha_p + kMccIncreaseAlpha);
@@ -623,9 +627,6 @@ void Ipm::computeResidualsMcc() {
   vectorAdd(zlt, delta_.zl, alpha_d);
   vectorAdd(zut, delta_.zu, alpha_d);
 
-  double max_v1{};
-  double max_v2{};
-
   // compute right-hand side for mcc
   for (int i = 0; i < n_; ++i) {
     // res5
@@ -636,7 +637,6 @@ void Ipm::computeResidualsMcc() {
 
         double temp = sigma_ * mu_ * kGammaCorrector - prod;
         res_.res5[i] += temp;
-        max_v1 = std::max(max_v1, temp);
 
       } else if (prod > sigma_ * mu_ / kGammaCorrector) {
         // prod is large, we may subtract something large from res5.
@@ -645,7 +645,6 @@ void Ipm::computeResidualsMcc() {
         double temp = sigma_ * mu_ / kGammaCorrector - prod;
         temp = std::max(temp, -sigma_ * mu_ / kGammaCorrector);
         res_.res5[i] += temp;
-        max_v2 = std::max(max_v2, std::abs(temp));
       }
     } else {
       res_.res5[i] = 0.0;
@@ -659,7 +658,6 @@ void Ipm::computeResidualsMcc() {
 
         double temp = sigma_ * mu_ * kGammaCorrector - prod;
         res_.res6[i] += temp;
-        max_v1 = std::max(max_v1, temp);
 
       } else if (prod > sigma_ * mu_ / kGammaCorrector) {
         // prod is large, we may subtract something large from res6.
@@ -668,20 +666,17 @@ void Ipm::computeResidualsMcc() {
         double temp = sigma_ * mu_ / kGammaCorrector - prod;
         temp = std::max(temp, -sigma_ * mu_ / kGammaCorrector);
         res_.res6[i] += temp;
-        max_v2 = std::max(max_v2, std::abs(temp));
       }
     } else {
       res_.res6[i] = 0.0;
     }
   }
-
-  // printf("%e %e\n", max_v1, max_v2);
 }
 
 bool Ipm::centralityCorrectors() {
   // compute stepsizes of current direction
   double alpha_p_old, alpha_d_old;
-  computeStepSizes(delta_, nullptr, alpha_p_old, alpha_d_old);
+  computeStepSizes(alpha_p_old, alpha_d_old, delta_);
 
 #ifdef PRINT_CORRECTORS
   printf("(%.2f,%.2f) -> ", alpha_p_old, alpha_d_old);
@@ -697,9 +692,10 @@ bool Ipm::centralityCorrectors() {
     if (solveNewtonSystem(corr)) return true;
     if (recoverDirection(corr)) return true;
 
-    // stepsizes of new corrected direction
     double alpha_p, alpha_d;
-    computeStepSizes(delta_, &corr, alpha_p, alpha_d);
+    double wp = alpha_p_old * alpha_d_old;
+    double wd = wp;
+    computeBestWeight(delta_, corr, wp, wd, alpha_p, alpha_d);
 
 #ifdef PRINT_CORRECTORS
     printf("(%.2f,%.2f) -> ", alpha_p, alpha_d);
@@ -716,16 +712,16 @@ bool Ipm::centralityCorrectors() {
 
     if (alpha_p >= alpha_p_old + kMccIncreaseAlpha * kMccIncreaseMin) {
       // accept primal corrector
-      vectorAdd(delta_.x, corr.x);
-      vectorAdd(delta_.xl, corr.xl);
-      vectorAdd(delta_.xu, corr.xu);
+      vectorAdd(delta_.x, corr.x, wp);
+      vectorAdd(delta_.xl, corr.xl, wp);
+      vectorAdd(delta_.xu, corr.xu, wp);
       alpha_p_old = alpha_p;
     }
     if (alpha_d >= alpha_d_old + kMccIncreaseAlpha * kMccIncreaseMin) {
       // accept dual corrector
-      vectorAdd(delta_.y, corr.y);
-      vectorAdd(delta_.zl, corr.zl);
-      vectorAdd(delta_.zu, corr.zu);
+      vectorAdd(delta_.y, corr.y, wd);
+      vectorAdd(delta_.zl, corr.zl, wd);
+      vectorAdd(delta_.zu, corr.zu, wd);
       alpha_d_old = alpha_d;
     }
 
@@ -744,6 +740,39 @@ bool Ipm::centralityCorrectors() {
   DataCollector::get()->back().correctors = cor;
 
   return false;
+}
+
+void Ipm::computeBestWeight(const NewtonDir& delta, const NewtonDir& corrector,
+                            double& wp, double& wd, double& alpha_p,
+                            double& alpha_d) const {
+  // Find the best primal and dual weights for the corrector in the interval
+  // [alpha_p_old * alpha_d_old, 1].
+  // Upon return, wp and wd are the optimal weights, alpha_p and alpha_d are the
+  // corresponding stepsizes.
+
+  // keep track of best stepsizes
+  alpha_p = 0.0;
+  alpha_d = 0.0;
+
+  // initial weight
+  double w = wp;
+
+  // divide interval into 9 points
+  double step = (1.0 - w) / 8;
+
+  // for each weight, compute stepsizes and save best ones
+  for (; w <= 1.0; w += step) {
+    double ap, ad;
+    computeStepSizes(ap, ad, delta, &corrector, w);
+    if (ap > alpha_p) {
+      alpha_p = ap;
+      wp = w;
+    }
+    if (ad > alpha_d) {
+      alpha_d = ad;
+      wd = w;
+    }
+  }
 }
 
 void Ipm::computeIndicators() {
