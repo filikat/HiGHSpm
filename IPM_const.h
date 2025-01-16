@@ -16,7 +16,7 @@ enum OptionFormat {
   kOptionFormatHybridHybrid,
   kOptionFormatPackedPacked,
   kOptionFormatMax = kOptionFormatPackedPacked,
-  kOptionFormatDefault = kOptionFormatHybridPacked
+  kOptionFormatDefault = kOptionFormatHybridHybrid
 };
 
 struct Options {
@@ -36,8 +36,7 @@ const int kMaxCorrectors = 5;
 const double kMccIncreaseAlpha = 0.1;
 const double kMccIncreaseMin = 0.1;
 const double kSmallProduct = 1e-3;
-const double kLargeProduct = 1e2;
-const double kThreshProduct = 1e3;
+const double kLargeProduct = 1e3;
 
 // other parameters
 const double kInteriorScaling = 0.999;

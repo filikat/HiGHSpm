@@ -48,9 +48,6 @@ class IpmModel {
   int cexp_{};
   int bexp_{};
 
-  double norm_rhs_ = -1.0;
-  double norm_obj_ = -1.0;
-
  public:
   // Check if variable has finite lower/upper bound
   bool hasLb(int j) const { return lower_[j] != -kInf; }
@@ -72,8 +69,10 @@ class IpmModel {
   void scale();
   void unscale(Iterate& it);
 
-  double normRhs();
-  double normObj();
+  double normScaledRhs() const;
+  double normScaledObj() const;
+  double normUnscaledRhs() const;
+  double normUnscaledObj() const;
 
   friend class Ipm;
 };

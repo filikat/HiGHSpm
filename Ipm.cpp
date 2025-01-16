@@ -51,10 +51,10 @@ Output Ipm::solve() {
   LS_->clear();
 
   // initialize starting point, residuals and mu
-  computeStartingPoint();
+  startingPoint();
   computeResiduals1234();
   computeMu();
-  computeIndicators();
+  indicators();
 
   // ------------------------------------------
   // ---- MAIN LOOP ---------------------------
@@ -89,7 +89,7 @@ Output Ipm::solve() {
     makeStep();
     computeResiduals1234();
     computeMu();
-    computeIndicators();
+    indicators();
     collectData();
     printOutput();
   }
@@ -338,9 +338,9 @@ bool Ipm::recoverDirection(NewtonDir& delta) {
   return false;
 }
 
-void Ipm::computeStepSizes(double& alpha_primal, double& alpha_dual,
-                           const NewtonDir& delta, const NewtonDir* corrector,
-                           double weight) const {
+void Ipm::stepSizes(double& alpha_primal, double& alpha_dual,
+                    const NewtonDir& delta, const NewtonDir* corrector,
+                    double weight) const {
   // Compute primal and dual stepsizes, based on direction delta.
   // If corrector is valid, then the stepsizes are computed based on direction
   // delta + weight * corrector, to allow for weighted correctors.
@@ -408,7 +408,7 @@ void Ipm::computeStepSizes(double& alpha_primal, double& alpha_dual,
 }
 
 void Ipm::makeStep() {
-  computeStepSizes(alpha_primal_, alpha_dual_, delta_);
+  stepSizes(alpha_primal_, alpha_dual_, delta_);
 
   if (std::min(alpha_primal_, alpha_dual_) < 0.05)
     ++bad_iter_;
@@ -423,7 +423,7 @@ void Ipm::makeStep() {
   vectorAdd(it_.zu, delta_.zu, alpha_dual_);
 }
 
-void Ipm::computeStartingPoint() {
+void Ipm::startingPoint() {
   // *********************************************************************
   // x starting point
   // *********************************************************************
@@ -629,7 +629,7 @@ void Ipm::computeSigma() {
   DataCollector::get()->back().sigma = sigma_;
 }
 
-void Ipm::computeResidualsMcc() {
+void Ipm::residualsMcc() {
   // compute right-hand side for multiple centrality correctors
 
   // clear existing residuals
@@ -637,7 +637,7 @@ void Ipm::computeResidualsMcc() {
 
   // stepsizes of current direction
   double alpha_p, alpha_d;
-  computeStepSizes(alpha_p, alpha_d, delta_);
+  stepSizes(alpha_p, alpha_d, delta_);
 
   // compute increased stepsizes
   alpha_p = std::max(1.0, alpha_p + kMccIncreaseAlpha);
@@ -702,7 +702,7 @@ void Ipm::computeResidualsMcc() {
 bool Ipm::centralityCorrectors() {
   // compute stepsizes of current direction
   double alpha_p_old, alpha_d_old;
-  computeStepSizes(alpha_p_old, alpha_d_old, delta_);
+  stepSizes(alpha_p_old, alpha_d_old, delta_);
 
 #ifdef PRINT_CORRECTORS
   printf("(%.2f,%.2f) -> ", alpha_p_old, alpha_d_old);
@@ -711,7 +711,7 @@ bool Ipm::centralityCorrectors() {
   int cor;
   for (cor = 0; cor < kMaxCorrectors; ++cor) {
     // compute rhs for corrector
-    computeResidualsMcc();
+    residualsMcc();
 
     // compute corrector
     NewtonDir corr(m_, n_);
@@ -721,7 +721,7 @@ bool Ipm::centralityCorrectors() {
     double alpha_p, alpha_d;
     double wp = alpha_p_old * alpha_d_old;
     double wd = wp;
-    computeBestWeight(delta_, corr, wp, wd, alpha_p, alpha_d);
+    bestWeight(delta_, corr, wp, wd, alpha_p, alpha_d);
 
 #ifdef PRINT_CORRECTORS
     printf("(%.2f,%.2f) -> ", alpha_p, alpha_d);
@@ -768,9 +768,9 @@ bool Ipm::centralityCorrectors() {
   return false;
 }
 
-void Ipm::computeBestWeight(const NewtonDir& delta, const NewtonDir& corrector,
-                            double& wp, double& wd, double& alpha_p,
-                            double& alpha_d) const {
+void Ipm::bestWeight(const NewtonDir& delta, const NewtonDir& corrector,
+                     double& wp, double& wd, double& alpha_p,
+                     double& alpha_d) const {
   // Find the best primal and dual weights for the corrector in the interval
   // [alpha_p_old * alpha_d_old, 1].
   // Upon return, wp and wd are the optimal weights, alpha_p and alpha_d are the
@@ -789,7 +789,7 @@ void Ipm::computeBestWeight(const NewtonDir& delta, const NewtonDir& corrector,
   // for each weight, compute stepsizes and save best ones
   for (; w <= 1.0; w += step) {
     double ap, ad;
-    computeStepSizes(ap, ad, delta, &corrector, w);
+    stepSizes(ap, ad, delta, &corrector, w);
     if (ap > alpha_p) {
       alpha_p = ap;
       wp = w;
@@ -801,20 +801,58 @@ void Ipm::computeBestWeight(const NewtonDir& delta, const NewtonDir& corrector,
   }
 }
 
-void Ipm::computeIndicators() {
+void Ipm::primalScaledInfeas() {
+  // relative infinity norm of scaled primal residuals
   primal_infeas_ = infNorm(res_.res1);
   primal_infeas_ = std::max(primal_infeas_, infNorm(res_.res2));
   primal_infeas_ = std::max(primal_infeas_, infNorm(res_.res3));
-  primal_infeas_ /= (1 + model_.normRhs());
+  primal_infeas_ /= (1 + model_.normScaledRhs());
+}
+void Ipm::dualScaledInfeas() {
+  // relative infinity norm of scaled dual residual
+  dual_infeas_ = infNorm(res_.res4) / (1 + model_.normScaledObj());
+}
+void Ipm::primalUnscaledInfeas() {
+  // relative infinity norm of unscaled primal residuals
+  primal_infeas_ = 0.0;
+  for (int i = 0; i < m_; ++i) {
+    double val = std::abs(res_.res1[i]);
+    if (!model_.rowexp_.empty())
+      val = std::ldexp(val, -model_.bexp_ - model_.rowexp_[i]);
+    primal_infeas_ = std::max(primal_infeas_, val);
+  }
+  for (int i = 0; i < n_; ++i) {
+    double val = std::abs(res_.res2[i]);
+    if (!model_.colexp_.empty())
+      val = std::ldexp(val, -model_.bexp_ + model_.colexp_[i]);
+    primal_infeas_ = std::max(primal_infeas_, val);
 
-  dual_infeas_ = infNorm(res_.res4) / (1 + model_.normObj());
-
-  // compute unscaled primal and dual objectives
+    val = std::abs(res_.res3[i]);
+    if (!model_.colexp_.empty())
+      val = std::ldexp(val, -model_.bexp_ + model_.colexp_[i]);
+    primal_infeas_ = std::max(primal_infeas_, val);
+  }
+  primal_infeas_ /= (1.0 + model_.normUnscaledRhs());
+}
+void Ipm::dualUnscaledInfeas() {
+  // relative infinity norm of unscaled dual residual
+  dual_infeas_ = 0.0;
+  for (int i = 0; i < n_; ++i) {
+    double val = std::abs(res_.res4[i]);
+    if (model_.colexp_.size() > 0)
+      val = std::ldexp(val, -model_.cexp_ - model_.colexp_[i]);
+    dual_infeas_ = std::max(dual_infeas_, val);
+  }
+  dual_infeas_ /= (1.0 + model_.normUnscaledObj());
+}
+void Ipm::primalObj() {
+  // compute unscaled primal objective
   primal_obj_ = dotProd(it_.x, model_.c_);
-
   if (model_.colexp_.size() > 0)
     primal_obj_ = std::ldexp(primal_obj_, -model_.cexp_ - model_.bexp_);
-
+}
+void Ipm::dualObj() {
+  // compute unscaled dual objective
   dual_obj_ = dotProd(it_.y, model_.b_);
   for (int i = 0; i < n_; ++i) {
     if (model_.hasLb(i)) {
@@ -824,17 +862,24 @@ void Ipm::computeIndicators() {
       dual_obj_ -= model_.upper_[i] * it_.zu[i];
     }
   }
-
   if (model_.colexp_.size() > 0)
     dual_obj_ = std::ldexp(dual_obj_, -model_.cexp_ - model_.bexp_);
+}
+void Ipm::indicators() {
+  primalScaledInfeas();
+  dualScaledInfeas();
+  // primalUnscaledInfeas();
+  // dualUnscaledInfeas();
+  primalObj();
+  dualObj();
+  complProducts();
 
+  // relative primal-dual gap
   pd_gap_ = std::abs(primal_obj_ - dual_obj_) /
             (1 + 0.5 * std::abs(primal_obj_ + dual_obj_));
-
-  computeProducts();
 }
 
-void Ipm::computeProducts() {
+void Ipm::complProducts() {
   if (iter_ == 0) return;
 
   // compute min and max entry in Theta
@@ -957,7 +1002,7 @@ bool Ipm::checkTermination() {
   if (pd_gap_ < kIpmTolerance &&         // primal-dual gap is small
       primal_infeas_ < kIpmTolerance &&  // primal feasibility
       dual_infeas_ < kIpmTolerance) {    // dual feasibility
-    printf("\n===== Optimal solution found =====\n");
+    printf("\n===== Optimal solution found =====\n\n");
 
     ipm_status_ = "Optimal";
     return true;

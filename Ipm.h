@@ -217,10 +217,9 @@ class Ipm {
   //
   // If corrector is valid, the direction used is delta + weight * corrector
   // ===================================================================================
-  void computeStepSizes(double& alpha_primal, double& alpha_dual,
-                        const NewtonDir& delta,
-                        const NewtonDir* corrector = nullptr,
-                        double weight = 1.0) const;
+  void stepSizes(double& alpha_primal, double& alpha_dual,
+                 const NewtonDir& delta, const NewtonDir* corrector = nullptr,
+                 double weight = 1.0) const;
 
   // ===================================================================================
   // Make the step in the Newton direction with appropriate stepsizes.
@@ -233,7 +232,7 @@ class Ipm {
   // This task does not need a factorization and can continue to use CG, because
   // these linear systems are very easy to solve with CG.
   // ===================================================================================
-  void computeStartingPoint();
+  void startingPoint();
 
   // ===================================================================================
   // Given the predictor direction, compute predicted mu
@@ -250,7 +249,7 @@ class Ipm {
   // Compute the residuals for the computation of multiple centrality
   // correctors.
   // ===================================================================================
-  void computeResidualsMcc();
+  void residualsMcc();
 
   // ===================================================================================
   // Iteratively compute correctors, until they improve the stepsizes.
@@ -264,9 +263,9 @@ class Ipm {
   // Given the current direction delta and the latest corrector, compute the
   // best primal and dual weights, that maximize the primal and dual stepsize.
   // ===================================================================================
-  void computeBestWeight(const NewtonDir& delta, const NewtonDir& corrector,
-                         double& wp, double& wd, double& alpha_p,
-                         double& alpha_d) const;
+  void bestWeight(const NewtonDir& delta, const NewtonDir& corrector,
+                  double& wp, double& wd, double& alpha_p,
+                  double& alpha_d) const;
 
   // ===================================================================================
   // Compute
@@ -276,12 +275,18 @@ class Ipm {
   // - dual objective
   // - primal-dual relative gap
   // ===================================================================================
-  void computeIndicators();
+  void primalScaledInfeas();
+  void dualScaledInfeas();
+  void primalUnscaledInfeas();
+  void dualUnscaledInfeas();
+  void primalObj();
+  void dualObj();
+  void indicators();
 
   // ===================================================================================
   // Compute the complementarity products and potentially alter them.
   // ===================================================================================
-  void computeProducts();
+  void complProducts();
 
   // ===================================================================================
   // If the current iterate is nan or inf, abort the iterations.

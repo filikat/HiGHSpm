@@ -279,20 +279,45 @@ void IpmModel::unscale(Iterate& it) {
   }
 }
 
-double IpmModel::normRhs() {
-  if (norm_rhs_ < 0) {
-    norm_rhs_ = infNorm(b_);
-    for (double d : lower_)
-      if (std::isfinite(d)) norm_rhs_ = std::max(norm_rhs_, std::abs(d));
-    for (double d : upper_)
-      if (std::isfinite(d)) norm_rhs_ = std::max(norm_rhs_, std::abs(d));
-  }
-  return norm_rhs_;
+double IpmModel::normScaledRhs() const {
+  double norm_rhs = infNorm(b_);
+  for (double d : lower_)
+    if (std::isfinite(d)) norm_rhs = std::max(norm_rhs, std::abs(d));
+  for (double d : upper_)
+    if (std::isfinite(d)) norm_rhs = std::max(norm_rhs, std::abs(d));
+  return norm_rhs;
 }
 
-double IpmModel::normObj() {
-  if (norm_obj_ < 0) {
-    norm_obj_ = infNorm(c_);
+double IpmModel::normScaledObj() const { return infNorm(c_); }
+
+double IpmModel::normUnscaledObj() const {
+  double norm_obj = 0.0;
+  for (int i = 0; i < num_var_; ++i) {
+    double val = std::abs(c_[i]);
+    if (colexp_.size() > 0) val = std::ldexp(val, -cexp_ - colexp_[i]);
+    norm_obj = std::max(norm_obj, val);
   }
-  return norm_obj_;
+  return norm_obj;
+}
+
+double IpmModel::normUnscaledRhs() const {
+  double norm_rhs = 0.0;
+  for (int i = 0; i < num_con_; ++i) {
+    double val = std::abs(b_[i]);
+    if (rowexp_.size() > 0) val = std::ldexp(val, -bexp_ - rowexp_[i]);
+    norm_rhs = std::max(norm_rhs, val);
+  }
+  for (int i = 0; i < num_var_; ++i) {
+    if (std::isfinite(lower_[i])) {
+      double val = std::abs(lower_[i]);
+      if (colexp_.size() > 0) val = std::ldexp(val, colexp_[i] - bexp_);
+      norm_rhs = std::max(norm_rhs, val);
+    }
+    if (isfinite(upper_[i])) {
+      double val = std::abs(upper_[i]);
+      if (colexp_.size() > 0) val = std::ldexp(val, colexp_[i] - bexp_);
+      norm_rhs = std::max(norm_rhs, val);
+    }
+  }
+  return norm_rhs;
 }
