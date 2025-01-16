@@ -156,6 +156,22 @@ void IpmModel::checkCoefficients() const {
 void IpmModel::scale() {
   // Apply Curtis-Reid scaling and scale the problem accordingly
 
+  // check if scaling is needed
+  bool need_scaling = false;
+  for (int col = 0; col < num_var_; ++col) {
+    for (int el = A_.start_[col]; el < A_.start_[col + 1]; ++el) {
+      if (std::abs(A_.value_[el]) != 1.0) {
+        need_scaling = true;
+        break;
+      }
+    }
+  }
+
+  if (!need_scaling) {
+    printf("No scaling required\n");
+    return;
+  }
+
   // *********************************************************************
   // Compute scaling
   // *********************************************************************
