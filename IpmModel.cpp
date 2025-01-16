@@ -313,7 +313,7 @@ double IpmModel::normUnscaledRhs() const {
       if (colexp_.size() > 0) val = std::ldexp(val, colexp_[i] - bexp_);
       norm_rhs = std::max(norm_rhs, val);
     }
-    if (isfinite(upper_[i])) {
+    if (std::isfinite(upper_[i])) {
       double val = std::abs(upper_[i]);
       if (colexp_.size() > 0) val = std::ldexp(val, colexp_[i] - bexp_);
       norm_rhs = std::max(norm_rhs, val);
