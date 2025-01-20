@@ -55,6 +55,7 @@ Output Ipm::solve() {
   computeResiduals1234();
   computeMu();
   indicators();
+  printOutput();
 
   // ------------------------------------------
   // ---- MAIN LOOP ---------------------------
@@ -1011,7 +1012,7 @@ bool Ipm::checkTermination() {
 }
 
 void Ipm::printHeader() const {
-  if (iter_ % 20 == 1) {
+  if (iter_ % 20 == 0) {
     printf(
         " iter      primal obj        dual obj        pinf      dinf "
         "       mu      alpha p/d    p/d gap    time\n");
