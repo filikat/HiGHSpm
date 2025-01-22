@@ -234,9 +234,11 @@ void residual_x(const HighsSparseMatrix& A, const std::vector<double>& scaling,
     // total_reg, already including static and dynamic.
     double primal_reg{};
     if (use_as)
-      primal_reg = total_reg[i];
+      primal_reg = -total_reg[i];
     else
       primal_reg = kPrimalStaticRegularization;
+
+    assert(primal_reg >= 0);
 
     if (use_reg)
       res_x[i] += delta_x[i] * (scaling[i] + primal_reg);
@@ -264,6 +266,8 @@ void residual_y(const HighsSparseMatrix& A, const std::vector<double>& rhs_y,
       // total_reg_ stored only Rd for NE, stores both Rd, Rp for AS
       int offset = use_as ? n : 0;
       double dual_reg = total_reg[i + offset];
+
+      assert(dual_reg >= 0);
 
       res_y[i] -= dual_reg * delta_y[i];
     }

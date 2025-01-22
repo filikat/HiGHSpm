@@ -275,7 +275,7 @@ bool Ipm::solveNewtonSystem(NewtonDir& delta) {
   }
 
   // iterative refinement
-  LS_->refine(model_.A_, scaling_, res7, res_.res1, delta.x, delta.y);
+  //LS_->refine(model_.A_, scaling_, res7, res_.res1, delta.x, delta.y);
 
   return false;
 
