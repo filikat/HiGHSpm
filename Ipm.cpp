@@ -170,10 +170,6 @@ void Ipm::computeResiduals1234() {
 }
 
 void Ipm::computeResiduals56() {
-  // For predictor, sigma_ should be zero (or small).
-  // For corrector, delta_ should be the affine scaling direction and sigma_
-  // should be computed with computeSigma().
-
   for (int i = 0; i < n_; ++i) {
     // res5
     if (model_.hasLb(i)) {
@@ -274,9 +270,6 @@ bool Ipm::solveNewtonSystem(NewtonDir& delta) {
     if (LS_->solveAS(res7, res_.res1, delta.x, delta.y)) goto failure;
   }
 
-  // iterative refinement
-  //LS_->refine(model_.A_, scaling_, res7, res_.res1, delta.x, delta.y);
-
   return false;
 
 // Failure occured in factorisation or solve
@@ -325,6 +318,8 @@ bool Ipm::recoverDirection(NewtonDir& delta) {
       }
     }
   }
+
+  backwardError(delta);
 
   // Check for NaN of Inf
   if (delta.isNaN()) {
@@ -1009,6 +1004,190 @@ bool Ipm::checkTermination() {
     return true;
   }
   return false;
+}
+
+void Ipm::backwardError(const NewtonDir& delta) const {
+  // ===================================================================================
+  // Normwise backward error
+  // ===================================================================================
+
+  // residuals of the six blocks of equations
+  // res1 - A * dx
+  std::vector<double> r1 = res_.res1;
+  model_.A_.alphaProductPlusY(-1.0, delta.x, r1);
+
+  // res2 - dx + dxl
+  std::vector<double> r2(n_);
+  for (int i = 0; i < n_; ++i) r2[i] = res_.res2[i] - delta.x[i] + delta.xl[i];
+
+  // res3 - dx - dxu
+  std::vector<double> r3(n_);
+  for (int i = 0; i < n_; ++i) r3[i] = res_.res3[i] - delta.x[i] - delta.xu[i];
+
+  // res4 - A^T * dy - dzl + dzu
+  std::vector<double> r4(n_);
+  for (int i = 0; i < n_; ++i) r4[i] = res_.res4[i] - delta.zl[i] + delta.zu[i];
+  model_.A_.alphaProductPlusY(-1.0, delta.y, r4, true);
+
+  // res5 - Zl * Dxl - Xl * Dzl
+  std::vector<double> r5(n_);
+  for (int i = 0; i < n_; ++i) {
+    if (model_.hasLb(i))
+      r5[i] = res_.res5[i] - it_.zl[i] * delta.xl[i] - it_.xl[i] * delta.zl[i];
+  }
+
+  // res6 - Zu * Dxu - Xu * Dzu
+  std::vector<double> r6(n_);
+  for (int i = 0; i < n_; ++i) {
+    if (model_.hasUb(i))
+      r6[i] = res_.res6[i] - it_.zu[i] * delta.xu[i] - it_.xu[i] * delta.zu[i];
+  }
+
+  // ...and their infinity norm
+  double inf_norm_r{};
+  inf_norm_r = std::max(inf_norm_r, infNorm(r1));
+  inf_norm_r = std::max(inf_norm_r, infNorm(r2));
+  inf_norm_r = std::max(inf_norm_r, infNorm(r3));
+  inf_norm_r = std::max(inf_norm_r, infNorm(r4));
+  inf_norm_r = std::max(inf_norm_r, infNorm(r5));
+  inf_norm_r = std::max(inf_norm_r, infNorm(r6));
+
+  // infinity norm of solution
+  double inf_norm_delta{};
+  inf_norm_delta = std::max(inf_norm_delta, infNorm(delta.x));
+  inf_norm_delta = std::max(inf_norm_delta, infNorm(delta.xl));
+  inf_norm_delta = std::max(inf_norm_delta, infNorm(delta.xu));
+  inf_norm_delta = std::max(inf_norm_delta, infNorm(delta.y));
+  inf_norm_delta = std::max(inf_norm_delta, infNorm(delta.zl));
+  inf_norm_delta = std::max(inf_norm_delta, infNorm(delta.zu));
+
+  // infinity norm of rhs
+  double inf_norm_res{};
+  inf_norm_res = std::max(inf_norm_res, infNorm(res_.res1));
+  inf_norm_res = std::max(inf_norm_res, infNorm(res_.res2));
+  inf_norm_res = std::max(inf_norm_res, infNorm(res_.res3));
+  inf_norm_res = std::max(inf_norm_res, infNorm(res_.res4));
+  inf_norm_res = std::max(inf_norm_res, infNorm(res_.res5));
+  inf_norm_res = std::max(inf_norm_res, infNorm(res_.res6));
+
+  // infinity norm of big 6x6 matrix:
+  // max( ||A||_inf, 2, 2+||A||_1, max_j(zl_j+xl_j), max_j(zu_j+xu_j) )
+
+  std::vector<double> norm_cols_A(n_);
+  std::vector<double> norm_rows_A(m_);
+  for (int col = 0; col < n_; ++col) {
+    for (int el = model_.A_.start_[col]; el < model_.A_.start_[col + 1]; ++el) {
+      int row = model_.A_.index_[el];
+      double val = model_.A_.value_[el];
+      norm_cols_A[col] += std::abs(val);
+      norm_rows_A[row] += std::abs(val);
+    }
+  }
+  double one_norm_A = *std::max_element(norm_cols_A.begin(), norm_cols_A.end());
+  double inf_norm_A = *std::max_element(norm_rows_A.begin(), norm_rows_A.end());
+
+  double inf_norm_matrix = inf_norm_A;
+  inf_norm_matrix = std::max(inf_norm_matrix, one_norm_A + 2);
+  for (int i = 0; i < n_; ++i) {
+    if (model_.hasLb(i))
+      inf_norm_matrix = std::max(inf_norm_matrix, it_.zl[i] + it_.xl[i]);
+    if (model_.hasUb(i))
+      inf_norm_matrix = std::max(inf_norm_matrix, it_.zu[i] + it_.xu[i]);
+  }
+
+  // compute normwise backward error:
+  // ||residual|| / ( ||matrix|| * ||solution|| + ||rhs|| )
+  double nw_back_err =
+      inf_norm_r / (inf_norm_matrix * inf_norm_delta + inf_norm_res);
+
+  DataCollector::get()->back().nw_back_err =
+      std::max(DataCollector::get()->back().nw_back_err, nw_back_err);
+
+  // ===================================================================================
+  // Componentwise backward error
+  // ===================================================================================
+
+  // Compute |A| * |dx| and |A^T| * |dy|
+  std::vector<double> abs_prod_A(m_);
+  std::vector<double> abs_prod_At(n_);
+  for (int col = 0; col < n_; ++col) {
+    for (int el = model_.A_.start_[col]; el < model_.A_.start_[col + 1]; ++el) {
+      int row = model_.A_.index_[el];
+      double val = model_.A_.value_[el];
+      abs_prod_A[row] += std::abs(val) * std::abs(delta.x[col]);
+      abs_prod_At[col] += std::abs(val) * std::abs(delta.y[row]);
+    }
+  }
+
+  // componentwise backward error:
+  // max |residual_i| / (|matrix| * |solution| + |rhs|)_i
+  double cw_back_err{};
+
+  // first block
+  for (int i = 0; i < m_; ++i) {
+    double denom = abs_prod_A[i] + std::abs(res_.res1[i]);
+    double num = std::abs(r1[i]);
+    if (denom == 0.0) {
+      if (num != 0.0) cw_back_err = std::numeric_limits<double>::max();
+    } else
+      cw_back_err = std::max(cw_back_err, num / denom);
+  }
+  // second and third block
+  for (int i = 0; i < n_; ++i) {
+    if (model_.hasLb(i)) {
+      double denom =
+          std::abs(delta.x[i]) + std::abs(delta.xl[i]) + std::abs(res_.res2[i]);
+      double num = std::abs(r2[i]);
+      if (denom == 0.0) {
+        if (num != 0.0) cw_back_err = std::numeric_limits<double>::max();
+      } else
+        cw_back_err = std::max(cw_back_err, num / denom);
+    }
+    if (model_.hasUb(i)) {
+      double denom =
+          std::abs(delta.x[i]) + std::abs(delta.xu[i]) + std::abs(res_.res3[i]);
+      double num = std::abs(r3[i]);
+      if (denom == 0.0) {
+        if (num != 0.0) cw_back_err = std::numeric_limits<double>::max();
+      } else
+        cw_back_err = std::max(cw_back_err, num / denom);
+    }
+  }
+  // fourth block
+  for (int i = 0; i < n_; ++i) {
+    double denom = abs_prod_At[i] + std::abs(res_.res4[i]);
+    if (model_.hasLb(i)) denom += std::abs(delta.zl[i]);
+    if (model_.hasUb(i)) denom += std::abs(delta.zu[i]);
+    double num = std::abs(r4[i]);
+    if (denom == 0.0) {
+      if (num != 0.0) cw_back_err = std::numeric_limits<double>::max();
+    } else
+      cw_back_err = std::max(cw_back_err, num / denom);
+  }
+  // fifth and sixth block
+  for (int i = 0; i < n_; ++i) {
+    if (model_.hasLb(i)) {
+      double denom = it_.zl[i] * std::abs(delta.xl[i]) +
+                     it_.xl[i] * std::abs(delta.zl[i]) + std::abs(res_.res5[i]);
+      double num = std::abs(r5[i]);
+      if (denom == 0.0) {
+        if (num != 0.0) cw_back_err = std::numeric_limits<double>::max();
+      } else
+        cw_back_err = std::max(cw_back_err, num / denom);
+    }
+    if (model_.hasUb(i)) {
+      double denom = it_.zu[i] * std::abs(delta.xu[i]) +
+                     it_.xu[i] * std::abs(delta.zu[i]) + std::abs(res_.res6[i]);
+      double num = std::abs(r6[i]);
+      if (denom == 0.0) {
+        if (num != 0.0) cw_back_err = std::numeric_limits<double>::max();
+      } else
+        cw_back_err = std::max(cw_back_err, num / denom);
+    }
+  }
+
+  DataCollector::get()->back().cw_back_err =
+      std::max(DataCollector::get()->back().cw_back_err, cw_back_err);
 }
 
 void Ipm::printHeader() const {

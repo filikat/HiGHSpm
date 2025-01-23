@@ -31,17 +31,7 @@ class FactorHiGHSSolver : public LinearSolver {
               std::vector<double>& lhs_y) override;
   int setup(const HighsSparseMatrix& A, const Options& options) override;
   void clear() override;
-  void refine(const HighsSparseMatrix& A, const std::vector<double>& scaling,
-              const std::vector<double>& rhs_x,
-              const std::vector<double>& rhs_y, std::vector<double>& lhs_x,
-              std::vector<double>& lhs_y) override;
   void finalise() override;
-
-  // Other functions
-  void solveForRefineNE(const HighsSparseMatrix& A,
-                        const std::vector<double>& scaling,
-                        std::vector<double>& res_x,
-                        std::vector<double>& res_y) const;
 };
 
 #endif

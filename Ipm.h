@@ -125,11 +125,6 @@ class Ipm {
   //  res5 = sigma * mu * e - Xl * Zl * e
   //  res6 = sigma * mu * e - Xu * Zu * e
   //
-  //  Or
-  //
-  //  res5 = sigma * mu * e - D_aff Xl * D_aff Zl * e
-  //  res6 = sigma * mu * e - D_aff Xu * D_aff Zu * e
-  //
   // Components of residuals 5,6 are set to zero if the corresponding
   // upper/lower bound is not finite.
   // ===================================================================================
@@ -305,6 +300,12 @@ class Ipm {
   //  - relative dual gap    < tolerance
   // ===================================================================================
   bool checkTermination();
+
+  // ===================================================================================
+  // Compute the normwise and componentwise backward error for the large 6x6
+  // linear system
+  // ===================================================================================
+  void backwardError(const NewtonDir& delta) const;
 
   void printInfo() const;
   void printHeader() const;
