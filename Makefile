@@ -33,7 +33,8 @@ cpp_sources = \
 		../FactorHiGHS/DenseFactFull.cpp \
 		../FactorHiGHS/DenseFactHybrid.cpp \
 		../FactorHiGHS/CallAndTimeBlas.cpp \
-		../FactorHiGHS/KrylovMethods.cpp
+		../FactorHiGHS/KrylovMethods.cpp \
+		../FactorHiGHS/SymScaling.cpp
 
 # binary file name
 binary_name = ipm

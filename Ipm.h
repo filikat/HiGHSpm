@@ -195,26 +195,39 @@ class Ipm {
   bool recoverDirection(NewtonDir& delta);
 
   // ===================================================================================
-  // Find alpha_primal:
+  // Steps to boundary are computed so that
   //
   //  x  + alpha_primal * Deltax
   //  xl + alpha_primal * Deltaxl > 0     (if lower bound finite)
   //  xu + alpha_primal * Deltaxu > 0     (if upper bound finite)
   //
-  // Find alpha_dual:
-  //
   //  y  + alpha_dual * Deltay
   //  zl + alpha_dual * Deltazl > 0       (if lower bound finite)
   //  zu + alpha_dual * Deltazu > 0       (if upper bound finite)
   //
-  // Step-sizes are scaled down by kInteriorScaling < 1, to guarantee that no
-  // component of the new iterate is equal to zero.
-  //
-  // If corrector is valid, the direction used is delta + weight * corrector
+  // If cor is valid, the direction used is delta + weight * cor
+  // If block is valid, the blocking index is returned.
   // ===================================================================================
-  void stepSizes(double& alpha_primal, double& alpha_dual,
-                 const NewtonDir& delta, const NewtonDir* corrector = nullptr,
-                 double weight = 1.0) const;
+
+  // step to boundary for single direction
+  double stepToBoundary(const std::vector<double>& x,
+                        const std::vector<double>& dx,
+                        const std::vector<double>* cor, double weight, bool lo,
+                        int* block = nullptr) const;
+
+  // primal and dual steps to boundary
+  void stepsToBoundary(double& alpha_primal, double& alpha_dual,
+                       const NewtonDir& delta, const NewtonDir* cor = nullptr,
+                       double weight = 1.0) const;
+
+  // ===================================================================================
+  // Find stepsizes using Mehrotra heuristic.
+  // Given the steps to the boundary for xl, xu, zl, zu, and the blocking
+  // indices, find stepsizes so that the primal (resp dual) blocking variable
+  // produces a complementarity product not too far from the mu that would be
+  // obtained using the steps to the boundary.
+  // ===================================================================================
+  void stepSizes();
 
   // ===================================================================================
   // Make the step in the Newton direction with appropriate stepsizes.

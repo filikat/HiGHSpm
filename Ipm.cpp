@@ -334,77 +334,141 @@ bool Ipm::recoverDirection(NewtonDir& delta) {
   return false;
 }
 
-void Ipm::stepSizes(double& alpha_primal, double& alpha_dual,
-                    const NewtonDir& delta, const NewtonDir* corrector,
-                    double weight) const {
-  // Compute primal and dual stepsizes, based on direction delta.
-  // If corrector is valid, then the stepsizes are computed based on direction
-  // delta + weight * corrector, to allow for weighted correctors.
+double Ipm::stepToBoundary(const std::vector<double>& x,
+                           const std::vector<double>& dx,
+                           const std::vector<double>* cor, double weight,
+                           bool lo, int* block) const {
+  // Compute the largest alpha s.t. x + alpha * dx >= 0.
+  // If cor is valid, consider x + alpha * (dx + w * cor) instead.
+  // Use lo=1 for xl and zl, lo=0 for xu and zu.
+  // Return the blocking index in block.
 
-  alpha_primal = 1.0;
-  double p_limit_x = 0.0;
-  double p_limit_dx = 0.0;
+  const double damp = 1.0 - std::numeric_limits<double>::epsilon();
+
+  double alpha = 1.0;
+  int bl = -1;
+
+  for (int i = 0; i < x.size(); ++i) {
+    if ((lo && model_.hasLb(i)) || (!lo && model_.hasUb(i))) {
+      double c = (cor ? (*cor)[i] * weight : 0.0);
+      if (x[i] + alpha * (dx[i] + c) < 0.0) {
+        alpha = -(x[i] * damp) / (dx[i] + c);
+        bl = i;
+      }
+    }
+  }
+  if (block) *block = bl;
+  return alpha;
+}
+
+void Ipm::stepsToBoundary(double& alpha_primal, double& alpha_dual,
+                          const NewtonDir& delta, const NewtonDir* cor,
+                          double weight) const {
+  // compute primal and dual steps to boundary, given direction, corrector and
+  // weight.
+
+  int block;
+  double axl = stepToBoundary(it_.xl, delta.xl, cor ? &(cor->xl) : nullptr,
+                              weight, true);
+  double axu = stepToBoundary(it_.xu, delta.xu, cor ? &(cor->xu) : nullptr,
+                              weight, false);
+  double azl = stepToBoundary(it_.zl, delta.zl, cor ? &(cor->zl) : nullptr,
+                              weight, true);
+  double azu = stepToBoundary(it_.zu, delta.zu, cor ? &(cor->zu) : nullptr,
+                              weight, false);
+
+  alpha_primal = std::min(axl, axu);
+  alpha_primal = std::min(alpha_primal, 1.0);
+  alpha_dual = std::min(azl, azu);
+  alpha_dual = std::min(alpha_dual, 1.0);
+}
+
+void Ipm::stepSizes() {
+  // Compute primal and dual stepsizes.
+
+  // parameters for Mehrotra heuristic
+  const double gamma_f = 0.9;
+  const double gamma_a = 1.0 / (1.0 - gamma_f);
+
+  // compute stepsizes and blocking components
+  int block_xl, block_xu, block_zl, block_zu;
+  double alpha_xl =
+      stepToBoundary(it_.xl, delta_.xl, nullptr, 0, true, &block_xl);
+  double alpha_xu =
+      stepToBoundary(it_.xu, delta_.xu, nullptr, 0, false, &block_xu);
+  double alpha_zl =
+      stepToBoundary(it_.zl, delta_.zl, nullptr, 0, true, &block_zl);
+  double alpha_zu =
+      stepToBoundary(it_.zu, delta_.zu, nullptr, 0, false, &block_zu);
+
+  double max_p = std::min(alpha_xl, alpha_xu);
+  double max_d = std::min(alpha_zl, alpha_zu);
+
+  // compute mu with current stepsizes
+  double mu_full = 0.0;
+  int num_finite = 0;
   for (int i = 0; i < n_; ++i) {
-    double cor = (corrector ? corrector->xl[i] * weight : 0.0);
-    if ((delta.xl[i] + cor) < 0 && model_.hasLb(i)) {
-      double val = -it_.xl[i] / (delta.xl[i] + cor);
-      if (val < alpha_primal) {
-        alpha_primal = val;
-        p_limit_x = it_.xl[i];
-        p_limit_dx = -(delta.xl[i] + cor);
-      }
+    if (model_.hasLb(i)) {
+      mu_full += (it_.xl[i] + max_p * delta_.xl[i]) *
+                 (it_.zl[i] + max_d * delta_.zl[i]);
+      ++num_finite;
     }
-    cor = (corrector ? corrector->xu[i] * weight : 0.0);
-    if ((delta.xu[i] + cor) < 0 && model_.hasUb(i)) {
-      double val = -it_.xu[i] / (delta.xu[i] + cor);
-      if (val < alpha_primal) {
-        alpha_primal = val;
-        p_limit_x = it_.xu[i];
-        p_limit_dx = -(delta.xu[i] + cor);
-      }
+    if (model_.hasUb(i)) {
+      mu_full += (it_.xu[i] + max_p * delta_.xu[i]) *
+                 (it_.zu[i] + max_d * delta_.zu[i]);
+      ++num_finite;
     }
   }
-  alpha_primal *= kInteriorScaling;
+  mu_full /= num_finite;
+  mu_full /= gamma_a;
 
-  alpha_dual = 1.0;
-  double d_limit_z = 0.0;
-  double d_limit_dz = 0.0;
-  for (int i = 0; i < n_; ++i) {
-    double cor = (corrector ? corrector->zl[i] * weight : 0.0);
-    if ((delta.zl[i] + cor) < 0 && model_.hasLb(i)) {
-      double val = -it_.zl[i] / (delta.zl[i] + cor);
-      if (val < alpha_dual) {
-        alpha_dual = val;
-        d_limit_z = it_.zl[i];
-        d_limit_dz = -(delta.zl[i] + cor);
-      }
-    }
-    cor = (corrector ? corrector->zu[i] * weight : 0.0);
-    if ((delta.zu[i] + cor) < 0 && model_.hasUb(i)) {
-      double val = -it_.zu[i] / (delta.zu[i] + cor);
-      if (val < alpha_dual) {
-        alpha_dual = val;
-        d_limit_z = it_.zu[i];
-        d_limit_dz = -(delta.zu[i] + cor);
-      }
-    }
-  }
-  alpha_dual *= kInteriorScaling;
+  // compute new stepsizes based on Mehrotra heuristic
 
-  if (!corrector) {
-    // save limiting components
-    DataCollector::get()->back().p_limit_x = p_limit_x;
-    DataCollector::get()->back().p_limit_dx = p_limit_dx;
-    DataCollector::get()->back().d_limit_z = d_limit_z;
-    DataCollector::get()->back().d_limit_dz = d_limit_dz;
+  // primal
+  double alpha_p = 1.0;
+  int block_p = -1;
+  if (max_p < 1.0) {
+    if (alpha_xl <= alpha_xu) {
+      block_p = block_xl;
+      double temp = mu_full / (it_.zl[block_p] + max_d * delta_.zl[block_p]);
+      alpha_p = (temp - it_.xl[block_p]) / delta_.xl[block_p];
+    } else {
+      block_p = block_xu;
+      double temp = mu_full / (it_.zu[block_p] + max_d * delta_.zu[block_p]);
+      alpha_p = (temp - it_.xu[block_p]) / delta_.xu[block_p];
+    }
+    alpha_p = std::max(alpha_p, gamma_f * max_p);
+    alpha_p = std::min(alpha_p, 1.0);
+    assert(block_p >= 0);
   }
 
-  assert(alpha_primal > 0 && alpha_primal < 1 && alpha_dual > 0 &&
-         alpha_dual < 1);
+  // dual
+  double alpha_d = 1.0;
+  int block_d = -1;
+  if (max_d < 1.0) {
+    if (alpha_zl <= alpha_zu) {
+      block_d = block_zl;
+      double temp = mu_full / (it_.xl[block_d] + max_p * delta_.xl[block_d]);
+      alpha_d = (temp - it_.zl[block_d]) / delta_.zl[block_d];
+    } else {
+      block_d = block_zu;
+      double temp = mu_full / (it_.xu[block_d] + max_p * delta_.xu[block_d]);
+      alpha_d = (temp - it_.zu[block_d]) / delta_.zu[block_d];
+    }
+    alpha_d = std::max(alpha_d, gamma_f * max_d);
+    alpha_d = std::min(alpha_d, 1.0);
+    assert(block_d >= 0);
+  }
+
+  alpha_primal_ = std::min(alpha_p, 1.0 - 1e-4);
+  alpha_dual_ = std::min(alpha_d, 1.0 - 1e-4);
+
+  assert(alpha_primal_ > 0 && alpha_primal_ < 1 && alpha_dual_ > 0 &&
+         alpha_dual_ < 1);
 }
 
 void Ipm::makeStep() {
-  stepSizes(alpha_primal_, alpha_dual_, delta_);
+  stepSizes();
 
   if (std::min(alpha_primal_, alpha_dual_) < 0.05)
     ++bad_iter_;
@@ -633,7 +697,7 @@ void Ipm::residualsMcc() {
 
   // stepsizes of current direction
   double alpha_p, alpha_d;
-  stepSizes(alpha_p, alpha_d, delta_);
+  stepsToBoundary(alpha_p, alpha_d, delta_);
 
   // compute increased stepsizes
   alpha_p = std::max(1.0, alpha_p + kMccIncreaseAlpha);
@@ -698,7 +762,7 @@ void Ipm::residualsMcc() {
 bool Ipm::centralityCorrectors() {
   // compute stepsizes of current direction
   double alpha_p_old, alpha_d_old;
-  stepSizes(alpha_p_old, alpha_d_old, delta_);
+  stepsToBoundary(alpha_p_old, alpha_d_old, delta_);
 
 #ifdef PRINT_CORRECTORS
   printf("(%.2f,%.2f) -> ", alpha_p_old, alpha_d_old);
@@ -780,12 +844,12 @@ void Ipm::bestWeight(const NewtonDir& delta, const NewtonDir& corrector,
   double w = wp;
 
   // divide interval into 9 points
-  double step = (1.0 - w) / 8;
+  const double step = (1.0 - w) / 8;
 
   // for each weight, compute stepsizes and save best ones
   for (; w <= 1.0; w += step) {
     double ap, ad;
-    stepSizes(ap, ad, delta, &corrector, w);
+    stepsToBoundary(ap, ad, delta, &corrector, w);
     if (ap > alpha_p) {
       alpha_p = ap;
       wp = w;
@@ -794,6 +858,8 @@ void Ipm::bestWeight(const NewtonDir& delta, const NewtonDir& corrector,
       alpha_d = ad;
       wd = w;
     }
+
+    if (step == 0.0) break;
   }
 }
 
@@ -981,6 +1047,18 @@ bool Ipm::checkIterate() {
     ipm_status_ = "Error";
     return true;
   }
+
+  // check that no component is negative
+  for (int i = 0; i < n_; ++i) {
+    if ((model_.hasLb(i) && it_.xl[i] < 0) ||
+        (model_.hasLb(i) && it_.zl[i] < 0) ||
+        (model_.hasUb(i) && it_.xu[i] < 0) ||
+        (model_.hasUb(i) && it_.zu[i] < 0)) {
+      printf("Iterative has negative component\n");
+      return true;
+    }
+  }
+
   return false;
 }
 
