@@ -4,6 +4,7 @@ HIGHS_PATH = $(HOME)/Documents/HiGHS
 METIS_PATH = $(HOME)/Documents/METIS
 LOCAL_PATH = $(HOME)/local
 BLAS_PATH  = /Library/Developer/CommandLineTools/SDKs/MacOSX14.4.sdk/System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/Headers
+OPENBLAS_PATH = /opt/homebrew/Cellar/openblas/0.3.26
 
 # source files
 cpp_sources = \
@@ -34,10 +35,14 @@ cpp_sources = \
 		../FactorHiGHS/DenseFactHybrid.cpp \
 		../FactorHiGHS/CallAndTimeBlas.cpp \
 		../FactorHiGHS/KrylovMethods.cpp \
-		../FactorHiGHS/SymScaling.cpp
+		../FactorHiGHS/SymScaling.cpp \
+		../FactorHiGHS/DgemmParallel.cpp
 
 # binary file name
 binary_name = ipm
+
+#test_name = masterNetlib
+test_name = ../FactorHiGHS/test_parallel
 
 # object files directory
 OBJDIR = obj
@@ -53,8 +58,8 @@ CPPFLAGS = -std=c++11 -O3 -g3 -Wno-deprecated #-fsanitize=address #ASAN_OPTIONS=
 #OPENMP_FLAGS = -Xclang -fopenmp -I/opt/homebrew/opt/libomp/include -L/opt/homebrew/opt/libomp/lib -lomp
 
 # includes and libraries
-includes = -I$(HIGHS_PATH)/build -I$(HIGHS_PATH)/src/ -I$(METIS_PATH)/include -I$(LOCAL_PATH)/include -I$(BLAS_PATH)
-libs_path = -L$(HIGHS_PATH)/build/lib -L$(METIS_PATH)/build/libmetis -L$(LOCAL_PATH)/lib
+includes = -I$(HIGHS_PATH)/build -I$(HIGHS_PATH)/src/ -I$(METIS_PATH)/include -I$(LOCAL_PATH)/include -I$(OPENBLAS_PATH)/include
+libs_path = -L$(HIGHS_PATH)/build/lib -L$(METIS_PATH)/build/libmetis -L$(LOCAL_PATH)/lib -L$(OPENBLAS_PATH)/lib
 libs = -lhighs -lmetis -lGKlib -lblas
 
 # name of objects
@@ -73,8 +78,6 @@ $(binary_name): $(cpp_objects) $(OBJDIR)/mainIPM.o
 
 # manage dependencies
 -include $(dep)
--include $(OBJDIR)/mainIPM.d
--include $(OBJDIR)/testNetlib.d
 
 # compile cpp
 # (include Makefile as a prerequisite, to force recompilation if Makefile changes, e.g. if flags have changed)
@@ -87,11 +90,12 @@ $(OBJDIR)/mainIPM.o: mainIPM.cpp Makefile
 	@echo Compiling $<
 	@$(CPP) -MMD -c $(CPPFLAGS) $(includes) $< -o $@
 
-$(OBJDIR)/masterNetlib.o: masterNetlib.cpp Makefile
+# test script
+$(OBJDIR)/$(test_name).o: $(test_name).cpp Makefile
 	@echo Compiling $<
 	@$(CPP) -MMD -c $(CPPFLAGS) $(includes) $< -o $@
 
-test: $(cpp_objects) $(OBJDIR)/masterNetlib.o
+test: $(cpp_objects) $(OBJDIR)/$(test_name).o
 	@echo Linking objects into $@
 	@$(CPP) $(CPPFLAGS) $(libs_path) $(libs) $^ -o $@
 
