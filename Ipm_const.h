@@ -25,7 +25,7 @@ struct Options {
 };
 
 // parameters for termination
-const int kMaxIterations = 100;
+const int kMaxIterations = 0;
 const double kIpmTolerance = 1e-8;
 const int kMaxBadIter = 5;
 

@@ -1,6 +1,7 @@
 #include "FactorHiGHSSolver.h"
 
 #include "../FactorHiGHS/KrylovMethods.h"
+#include "mc78wrapper.h"
 
 FactorHiGHSSolver::FactorHiGHSSolver(const Options& options)
     : S_((FormatType)options.format), N_(S_) {}
@@ -28,7 +29,7 @@ int FactorHiGHSSolver::setup(const HighsSparseMatrix& A,
     // Augmented system, lower triangular
 
     ptrLower.resize(nA + mA + 1);
-    rowsLower.resize(nA + nzA + mA);
+    rowsLower.resize(nA + 2 * nzA + mA);
 
     int next = 0;
 
@@ -46,11 +47,18 @@ int FactorHiGHSSolver::setup(const HighsSparseMatrix& A,
       ptrLower[i + 1] = next;
     }
 
+    HighsSparseMatrix At = A;
+    At.ensureRowwise();
+
     // 2,2 block
     for (int i = 0; i < mA; ++i) {
+      for (int el = At.start_[i]; el < At.start_[i + 1]; ++el) {
+        rowsLower[next] = At.index_[el];
+        ++next;
+      }
       rowsLower[next] = nA + i;
       ++next;
-      ptrLower[nA + i + 1] = ptrLower[nA + i] + 1;
+      ptrLower[nA + i + 1] = next;
     }
 
     negative_pivots = nA;
@@ -69,10 +77,38 @@ int FactorHiGHSSolver::setup(const HighsSparseMatrix& A,
     ptrLower = std::move(AAt.start_);
   }
 
+  print(rowsLower, "rowslower");
+  print(ptrLower, "ptrlower");
+
+  std::vector<int> rowsFull = rowsLower;
+  std::vector<int> ptrFull = ptrLower;
+
   // Perform analyse phase
   Analyse analyse(S_, rowsLower, ptrLower, negative_pivots);
   if (int status = analyse.run()) return status;
   DataCollector::get()->printSymbolic(1);
+
+  std::vector<int> order = S_.iperm();
+  int n_sn;
+  int* sptr;
+  int* sparent;
+  int64_t* rptr;
+  int* rlist;
+  mc78_control_i control;
+  int stat;
+  int64_t nfact, nflops;
+
+  mc78_init(&control);
+
+  control.nemin = 16;
+
+  int mc78_status =
+      mc78_analyse(ptrFull.size() - 1, ptrFull.data(), rowsFull.data(),
+                   order.data(), &n_sn, &sptr, &sparent, &rptr, &rlist,
+                   &control, &stat, &nfact, &nflops, nullptr);
+  assert(mc78_status == 0);
+
+printf("%d %e\n",n_sn,(double)nflops);
 
   return kRetOk;
 }
