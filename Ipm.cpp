@@ -77,13 +77,13 @@ Output Ipm::solve() {
     computeScaling();
 
     // ===== PREDICTOR =====
-    sigma_ = kSigmaAffine;
+    sigmaAffine();
     computeResiduals56();
     if (solveNewtonSystem(delta_)) break;
     if (recoverDirection(delta_)) break;
 
     // ===== CORRECTORS =====
-    computeSigma();
+    sigmaCorrectors();
     if (centralityCorrectors()) break;
 
     // ===== STEP =====
@@ -96,11 +96,21 @@ Output Ipm::solve() {
   }
 
   LS_->finalise();
-  model_.unscale(it_);
+
+  // solution for the user
+  std::vector<double> x{}, xl{}, xu{}, slack{}, y{}, zl{}, zu{};
+  model_.prepareReturn(it_, x, xl, xu, slack, y, zl, zu);
+  model_.unscale(x, xl, xu, slack, y, zl, zu);
 
   // output struct
   Output out{};
-  out.it = std::move(it_);
+  out.x = std::move(x);
+  out.xl = std::move(xl);
+  out.xu = std::move(xu);
+  out.slack = std::move(slack);
+  out.y = std::move(y);
+  out.zl = std::move(zl);
+  out.zu = std::move(zu);
   out.iterations = iter_;
   out.primal_infeas = primal_infeas_;
   out.dual_infeas = dual_infeas_;
@@ -668,19 +678,20 @@ failure:
   ipm_status_ = "Error";
 }
 
-void Ipm::computeSigma() {
-  /*if (min_prod_ < kSmallProduct || max_prod_ > kLargeProduct) {
-    // bad complementarity products, perform centring
-    sigma_ = 0.9;
-  } else*/
-  // good complementarity products, decide based on previous iteration
+void Ipm::sigmaAffine() {
+  sigma_ = kSigmaAffine;
+
+  DataCollector::get()->back().sigma_aff = sigma_;
+}
+
+void Ipm::sigmaCorrectors() {
   if ((alpha_primal_ > 0.5 && alpha_dual_ > 0.5) || iter_ == 1) {
     sigma_ = 0.01;
-  } else if (alpha_primal_ > 0.1 && alpha_dual_ > 0.1) {
+  } else if (alpha_primal_ > 0.2 && alpha_dual_ > 0.2) {
     sigma_ = 0.1;
-  } else if (alpha_primal_ > 0.05 && alpha_dual_ > 0.05) {
+  } else if (alpha_primal_ > 0.1 && alpha_dual_ > 0.1) {
     sigma_ = 0.25;
-  } else if (alpha_primal_ > 0.02 && alpha_dual_ > 0.02) {
+  } else if (alpha_primal_ > 0.05 && alpha_dual_ > 0.05) {
     sigma_ = 0.5;
   } else {
     sigma_ = 0.9;
@@ -961,8 +972,8 @@ void Ipm::complProducts() {
 
   min_prod_ = std::numeric_limits<double>::max();
   max_prod_ = 0.0;
-  int& num_small = DataCollector::get()->back().num_small_prod;
-  int& num_large = DataCollector::get()->back().num_large_prod;
+  int num_small = 0;
+  int num_large = 0;
 
   for (int i = 0; i < n_; ++i) {
     if (model_.hasLb(i)) {
@@ -1034,6 +1045,8 @@ void Ipm::complProducts() {
   }
   DataCollector::get()->back().min_prod = min_prod_;
   DataCollector::get()->back().max_prod = max_prod_;
+  DataCollector::get()->back().num_small_prod = num_small;
+  DataCollector::get()->back().num_large_prod = num_large;
 }
 
 bool Ipm::checkIterate() {
@@ -1295,7 +1308,7 @@ void Ipm::printInfo() const {
                            ? "augmented systems"
                            : "normal equations");
 
-#ifdef PARALLEL_TREE
+#if (defined(PARALLEL_TREE) || defined(PARALLEL_NODE))
   printf("Running on %d threads\n", highs::parallel::num_threads());
 #else
   printf("Running on 1 thread\n");

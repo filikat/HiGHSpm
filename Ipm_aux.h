@@ -99,7 +99,13 @@ class NewtonDir {
 // OUTPUT
 // =======================================================================
 struct Output {
-  Iterate it{};
+  std::vector<double> x{};
+  std::vector<double> xl{};
+  std::vector<double> xu{};
+  std::vector<double> slack{};
+  std::vector<double> y{};
+  std::vector<double> zl{};
+  std::vector<double> zu{};
   int iterations{};
   double primal_infeas{};
   double dual_infeas{};

@@ -26,13 +26,14 @@
 const double kInf = std::numeric_limits<double>::infinity();
 
 // Constraint types
-const double kConstraintTypeLower = 1;
-const double kConstraintTypeEqual = 0;
-const double kConstraintTypeUpper = -1;
+const int kConstraintTypeLower = 1;
+const int kConstraintTypeEqual = 0;
+const int kConstraintTypeUpper = -1;
 
 class IpmModel {
   int num_var_{};
   int num_con_{};
+  int num_var_orig_{};
   std::vector<double> c_{};
   std::vector<double> b_{};
   std::vector<double> lower_{};
@@ -67,7 +68,16 @@ class IpmModel {
 
   // (Un)scale the matrix
   void scale();
-  void unscale(Iterate& it);
+  void unscale(std::vector<double>& x, std::vector<double>& xl,
+               std::vector<double>& xu, std::vector<double>& slack,
+               std::vector<double>& y, std::vector<double>& zl,
+               std::vector<double>& zu);
+
+  // Prepare iterate to be returned to the user
+  void prepareReturn(const Iterate& it, std::vector<double>& x,
+                     std::vector<double>& xl, std::vector<double>& xu,
+                     std::vector<double>& slack, std::vector<double>& y,
+                     std::vector<double>& zl, std::vector<double>& zu);
 
   double normScaledRhs() const;
   double normScaledObj() const;

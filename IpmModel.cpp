@@ -8,6 +8,7 @@ void IpmModel::init(const int num_var, const int num_con, const double* obj,
 
   num_var_ = num_var;
   num_con_ = num_con;
+  num_var_orig_ = num_var_;
   c_ = std::vector<double>(obj, obj + num_var_);
   b_ = std::vector<double>(rhs, rhs + num_con_);
   lower_ = std::vector<double>(lower, lower + num_var_);
@@ -254,43 +255,98 @@ void IpmModel::scale() {
   }
 }
 
-void IpmModel::unscale(Iterate& it) {
+void IpmModel::unscale(std::vector<double>& x, std::vector<double>& xl,
+                       std::vector<double>& xu, std::vector<double>& slack,
+                       std::vector<double>& y, std::vector<double>& zl,
+                       std::vector<double>& zu) {
   // Undo the scaling
 
   if (colexp_.size() > 0) {
-    for (int i = 0; i < num_var_; ++i) {
-      it.x[i] = std::ldexp(it.x[i], colexp_[i]);
-      it.x[i] = std::ldexp(it.x[i], -bexp_);
+    for (int i = 0; i < num_var_orig_; ++i) {
+      x[i] = std::ldexp(x[i], colexp_[i]);
+      x[i] = std::ldexp(x[i], -bexp_);
 
-      it.xl[i] = std::ldexp(it.xl[i], colexp_[i]);
-      it.xl[i] = std::ldexp(it.xl[i], -bexp_);
+      xl[i] = std::ldexp(xl[i], colexp_[i]);
+      xl[i] = std::ldexp(xl[i], -bexp_);
 
-      it.xu[i] = std::ldexp(it.xu[i], colexp_[i]);
-      it.xu[i] = std::ldexp(it.xu[i], -bexp_);
+      xu[i] = std::ldexp(xu[i], colexp_[i]);
+      xu[i] = std::ldexp(xu[i], -bexp_);
 
-      it.zl[i] = std::ldexp(it.zl[i], -colexp_[i]);
-      it.zl[i] = std::ldexp(it.zl[i], -cexp_);
+      zl[i] = std::ldexp(zl[i], -colexp_[i]);
+      zl[i] = std::ldexp(zl[i], -cexp_);
 
-      it.zu[i] = std::ldexp(it.zu[i], -colexp_[i]);
-      it.zu[i] = std::ldexp(it.zu[i], -cexp_);
+      zu[i] = std::ldexp(zu[i], -colexp_[i]);
+      zu[i] = std::ldexp(zu[i], -cexp_);
     }
   }
   if (rowexp_.size() > 0) {
     for (int i = 0; i < num_con_; ++i) {
-      it.y[i] = std::ldexp(it.y[i], rowexp_[i]);
-      it.y[i] = std::ldexp(it.y[i], -cexp_);
+      y[i] = std::ldexp(y[i], rowexp_[i]);
+      y[i] = std::ldexp(y[i], -cexp_);
+      slack[i] = std::ldexp(slack[i],-rowexp_[i]);
     }
   }
 
   // set variables that were ignored
-  for (int i = 0; i < num_var_; ++i) {
+  for (int i = 0; i < num_var_orig_; ++i) {
     if (!hasLb(i)) {
-      it.xl[i] = kInf;
-      it.zl[i] = kInf;
+      xl[i] = kInf;
+      zl[i] = 0.0;
     }
     if (!hasUb(i)) {
-      it.xu[i] = kInf;
-      it.zu[i] = kInf;
+      xu[i] = kInf;
+      zu[i] = 0.0;
+    }
+  }
+}
+
+void IpmModel::prepareReturn(const Iterate& it, std::vector<double>& x,
+                             std::vector<double>& xl, std::vector<double>& xu,
+                             std::vector<double>& slack, std::vector<double>& y,
+                             std::vector<double>& zl, std::vector<double>& zu) {
+  // copy x, xl, xu, zl, zu without slacks
+  x = std::vector<double>(it.x.begin(), it.x.begin() + num_var_orig_);
+  xl = std::vector<double>(it.xl.begin(), it.xl.begin() + num_var_orig_);
+  xu = std::vector<double>(it.xu.begin(), it.xu.begin() + num_var_orig_);
+  zl = std::vector<double>(it.zl.begin(), it.zl.begin() + num_var_orig_);
+  zu = std::vector<double>(it.zu.begin(), it.zu.begin() + num_var_orig_);
+
+  // for the Lagrange multipliers, use slacks from zl and zu, to get correct
+  // sign
+  y.resize(num_con_);
+  int slack_pos = 0;
+  for (int i = 0; i < num_con_; ++i) {
+    switch (constraints_[i]) {
+      case kConstraintTypeEqual:
+        y[i] = it.y[i];
+        break;
+      case kConstraintTypeLower:
+        y[i] = it.zu[num_var_orig_ + slack_pos];
+        ++slack_pos;
+        break;
+      case kConstraintTypeUpper:
+        y[i] = -it.zl[num_var_orig_ + slack_pos];
+        ++slack_pos;
+        break;
+    }
+  }
+
+  // for x-slacks, use slacks from xl and xu, to get correct sign
+  slack.resize(num_con_);
+  slack_pos = 0;
+  for (int i = 0; i < num_con_; ++i) {
+    switch (constraints_[i]) {
+      case kConstraintTypeEqual:
+        slack[i] = 0.0;
+        break;
+      case kConstraintTypeLower:
+        slack[i] = -it.xu[num_var_orig_ + slack_pos];
+        ++slack_pos;
+        break;
+      case kConstraintTypeUpper:
+        slack[i] = it.xl[num_var_orig_ + slack_pos];
+        ++slack_pos;
+        break;
     }
   }
 }

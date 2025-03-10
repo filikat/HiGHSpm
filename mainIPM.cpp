@@ -7,6 +7,8 @@
 #include "Highs.h"
 #include "Ipm.h"
 #include "io/Filereader.h"
+#include "ipm/IpxWrapper.h"
+#include "ipm/ipx/lp_solver.h"
 #include "parallel/HighsParallel.h"
 
 enum ArgC {
@@ -249,6 +251,43 @@ int main(int argc, char** argv) {
            100 * sum_time / run_time);
     printf("Run       %5.2f\n", run_time);
   }
+
+  // ===================================================================================
+  // RUN IPX
+  // ===================================================================================
+  // run ipx starting from optimal solution just found
+
+  printf("\n============= IPX ===============\n");
+
+  ipx::LpSolver lps;
+
+  ipx::Parameters ipx_param;
+  ipx_param.run_crossover = 1;
+  lps.SetParameters(ipx_param);
+
+  int num_col, num_row;
+  std::vector<int> Ap, Ai;
+  std::vector<double> objective, col_lb, col_ub, Av, rhs_ipx;
+  std::vector<char> constraint_type;
+  fillInIpxData(lp, num_col, num_row, objective, col_lb, col_ub, Ap, Ai, Av,
+                rhs_ipx, constraint_type);
+
+  int load_status =
+      lps.LoadModel(num_col, &objective[0], &col_lb[0], &col_ub[0], num_row,
+                    &Ap[0], &Ai[0], &Av[0], &rhs_ipx[0], &constraint_type[0]);
+
+  assert(load_status == 0);
+
+  int start_point_status = lps.LoadIPMStartingPoint(
+      output.x.data(), output.xl.data(), output.xu.data(), output.slack.data(),
+      output.y.data(), output.zl.data(), output.zu.data());
+  assert(start_point_status == 0);
+
+  lps.Solve();
+
+  std::vector<double> x_int(n);
+  lps.GetInteriorSolution(x_int.data(), nullptr, nullptr, nullptr, nullptr,
+                          nullptr, nullptr);
 
   return 0;
 }

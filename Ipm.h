@@ -54,6 +54,7 @@ class Ipm {
 
   // Coefficient for reduction of mu
   double sigma_{};
+  double sigma_affine_{};
 
   // Status of the solver
   std::string ipm_status_ = "Max iter";
@@ -243,15 +244,28 @@ class Ipm {
   void startingPoint();
 
   // ===================================================================================
-  // Given the predictor direction, compute predicted mu
-  //    mu_aff = (xl + alpha_p * DeltaAff xl)' * (zl + alpha_d * DeltaAff zl) +
-  //             (xu + alpha_p * DeltaAff xu)' * (zu + alpha_d * DeltaAff zu)
-  //    mu_aff /= num_finite_bounds
+  // Compute the sigma to use for affine scaling direction or correctors, based
+  // on the smallest stepsize of the previous iteration.
+  // If stepsize was large, use small sigma to reduce mu.
+  // If stepsize was small, use large sigma to re-centre.
   //
-  // and return sigma for the corrector direction
-  //    sigma = ( mu_aff / mu )^3
+  //  alpha | sigma  |   sigma    |
+  //        | affine | correctors |
+  //  1.0   |--------|------------|
+  //        |        |    0.01    |
+  //  0.5   |        |------------|
+  //        |        |    0.10    |
+  //  0.2   |        |------------|
+  //        |  0.01  |    0.25    |
+  //  0.1   |        |------------|
+  //        |        |    0.50    |
+  //  0.05  |        |------------|
+  //        |        |    0.90    |
+  //  0.0   |--------|------------|
+  //
   // ===================================================================================
-  void computeSigma();
+  void sigmaAffine();
+  void sigmaCorrectors();
 
   // ===================================================================================
   // Compute the residuals for the computation of multiple centrality

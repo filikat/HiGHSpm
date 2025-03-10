@@ -42,7 +42,7 @@ cpp_sources = \
 binary_name = ipm
 
 #test_name = masterNetlib
-test_name = ../FactorHiGHS/test_parallel
+test_name = ../FactorHiGHS/test
 
 # object files directory
 OBJDIR = obj
@@ -58,8 +58,8 @@ CPPFLAGS = -std=c++11 -O3 -g3 -Wno-deprecated #-fsanitize=address #ASAN_OPTIONS=
 #OPENMP_FLAGS = -Xclang -fopenmp -I/opt/homebrew/opt/libomp/include -L/opt/homebrew/opt/libomp/lib -lomp
 
 # includes and libraries
-includes = -I$(HIGHS_PATH)/build -I$(HIGHS_PATH)/src/ -I$(METIS_PATH)/include -I$(LOCAL_PATH)/include -I$(OPENBLAS_PATH)/include
-libs_path = -L$(HIGHS_PATH)/build/lib -L$(METIS_PATH)/build/libmetis -L$(LOCAL_PATH)/lib -L$(OPENBLAS_PATH)/lib
+includes = -I$(HIGHS_PATH)/build -I$(HIGHS_PATH)/src/ -I$(METIS_PATH)/include -I$(LOCAL_PATH)/include -I$(BLAS_PATH)
+libs_path = -L$(HIGHS_PATH)/build/lib -L$(METIS_PATH)/build/libmetis -L$(LOCAL_PATH)/lib #-L$(OPENBLAS_PATH)/lib
 libs = -lhighs -lmetis -lGKlib -lblas
 
 # name of objects
