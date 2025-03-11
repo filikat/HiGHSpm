@@ -6,6 +6,7 @@
 #include "../FactorHiGHS/FactorHiGHS.h"
 #include "CgSolver.h"
 #include "FactorHiGHSSolver.h"
+#include "IpmIterate.h"
 #include "IpmModel.h"
 #include "Ipm_aux.h"
 #include "Ipm_const.h"
@@ -18,43 +19,28 @@ class Ipm {
   IpmModel model_;
 
   // Objects used during iterations
-  Iterate it_{};
-  Residuals res_{};
   NewtonDir delta_{};
 
   // Linear solver interface
   std::unique_ptr<LinearSolver> LS_;
 
+  // Iterate object interface
+  std::unique_ptr<IpmIterate> it_;
+
   // Size of the problem
-  int m_{};
-  int n_{};
+  int m_{}, n_{};
 
   // Iterations counters
-  int iter_{};
-  int bad_iter_{};
-
-  // Indicators
-  double primal_infeas_{};
-  double dual_infeas_{};
-  double primal_obj_{};
-  double dual_obj_{};
-  double pd_gap_{};
-  double mu_{};
+  int iter_{}, bad_iter_{};
 
   // Other statistics
-  double min_prod_{};
-  double max_prod_{};
-
-  // Theta^-1
-  std::vector<double> scaling_{};
+  double min_prod_{}, max_prod_{};
 
   // Stepsizes
-  double alpha_primal_{};
-  double alpha_dual_{};
+  double alpha_primal_{}, alpha_dual_{};
 
   // Coefficient for reduction of mu
-  double sigma_{};
-  double sigma_affine_{};
+  double sigma_{}, sigma_affine_{};
 
   // Status of the solver
   std::string ipm_status_ = "Max iter";
@@ -97,67 +83,6 @@ class Ipm {
   Output solve();
 
  private:
-  // ===================================================================================
-  // Compute:
-  //
-  //  mu = \sum xl(i) * zl(i) + \sum xu(j) * zu(j)
-  //
-  // for variables: i with a finite lower bound
-  //                j with a finite upper bound
-  // ===================================================================================
-  void computeMu();
-
-  // ===================================================================================
-  // Compute:
-  //
-  //  res1 = rhs - A * x
-  //  res2 = lower - x + xl
-  //  res3 = upper - x - xu
-  //  res4 = c - A^T * y - zl + zu
-  //
-  // Components of residuals 2,3 are set to zero if the corresponding
-  // upper/lower bound is not finite.
-  // ===================================================================================
-  void computeResiduals1234();
-
-  // ===================================================================================
-  // Compute:
-  //
-  //  res5 = sigma * mu * e - Xl * Zl * e
-  //  res6 = sigma * mu * e - Xu * Zu * e
-  //
-  // Components of residuals 5,6 are set to zero if the corresponding
-  // upper/lower bound is not finite.
-  // ===================================================================================
-  void computeResiduals56();
-
-  // ===================================================================================
-  // Compute:
-  //
-  //  res7 = res4 - Xl^{-1} * (res5 + Zl * res2) + Xu^{-1} * (res6 - Zu * res3)
-  //
-  // (the computation of res7 takes into account only the components for which
-  // the correspoding upper/lower bounds are finite)
-  // ===================================================================================
-  std::vector<double> computeResiduals7();
-
-  // ===================================================================================
-  // Compute:
-  //
-  //  res8 = res1 + A * Theta * res7
-  // ===================================================================================
-  std::vector<double> computeResiduals8(const std::vector<double>& res7);
-
-  // ===================================================================================
-  // Compute diagonal scaling Theta^{-1}
-  //
-  //  Theta^{-1}_{ii} = zl(i) / xl(i) + zu(i) / xu(i)
-  //
-  // Theta^{-1} only considers the terms above if the corresponding upper/lower
-  // bound is finite.
-  // ===================================================================================
-  void computeScaling();
-
   // ===================================================================================
   // Solve:
   //
@@ -288,27 +213,6 @@ class Ipm {
   void bestWeight(const NewtonDir& delta, const NewtonDir& corrector,
                   double& wp, double& wd, double& alpha_p,
                   double& alpha_d) const;
-
-  // ===================================================================================
-  // Compute
-  // - primal infeasibility
-  // - dual infeasibility
-  // - primal objective
-  // - dual objective
-  // - primal-dual relative gap
-  // ===================================================================================
-  void primalScaledInfeas();
-  void dualScaledInfeas();
-  void primalUnscaledInfeas();
-  void dualUnscaledInfeas();
-  void primalObj();
-  void dualObj();
-  void indicators();
-
-  // ===================================================================================
-  // Compute the complementarity products and potentially alter them.
-  // ===================================================================================
-  void complProducts();
 
   // ===================================================================================
   // If the current iterate is nan or inf, abort the iterations.

@@ -31,9 +31,13 @@ const int kConstraintTypeEqual = 0;
 const int kConstraintTypeUpper = -1;
 
 class IpmModel {
+ public:
+  // data of original problem
   int num_var_{};
-  int num_con_{};
-  int num_var_orig_{};
+
+  // data of reformulated problem
+  int n_{};
+  int m_{};
   std::vector<double> c_{};
   std::vector<double> b_{};
   std::vector<double> lower_{};
@@ -41,6 +45,7 @@ class IpmModel {
   HighsSparseMatrix A_{};
   std::vector<int> constraints_{};
   std::string pb_name_{};
+
   bool ready_ = false;
 
   // exponents for scaling
@@ -49,7 +54,6 @@ class IpmModel {
   int cexp_{};
   int bexp_{};
 
- public:
   // Check if variable has finite lower/upper bound
   bool hasLb(int j) const { return lower_[j] != -kInf; }
   bool hasUb(int j) const { return upper_[j] != kInf; }
@@ -72,12 +76,6 @@ class IpmModel {
                std::vector<double>& xu, std::vector<double>& slack,
                std::vector<double>& y, std::vector<double>& zl,
                std::vector<double>& zu);
-
-  // Prepare iterate to be returned to the user
-  void prepareReturn(const Iterate& it, std::vector<double>& x,
-                     std::vector<double>& xl, std::vector<double>& xu,
-                     std::vector<double>& slack, std::vector<double>& y,
-                     std::vector<double>& zl, std::vector<double>& zu);
 
   double normScaledRhs() const;
   double normScaledObj() const;

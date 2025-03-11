@@ -15,6 +15,7 @@ cpp_sources = \
 		FactorHiGHSSolver.cpp \
 		CurtisReidScaling.cpp \
 		CgSolver.cpp \
+		IpmIterate.cpp \
 		../FactorHiGHS/Analyse.cpp \
 		../FactorHiGHS/Auxiliary.cpp \
 		../FactorHiGHS/Factorise.cpp \
