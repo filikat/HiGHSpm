@@ -68,7 +68,7 @@ IpmStatus Ipm::solve() {
     ++iter_;
 
     // Clear Newton direction
-    delta_ = NewtonDir(m_, n_);
+    it_->clearDir();
 
     // Clear any existing data in the linear solver
     LS_->clear();
@@ -79,8 +79,8 @@ IpmStatus Ipm::solve() {
     // ===== PREDICTOR =====
     sigmaAffine();
     it_->residual56(sigma_);
-    if (solveNewtonSystem(delta_)) break;
-    if (recoverDirection(delta_)) break;
+    if (solveNewtonSystem(it_->delta_)) break;
+    if (recoverDirection(it_->delta_)) break;
 
     // ===== CORRECTORS =====
     sigmaCorrectors();
@@ -204,11 +204,11 @@ bool Ipm::recoverDirection(NewtonDir& delta) {
   backwardError(delta);
 
   // Check for NaN of Inf
-  if (delta.isNaN()) {
+  if (it_->isDirNan()) {
     std::cerr << "Direction is nan\n";
     ipm_status_ = kIpmStatusError;
     return true;
-  } else if (delta.isInf()) {
+  } else if (it_->isDirInf()) {
     std::cerr << "Direciton is inf\n";
     ipm_status_ = kIpmStatusError;
     return true;
@@ -271,6 +271,10 @@ void Ipm::stepSizes() {
   std::vector<double>& xu = it_->xu_;
   std::vector<double>& zl = it_->zl_;
   std::vector<double>& zu = it_->zu_;
+  std::vector<double>& dxl = it_->dxl_;
+  std::vector<double>& dxu = it_->dxu_;
+  std::vector<double>& dzl = it_->dzl_;
+  std::vector<double>& dzu = it_->dzu_;
 
   // parameters for Mehrotra heuristic
   const double gamma_f = 0.9;
@@ -278,10 +282,10 @@ void Ipm::stepSizes() {
 
   // compute stepsizes and blocking components
   int block_xl, block_xu, block_zl, block_zu;
-  double alpha_xl = stepToBoundary(xl, delta_.xl, nullptr, 0, true, &block_xl);
-  double alpha_xu = stepToBoundary(xu, delta_.xu, nullptr, 0, false, &block_xu);
-  double alpha_zl = stepToBoundary(zl, delta_.zl, nullptr, 0, true, &block_zl);
-  double alpha_zu = stepToBoundary(zu, delta_.zu, nullptr, 0, false, &block_zu);
+  double alpha_xl = stepToBoundary(xl, dxl, nullptr, 0, true, &block_xl);
+  double alpha_xu = stepToBoundary(xu, dxu, nullptr, 0, false, &block_xu);
+  double alpha_zl = stepToBoundary(zl, dzl, nullptr, 0, true, &block_zl);
+  double alpha_zu = stepToBoundary(zu, dzu, nullptr, 0, false, &block_zu);
 
   double max_p = std::min(alpha_xl, alpha_xu);
   double max_d = std::min(alpha_zl, alpha_zu);
@@ -292,12 +296,12 @@ void Ipm::stepSizes() {
   for (int i = 0; i < n_; ++i) {
     if (model_.hasLb(i)) {
       mu_full +=
-          (xl[i] + max_p * delta_.xl[i]) * (zl[i] + max_d * delta_.zl[i]);
+          (xl[i] + max_p * dxl[i]) * (zl[i] + max_d * dzl[i]);
       ++num_finite;
     }
     if (model_.hasUb(i)) {
       mu_full +=
-          (xu[i] + max_p * delta_.xu[i]) * (zu[i] + max_d * delta_.zu[i]);
+          (xu[i] + max_p * dxu[i]) * (zu[i] + max_d * dzu[i]);
       ++num_finite;
     }
   }
@@ -312,12 +316,12 @@ void Ipm::stepSizes() {
   if (max_p < 1.0) {
     if (alpha_xl <= alpha_xu) {
       block_p = block_xl;
-      double temp = mu_full / (zl[block_p] + max_d * delta_.zl[block_p]);
-      alpha_p = (temp - xl[block_p]) / delta_.xl[block_p];
+      double temp = mu_full / (zl[block_p] + max_d * dzl[block_p]);
+      alpha_p = (temp - xl[block_p]) / dxl[block_p];
     } else {
       block_p = block_xu;
-      double temp = mu_full / (zu[block_p] + max_d * delta_.zu[block_p]);
-      alpha_p = (temp - xu[block_p]) / delta_.xu[block_p];
+      double temp = mu_full / (zu[block_p] + max_d * dzu[block_p]);
+      alpha_p = (temp - xu[block_p]) / dxu[block_p];
     }
     alpha_p = std::max(alpha_p, gamma_f * max_p);
     alpha_p = std::min(alpha_p, 1.0);
@@ -330,12 +334,12 @@ void Ipm::stepSizes() {
   if (max_d < 1.0) {
     if (alpha_zl <= alpha_zu) {
       block_d = block_zl;
-      double temp = mu_full / (xl[block_d] + max_p * delta_.xl[block_d]);
-      alpha_d = (temp - zl[block_d]) / delta_.zl[block_d];
+      double temp = mu_full / (xl[block_d] + max_p * dxl[block_d]);
+      alpha_d = (temp - zl[block_d]) / dzl[block_d];
     } else {
       block_d = block_zu;
-      double temp = mu_full / (xu[block_d] + max_p * delta_.xu[block_d]);
-      alpha_d = (temp - zu[block_d]) / delta_.zu[block_d];
+      double temp = mu_full / (xu[block_d] + max_p * dxu[block_d]);
+      alpha_d = (temp - zu[block_d]) / dzu[block_d];
     }
     alpha_d = std::max(alpha_d, gamma_f * max_d);
     alpha_d = std::min(alpha_d, 1.0);
@@ -357,12 +361,12 @@ void Ipm::makeStep() {
   else
     bad_iter_ = 0;
 
-  vectorAdd(it_->x_, delta_.x, alpha_primal_);
-  vectorAdd(it_->xl_, delta_.xl, alpha_primal_);
-  vectorAdd(it_->xu_, delta_.xu, alpha_primal_);
-  vectorAdd(it_->y_, delta_.y, alpha_dual_);
-  vectorAdd(it_->zl_, delta_.zl, alpha_dual_);
-  vectorAdd(it_->zu_, delta_.zu, alpha_dual_);
+  vectorAdd(it_->x_, it_->dx_, alpha_primal_);
+  vectorAdd(it_->xl_, it_->dxl_, alpha_primal_);
+  vectorAdd(it_->xu_, it_->dxu_, alpha_primal_);
+  vectorAdd(it_->y_, it_->dy_, alpha_dual_);
+  vectorAdd(it_->zl_, it_->dzl_, alpha_dual_);
+  vectorAdd(it_->zu_, it_->dzu_, alpha_dual_);
 }
 
 void Ipm::startingPoint() {
@@ -594,7 +598,7 @@ void Ipm::residualsMcc() {
 
   // stepsizes of current direction
   double alpha_p, alpha_d;
-  stepsToBoundary(alpha_p, alpha_d, delta_);
+  stepsToBoundary(alpha_p, alpha_d, it_->delta_);
 
   // compute increased stepsizes
   alpha_p = std::max(1.0, alpha_p + kMccIncreaseAlpha);
@@ -605,10 +609,10 @@ void Ipm::residualsMcc() {
   std::vector<double> xut = xu;
   std::vector<double> zlt = zl;
   std::vector<double> zut = zu;
-  vectorAdd(xlt, delta_.xl, alpha_p);
-  vectorAdd(xut, delta_.xu, alpha_p);
-  vectorAdd(zlt, delta_.zl, alpha_d);
-  vectorAdd(zut, delta_.zu, alpha_d);
+  vectorAdd(xlt, it_->dxl_, alpha_p);
+  vectorAdd(xut, it_->dxu_, alpha_p);
+  vectorAdd(zlt, it_->dzl_, alpha_d);
+  vectorAdd(zut, it_->dzu_, alpha_d);
 
   // compute right-hand side for mcc
   for (int i = 0; i < n_; ++i) {
@@ -659,7 +663,7 @@ void Ipm::residualsMcc() {
 bool Ipm::centralityCorrectors() {
   // compute stepsizes of current direction
   double alpha_p_old, alpha_d_old;
-  stepsToBoundary(alpha_p_old, alpha_d_old, delta_);
+  stepsToBoundary(alpha_p_old, alpha_d_old, it_->delta_);
 
 #ifdef PRINT_CORRECTORS
   printf("(%.2f,%.2f) -> ", alpha_p_old, alpha_d_old);
@@ -678,7 +682,7 @@ bool Ipm::centralityCorrectors() {
     double alpha_p, alpha_d;
     double wp = alpha_p_old * alpha_d_old;
     double wd = wp;
-    bestWeight(delta_, corr, wp, wd, alpha_p, alpha_d);
+    bestWeight(it_->delta_, corr, wp, wd, alpha_p, alpha_d);
 
 #ifdef PRINT_CORRECTORS
     printf("(%.2f,%.2f) -> ", alpha_p, alpha_d);
@@ -695,16 +699,16 @@ bool Ipm::centralityCorrectors() {
 
     if (alpha_p >= alpha_p_old + kMccIncreaseAlpha * kMccIncreaseMin) {
       // accept primal corrector
-      vectorAdd(delta_.x, corr.x, wp);
-      vectorAdd(delta_.xl, corr.xl, wp);
-      vectorAdd(delta_.xu, corr.xu, wp);
+      vectorAdd(it_->dx_, corr.x, wp);
+      vectorAdd(it_->dxl_, corr.xl, wp);
+      vectorAdd(it_->dxu_, corr.xu, wp);
       alpha_p_old = alpha_p;
     }
     if (alpha_d >= alpha_d_old + kMccIncreaseAlpha * kMccIncreaseMin) {
       // accept dual corrector
-      vectorAdd(delta_.y, corr.y, wd);
-      vectorAdd(delta_.zl, corr.zl, wd);
-      vectorAdd(delta_.zu, corr.zu, wd);
+      vectorAdd(it_->dy_, corr.y, wd);
+      vectorAdd(it_->dzl_, corr.zl, wd);
+      vectorAdd(it_->dzu_, corr.zu, wd);
       alpha_d_old = alpha_d;
     }
 
@@ -1078,20 +1082,20 @@ void Ipm::collectData() const {
       maxxl = std::max(maxxl, std::abs(it_->xl_[i]));
       minzl = std::min(minzl, std::abs(it_->zl_[i]));
       maxzl = std::max(maxzl, std::abs(it_->zl_[i]));
-      mindxl = std::min(mindxl, std::abs(delta_.xl[i]));
-      maxdxl = std::max(maxdxl, std::abs(delta_.xl[i]));
-      mindzl = std::min(mindzl, std::abs(delta_.zl[i]));
-      maxdzl = std::max(maxdzl, std::abs(delta_.zl[i]));
+      mindxl = std::min(mindxl, std::abs(it_->dxl_[i]));
+      maxdxl = std::max(maxdxl, std::abs(it_->dxl_[i]));
+      mindzl = std::min(mindzl, std::abs(it_->dzl_[i]));
+      maxdzl = std::max(maxdzl, std::abs(it_->dzl_[i]));
     }
     if (model_.hasUb(i)) {
       minxu = std::min(minxu, std::abs(it_->xu_[i]));
       maxxu = std::max(maxxu, std::abs(it_->xu_[i]));
       minzu = std::min(minzu, std::abs(it_->zu_[i]));
       maxzu = std::max(maxzu, std::abs(it_->zu_[i]));
-      mindxu = std::min(mindxu, std::abs(delta_.xu[i]));
-      maxdxu = std::max(maxdxu, std::abs(delta_.xu[i]));
-      mindzu = std::min(mindzu, std::abs(delta_.zu[i]));
-      maxdzu = std::max(maxdzu, std::abs(delta_.zu[i]));
+      mindxu = std::min(mindxu, std::abs(it_->dxu_[i]));
+      maxdxu = std::max(maxdxu, std::abs(it_->dxu_[i]));
+      mindzu = std::min(mindzu, std::abs(it_->dzu_[i]));
+      maxdzu = std::max(maxdzu, std::abs(it_->dzu_[i]));
     }
   }
 

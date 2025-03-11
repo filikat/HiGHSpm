@@ -4,7 +4,18 @@
 
 #include "../FactorHiGHS/DataCollector.h"
 
-IpmIterate::IpmIterate(const IpmModel& model) : model_{model} {
+NewtonDir::NewtonDir(int m, int n)
+    : x(n, 0.0), y(m, 0.0), xl(n, 0.0), xu(n, 0.0), zl(n, 0.0), zu(n, 0.0) {}
+
+IpmIterate::IpmIterate(const IpmModel& model)
+    : model_{model},
+      delta_(model_.m_, model_.n_),
+      dx_{delta_.x},
+      dxl_{delta_.xl},
+      dxu_{delta_.xu},
+      dy_{delta_.y},
+      dzl_{delta_.zl},
+      dzu_{delta_.zu} {
   clearIter();
   clearRes();
 }
@@ -30,6 +41,18 @@ bool IpmIterate::isResNan() const {
 bool IpmIterate::isResInf() const {
   if (isInfVector(res1_) || isInfVector(res2_) || isInfVector(res3_) ||
       isInfVector(res4_) || isInfVector(res5_) || isInfVector(res6_))
+    return true;
+  return false;
+}
+bool IpmIterate::isDirNan() const {
+  if (isNanVector(dx_) || isNanVector(dxl_) || isNanVector(dxu_) ||
+      isNanVector(dy_) || isNanVector(dzl_) || isNanVector(dzu_))
+    return true;
+  return false;
+}
+bool IpmIterate::isDirInf() const {
+  if (isInfVector(dx_) || isInfVector(dxl_) || isInfVector(dxu_) ||
+      isInfVector(dy_) || isInfVector(dzl_) || isInfVector(dzu_))
     return true;
   return false;
 }
@@ -263,6 +286,14 @@ void IpmIterate::clearRes() {
   res4_.assign(model_.n_, 0.0);
   res5_.assign(model_.n_, 0.0);
   res6_.assign(model_.n_, 0.0);
+}
+void IpmIterate::clearDir() {
+  dx_.assign(model_.n_, 0.0);
+  dxl_.assign(model_.n_, 0.0);
+  dxu_.assign(model_.n_, 0.0);
+  dy_.assign(model_.m_, 0.0);
+  dzl_.assign(model_.n_, 0.0);
+  dzu_.assign(model_.n_, 0.0);
 }
 
 void IpmIterate::prepareForUser(std::vector<double>& x, std::vector<double>& xl,

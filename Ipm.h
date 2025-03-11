@@ -18,9 +18,6 @@ class Ipm {
   // LP model
   IpmModel model_;
 
-  // Objects used during iterations
-  NewtonDir delta_{};
-
   // Linear solver interface
   std::unique_ptr<LinearSolver> LS_;
 

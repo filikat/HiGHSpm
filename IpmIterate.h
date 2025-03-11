@@ -5,15 +5,31 @@
 
 #include "IpmModel.h"
 
+// Holds the Newton direction Delta(x,y,xl,xu,zl,zu)
+struct NewtonDir {
+  std::vector<double> x{};
+  std::vector<double> y{};
+  std::vector<double> xl{};
+  std::vector<double> xu{};
+  std::vector<double> zl{};
+  std::vector<double> zu{};
+
+  NewtonDir(int m, int n);
+};
+
 struct IpmIterate {
+  // lp model
+  const IpmModel& model_;
+
   // ipm point
   std::vector<double> x_, xl_, xu_, y_, zl_, zu_;
 
   // residuals
   std::vector<double> res1_, res2_, res3_, res4_, res5_, res6_;
 
-  // lp model
-  const IpmModel& model_;
+  // Newton direction
+  NewtonDir delta_;
+  std::vector<double>&dx_, &dxl_, &dxu_, &dy_, &dzl_, &dzu_;
 
   // indicators
   double pobj_, dobj_, pinf_, dinf_, pdgap_;
@@ -21,13 +37,23 @@ struct IpmIterate {
   double mu_;
   std::vector<double> scaling_;
 
+  // ===================================================================================
+  // Functions to construct, clear and check for nan or inf
+  // ===================================================================================
   IpmIterate(const IpmModel& model);
+
+  // clear existing data
+  void clearIter();
+  void clearRes();
+  void clearDir();
 
   // check if any component is nan or infinite
   bool isNan() const;
   bool isInf() const;
   bool isResNan() const;
   bool isResInf() const;
+  bool isDirNan() const;
+  bool isDirInf() const;
 
   // ===================================================================================
   // Compute:
@@ -100,10 +126,6 @@ struct IpmIterate {
   //  res8 = res1 + A * Theta * res7
   // ===================================================================================
   std::vector<double> residual8(const std::vector<double>& res7) const;
-
-  // clear existing data
-  void clearIter();
-  void clearRes();
 
   // ===================================================================================
   // Prepare solution to be returned to user:

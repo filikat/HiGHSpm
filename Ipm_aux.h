@@ -17,46 +17,12 @@ enum DecomposerStatus {
   kDecomposerStatusMax = kDecomposerStatusErrorClear
 };
 
-enum  IpmStatus {
+enum IpmStatus {
   kIpmStatusOptimal,
   kIpmStatusError,
   kIpmStatusMaxIter,
   kIpmStatusNoProgress
 };
-
-// =======================================================================
-// DIRECTION
-// =======================================================================
-// Holds the Newton direction Delta(x,y,xl,xu,zl,zu)
-class NewtonDir {
-  std::vector<double> x{};
-  std::vector<double> y{};
-  std::vector<double> xl{};
-  std::vector<double> xu{};
-  std::vector<double> zl{};
-  std::vector<double> zu{};
-
- public:
-  NewtonDir() = default;
-  NewtonDir(int m, int n);
-
-  bool isNaN() const;
-  bool isInf() const;
-
-  void print(int iter = 0) const;
-
-  friend class Ipm;
-};
-
-int computeAThetaAT(const HighsSparseMatrix& matrix,
-                    const std::vector<double>& scaling, HighsSparseMatrix& AAT,
-                    const int max_num_nz = 100000000
-                    // Cant exceed kHighsIInf = 2,147,483,647,
-                    // otherwise start_ values may overflow. Even
-                    // 100,000,000 is probably too large, unless the
-                    // matrix is near-full, since fill-in will
-                    // overflow pointers
-);
 
 int computeLowerAThetaAT(const HighsSparseMatrix& matrix,
                          const std::vector<double>& scaling,
