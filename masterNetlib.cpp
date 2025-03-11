@@ -80,9 +80,7 @@ int main(int argc, char** argv) {
     //  s.t.  A * x {<=,=,>=} rhs
     //        lower <= x <= upper
     //
-    //  constraints[i] is : 0 for  =
-    //                      1 for >=
-    //                     -1 for <=
+    //  constraints[i] is : =, <, >
     // ===================================================================================
 
     // Make a local copy of LP data to be modified
@@ -98,7 +96,7 @@ int main(int argc, char** argv) {
 
     // Prepare vectors for different formulation
     std::vector<double> rhs(lp.num_row_);
-    std::vector<int> constraints(lp.num_row_);
+    std::vector<char> constraints(lp.num_row_);
 
     int num_free_col = 0;
     for (int i = 0; i < n; ++i) {
@@ -124,19 +122,19 @@ int main(int argc, char** argv) {
     for (int i = 0; i < m; ++i) {
       // equality constraint
       if (lp.row_lower_[i] == lp.row_upper_[i]) {
-        constraints[i] = kConstraintTypeEqual;
+        constraints[i] = '=';
         rhs[i] = lp.row_lower_[i];
       }
 
       // constraint <=
       else if (lp.row_lower_[i] <= -kHighsInf && lp.row_upper_[i] < kHighsInf) {
-        constraints[i] = kConstraintTypeUpper;
+        constraints[i] = '<';
         rhs[i] = lp.row_upper_[i];
       }
 
       // constraint >=
       else if (lp.row_lower_[i] > -kHighsInf && lp.row_upper_[i] >= kHighsInf) {
-        constraints[i] = kConstraintTypeLower;
+        constraints[i] = '>';
         rhs[i] = lp.row_lower_[i];
       }
 
@@ -175,7 +173,7 @@ int main(int argc, char** argv) {
         //   - updating obj, lower, upper
         //   - adding a column of -identity to A
 
-        constraints[i] = kConstraintTypeEqual;
+        constraints[i] = '=';
         rhs[i] = 0.0;
 
         // add slack

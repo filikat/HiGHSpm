@@ -3,7 +3,7 @@
 void IpmModel::init(const int num_var, const int num_con, const double* obj,
                     const double* rhs, const double* lower, const double* upper,
                     const int* A_ptr, const int* A_rows, const double* A_vals,
-                    const int* constraints, const std::string& pb_name) {
+                    const char* constraints, const std::string& pb_name) {
   // copy the input into the model
 
   n_ = num_var;
@@ -21,7 +21,7 @@ void IpmModel::init(const int num_var, const int num_con, const double* obj,
   A_.index_ = std::vector<int>(A_rows, A_rows + Annz);
   A_.value_ = std::vector<double>(A_vals, A_vals + Annz);
 
-  constraints_ = std::vector<int>(constraints, constraints + m_);
+  constraints_ = std::vector<char>(constraints, constraints + m_);
 
   pb_name_ = pb_name;
 
@@ -34,13 +34,13 @@ void IpmModel::reformulate() {
   int Annz = A_.numNz();
 
   for (int i = 0; i < m_; ++i) {
-    if (constraints_[i] != kConstraintTypeEqual) {
+    if (constraints_[i] != '=') {
       // inequality constraint, add slack variable
 
       ++n_;
 
       // lower/upper bound for new slack
-      if (constraints_[i] == kConstraintTypeLower) {
+      if (constraints_[i] == '>') {
         lower_.push_back(-kInf);
         upper_.push_back(0.0);
       } else {
@@ -258,7 +258,7 @@ void IpmModel::scale() {
 void IpmModel::unscale(std::vector<double>& x, std::vector<double>& xl,
                        std::vector<double>& xu, std::vector<double>& slack,
                        std::vector<double>& y, std::vector<double>& zl,
-                       std::vector<double>& zu) {
+                       std::vector<double>& zu) const {
   // Undo the scaling
 
   if (colexp_.size() > 0) {

@@ -1,31 +1,34 @@
 #include "IpmIterate.h"
 
+#include <cassert>
+
 #include "../FactorHiGHS/DataCollector.h"
 
 IpmIterate::IpmIterate(const IpmModel& model) : model_{model} {
-  x_.resize(model_.n_);
-  xl_.resize(model_.n_);
-  xu_.resize(model_.n_);
-  y_.resize(model_.m_);
-  zl_.resize(model_.n_);
-  zu_.resize(model_.n_);
-
+  clearIter();
   clearRes();
 }
 
 bool IpmIterate::isNan() const {
   if (isNanVector(x_) || isNanVector(xl_) || isNanVector(xu_) ||
-      isNanVector(y_) || isNanVector(zl_) || isNanVector(zu_) ||
-      isNanVector(res1_) || isNanVector(res2_) || isNanVector(res3_) ||
+      isNanVector(y_) || isNanVector(zl_) || isNanVector(zu_))
+    return true;
+  return false;
+}
+bool IpmIterate::isInf() const {
+  if (isInfVector(x_) || isInfVector(xl_) || isInfVector(xu_) ||
+      isInfVector(y_) || isInfVector(zl_) || isInfVector(zu_))
+    return true;
+  return false;
+}
+bool IpmIterate::isResNan() const {
+  if (isNanVector(res1_) || isNanVector(res2_) || isNanVector(res3_) ||
       isNanVector(res4_) || isNanVector(res5_) || isNanVector(res6_))
     return true;
   return false;
 }
-
-bool IpmIterate::isInf() const {
-  if (isInfVector(x_) || isInfVector(xl_) || isInfVector(xu_) ||
-      isInfVector(y_) || isInfVector(zl_) || isInfVector(zu_) ||
-      isInfVector(res1_) || isInfVector(res2_) || isInfVector(res3_) ||
+bool IpmIterate::isResInf() const {
+  if (isInfVector(res1_) || isInfVector(res2_) || isInfVector(res3_) ||
       isInfVector(res4_) || isInfVector(res5_) || isInfVector(res6_))
     return true;
   return false;
@@ -201,6 +204,8 @@ void IpmIterate::residual1234() {
     if (model_.hasLb(i)) res4_[i] -= zl_[i];
     if (model_.hasUb(i)) res4_[i] += zu_[i];
   }
+
+  assert(!isResNan() && !isResInf());
 }
 void IpmIterate::residual56(double sigma) {
   for (int i = 0; i < model_.n_; ++i) {
@@ -216,6 +221,8 @@ void IpmIterate::residual56(double sigma) {
     else
       res6_[i] = 0.0;
   }
+
+  assert(!isResNan() && !isResInf());
 }
 
 std::vector<double> IpmIterate::residual7() const {
@@ -239,6 +246,15 @@ std::vector<double> IpmIterate::residual8(
   model_.A_.alphaProductPlusY(1.0, temp, res8);
 
   return res8;
+}
+
+void IpmIterate::clearIter() {
+  x_.assign(model_.n_, 0.0);
+  xl_.assign(model_.n_, 0.0);
+  xu_.assign(model_.n_, 0.0);
+  y_.assign(model_.m_, 0.0);
+  zl_.assign(model_.n_, 0.0);
+  zu_.assign(model_.n_, 0.0);
 }
 void IpmIterate::clearRes() {
   res1_.assign(model_.m_, 0.0);
@@ -267,14 +283,14 @@ void IpmIterate::prepareForUser(std::vector<double>& x, std::vector<double>& xl,
   int slack_pos = 0;
   for (int i = 0; i < model_.m_; ++i) {
     switch (model_.constraints_[i]) {
-      case kConstraintTypeEqual:
+      case '=':
         y[i] = y_[i];
         break;
-      case kConstraintTypeLower:
+      case '>':
         y[i] = zu_[model_.num_var_ + slack_pos];
         ++slack_pos;
         break;
-      case kConstraintTypeUpper:
+      case '<':
         y[i] = -zl_[model_.num_var_ + slack_pos];
         ++slack_pos;
         break;
@@ -286,17 +302,20 @@ void IpmIterate::prepareForUser(std::vector<double>& x, std::vector<double>& xl,
   slack_pos = 0;
   for (int i = 0; i < model_.m_; ++i) {
     switch (model_.constraints_[i]) {
-      case kConstraintTypeEqual:
+      case '=':
         slack[i] = 0.0;
         break;
-      case kConstraintTypeLower:
+      case '>':
         slack[i] = -xu_[model_.num_var_ + slack_pos];
         ++slack_pos;
         break;
-      case kConstraintTypeUpper:
+      case '<':
         slack[i] = xl_[model_.num_var_ + slack_pos];
         ++slack_pos;
         break;
     }
   }
+
+  // unscale the solution
+  model_.unscale(x, xl, xu, slack, y, zl, zu);
 }

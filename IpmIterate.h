@@ -26,6 +26,8 @@ struct IpmIterate {
   // check if any component is nan or infinite
   bool isNan() const;
   bool isInf() const;
+  bool isResNan() const;
+  bool isResInf() const;
 
   // ===================================================================================
   // Compute:
@@ -99,7 +101,8 @@ struct IpmIterate {
   // ===================================================================================
   std::vector<double> residual8(const std::vector<double>& res7) const;
 
-  // clear existing residuals
+  // clear existing data
+  void clearIter();
   void clearRes();
 
   // ===================================================================================
@@ -107,6 +110,7 @@ struct IpmIterate {
   // - remove extra slacks from x, xl, xu, zl, zu
   // - adjust sign of y for inequality constraints
   // - compute and adjust sign of slacks
+  // - un-apply the scaling
   // ===================================================================================
   void prepareForUser(std::vector<double>& x, std::vector<double>& xl,
                       std::vector<double>& xu, std::vector<double>& slack,

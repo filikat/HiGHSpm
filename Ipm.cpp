@@ -9,7 +9,7 @@
 void Ipm::load(const int num_var, const int num_con, const double* obj,
                const double* rhs, const double* lower, const double* upper,
                const int* A_ptr, const int* A_rows, const double* A_vals,
-               const int* constraints, const std::string& pb_name,
+               const char* constraints, const std::string& pb_name,
                const Options& options) {
   if (!obj || !rhs || !lower || !upper || !A_ptr || !A_rows || !A_vals ||
       !constraints)
@@ -100,8 +100,6 @@ IpmStatus Ipm::solve() {
   // solution for the user
   it_->prepareForUser(x_user, xl_user, xu_user, slack_user, y_user, zl_user,
                       zu_user);
-  model_.unscale(x_user, xl_user, xu_user, slack_user, y_user, zl_user,
-                 zu_user);
 
   DataCollector::get()->printIter();
   DataCollector::destruct();

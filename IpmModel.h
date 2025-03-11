@@ -25,13 +25,7 @@
 // double infinity
 const double kInf = std::numeric_limits<double>::infinity();
 
-// Constraint types
-const int kConstraintTypeLower = 1;
-const int kConstraintTypeEqual = 0;
-const int kConstraintTypeUpper = -1;
-
-class IpmModel {
- public:
+struct IpmModel {
   // data of original problem
   int num_var_{};
 
@@ -43,7 +37,7 @@ class IpmModel {
   std::vector<double> lower_{};
   std::vector<double> upper_{};
   HighsSparseMatrix A_{};
-  std::vector<int> constraints_{};
+  std::vector<char> constraints_{};
   std::string pb_name_{};
 
   bool ready_ = false;
@@ -62,7 +56,7 @@ class IpmModel {
   void init(const int num_var, const int num_con, const double* obj,
             const double* rhs, const double* lower, const double* upper,
             const int* A_ptr, const int* A_rows, const double* A_vals,
-            const int* constraints, const std::string& pb_name);
+            const char* constraints, const std::string& pb_name);
 
   // Put the model into correct formulation
   void reformulate();
@@ -75,7 +69,7 @@ class IpmModel {
   void unscale(std::vector<double>& x, std::vector<double>& xl,
                std::vector<double>& xu, std::vector<double>& slack,
                std::vector<double>& y, std::vector<double>& zl,
-               std::vector<double>& zu);
+               std::vector<double>& zu) const;
 
   double normScaledRhs() const;
   double normScaledObj() const;

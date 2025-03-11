@@ -76,7 +76,7 @@ class Ipm {
             const int* A_ptr,            // column pointers of A
             const int* A_rows,           // row indices of A
             const double* A_vals,        // values of A
-            const int* constraints,      // type of constraints
+            const char* constraints,     // type of constraints
             const std::string& pb_name,  // problem name
             const Options& options       // options
   );
