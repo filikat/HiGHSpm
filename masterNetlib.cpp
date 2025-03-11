@@ -238,17 +238,17 @@ int main(int argc, char** argv) {
 
     // solve LP
     clock1.start();
-    Output out = ipm.solve();
+    IpmStatus ipm_status = ipm.solve();
     double optimize_time = clock1.stop();
-    if (out.status == "Optimal") {
+    if (ipm_status == kIpmStatusOptimal) {
       ++converged;
     }
 
     double run_time = clock0.stop();
 
     ss << std::setw(20) << pb_name << ' ';
-    ss << std::setw(12) << out.status << ' ';
-    ss << std::setw(6) << out.iterations << ' ';
+    ss << std::setw(12) << ipm_status << ' ';
+    ss << std::setw(6) << ipm.getIter() << ' ';
     ss << std::setw(12) << std::fixed << std::setprecision(3) << optimize_time
        << '\n';
   }

@@ -228,7 +228,7 @@ int main(int argc, char** argv) {
 
   // solve LP
   clock.start();
-  Output output = ipm.solve();
+  IpmStatus ipm_status = ipm.solve();
   double optimize_time = clock.stop();
 
   double run_time = clock0.stop();
@@ -278,9 +278,12 @@ int main(int argc, char** argv) {
 
   assert(load_status == 0);
 
-  int start_point_status = lps.LoadIPMStartingPoint(
-      output.x.data(), output.xl.data(), output.xu.data(), output.slack.data(),
-      output.y.data(), output.zl.data(), output.zu.data());
+  std::vector<double> x, xl, xu, slack, y, zl, zu;
+  ipm.getSolution(x, xl, xu, slack, y, zl, zu);
+
+  int start_point_status =
+      lps.LoadIPMStartingPoint(x.data(), xl.data(), xu.data(), slack.data(),
+                               y.data(), zl.data(), zu.data());
   assert(start_point_status == 0);
 
   lps.Solve();

@@ -17,58 +17,11 @@ enum DecomposerStatus {
   kDecomposerStatusMax = kDecomposerStatusErrorClear
 };
 
-// =======================================================================
-// RESIDUALS
-// =======================================================================
-// Holds the six residuals of the IPM
-// res1 = rhs - A * x
-// res2 = lower - x + xl
-// res3 = upper - x - xu
-// res4 = obj - A^T * y - zl + zu
-// res5 = sigma * mu * e - Xl * Zl * e
-// res6 = sigma * mu * e - Xu * Zu * e
-//
-class Residuals {
-  std::vector<double> res1{};
-  std::vector<double> res2{};
-  std::vector<double> res3{};
-  std::vector<double> res4{};
-  std::vector<double> res5{};
-  std::vector<double> res6{};
-
- public:
-  Residuals() = default;
-  Residuals(int m, int n);
-
-  void print(int iter = 0) const;
-  bool isNaN() const;
-  bool isInf() const;
-
-  friend class Ipm;
-};
-
-// =======================================================================
-// ITERATE
-// =======================================================================
-// Holds the iterate (x,y,xl,xu,zl,zu)
-class Iterate {
- public:
-  std::vector<double> x{};
-  std::vector<double> y{};
-  std::vector<double> xl{};
-  std::vector<double> xu{};
-  std::vector<double> zl{};
-  std::vector<double> zu{};
-
-  Iterate() = default;
-  Iterate(int m, int n);
-
-  bool isNaN() const;
-  bool isInf() const;
-
-  void print(int iter = 0) const;
-
-  friend class Ipm;
+enum  IpmStatus {
+  kIpmStatusOptimal,
+  kIpmStatusError,
+  kIpmStatusMaxIter,
+  kIpmStatusNoProgress
 };
 
 // =======================================================================
@@ -93,24 +46,6 @@ class NewtonDir {
   void print(int iter = 0) const;
 
   friend class Ipm;
-};
-
-// =======================================================================
-// OUTPUT
-// =======================================================================
-struct Output {
-  std::vector<double> x{};
-  std::vector<double> xl{};
-  std::vector<double> xu{};
-  std::vector<double> slack{};
-  std::vector<double> y{};
-  std::vector<double> zl{};
-  std::vector<double> zu{};
-  int iterations{};
-  double primal_infeas{};
-  double dual_infeas{};
-  double mu{};
-  std::string status = "Error";
 };
 
 int computeAThetaAT(const HighsSparseMatrix& matrix,

@@ -27,8 +27,8 @@ void Ipm::load(const int num_var, const int num_con, const double* obj,
   options_ = options;
 }
 
-Output Ipm::solve() {
-  if (!model_.ready_) return Output{};
+IpmStatus Ipm::solve() {
+  if (!model_.ready_) return kIpmStatusError;
 
   printInfo();
 
@@ -46,7 +46,7 @@ Output Ipm::solve() {
 
   // initialize linear solver
   LS_.reset(new FactorHiGHSSolver(options_));
-  if (LS_->setup(model_.A_, options_)) return Output{};
+  if (LS_->setup(model_.A_, options_)) return kIpmStatusError;
   LS_->clear();
 
   // initialize starting point, residuals and mu
@@ -98,29 +98,15 @@ Output Ipm::solve() {
   LS_->finalise();
 
   // solution for the user
-  std::vector<double> x{}, xl{}, xu{}, slack{}, y{}, zl{}, zu{};
-  it_->prepareForUser(x, xl, xu, slack, y, zl, zu);
-  model_.unscale(x, xl, xu, slack, y, zl, zu);
-
-  // output struct
-  Output out{};
-  out.x = std::move(x);
-  out.xl = std::move(xl);
-  out.xu = std::move(xu);
-  out.slack = std::move(slack);
-  out.y = std::move(y);
-  out.zl = std::move(zl);
-  out.zu = std::move(zu);
-  out.iterations = iter_;
-  out.primal_infeas = it_->pinf_;
-  out.dual_infeas = it_->dinf_;
-  out.mu = it_->mu_;
-  out.status = ipm_status_;
+  it_->prepareForUser(x_user, xl_user, xu_user, slack_user, y_user, zl_user,
+                      zu_user);
+  model_.unscale(x_user, xl_user, xu_user, slack_user, y_user, zl_user,
+                 zu_user);
 
   DataCollector::get()->printIter();
   DataCollector::destruct();
 
-  return out;
+  return ipm_status_;
 }
 
 bool Ipm::solveNewtonSystem(NewtonDir& delta) {
@@ -164,7 +150,7 @@ bool Ipm::solveNewtonSystem(NewtonDir& delta) {
 // Failure occured in factorisation or solve
 failure:
   std::cerr << "Error while solving Newton system\n";
-  ipm_status_ = "Error";
+  ipm_status_ = kIpmStatusError;
   return true;
 }
 
@@ -222,11 +208,11 @@ bool Ipm::recoverDirection(NewtonDir& delta) {
   // Check for NaN of Inf
   if (delta.isNaN()) {
     std::cerr << "Direction is nan\n";
-    ipm_status_ = "Error";
+    ipm_status_ = kIpmStatusError;
     return true;
   } else if (delta.isInf()) {
     std::cerr << "Direciton is inf\n";
-    ipm_status_ = "Error";
+    ipm_status_ = kIpmStatusError;
     return true;
   }
   return false;
@@ -570,7 +556,7 @@ void Ipm::startingPoint() {
 
 failure:
   std::cerr << "Error while computing starting point\n";
-  ipm_status_ = "Error";
+  ipm_status_ = kIpmStatusError;
 }
 
 void Ipm::sigmaAffine() {
@@ -779,12 +765,12 @@ void Ipm::bestWeight(const NewtonDir& delta, const NewtonDir& corrector,
 bool Ipm::checkIterate() {
   // Check that iterate is not NaN or Inf
   if (it_->isNan()) {
-    std::cerr << "iterate is nan\n";
-    ipm_status_ = "Error";
+    printf("\nIterate is nan\n");
+    ipm_status_ = kIpmStatusError;
     return true;
   } else if (it_->isInf()) {
-    std::cerr << "iterate is inf\n";
-    ipm_status_ = "Error";
+    printf("\nIterate is inf\n");
+    ipm_status_ = kIpmStatusError;
     return true;
   }
 
@@ -794,7 +780,7 @@ bool Ipm::checkIterate() {
         (model_.hasLb(i) && it_->zl_[i] < 0) ||
         (model_.hasUb(i) && it_->xu_[i] < 0) ||
         (model_.hasUb(i) && it_->zu_[i] < 0)) {
-      printf("Iterative has negative component\n");
+      printf("\nIterative has negative component\n");
       return true;
     }
   }
@@ -806,7 +792,7 @@ bool Ipm::checkBadIter() {
   // If too many bad iterations, stop
   if (bad_iter_ >= kMaxBadIter) {
     printf("\n Failure: no progress\n\n");
-    ipm_status_ = "No progress";
+    ipm_status_ = kIpmStatusNoProgress;
     return true;
   }
   return false;
@@ -818,7 +804,7 @@ bool Ipm::checkTermination() {
       it_->dinf_ < kIpmTolerance) {   // dual feasibility
     printf("\n===== Optimal solution found =====\n\n");
 
-    ipm_status_ = "Optimal";
+    ipm_status_ = kIpmStatusOptimal;
     return true;
   }
   return false;
@@ -1119,4 +1105,18 @@ void Ipm::collectData() const {
   if (mindxu == std::numeric_limits<double>::max()) mindxu = 0.0;
   if (mindzl == std::numeric_limits<double>::max()) mindzl = 0.0;
   if (mindzu == std::numeric_limits<double>::max()) mindzu = 0.0;
+}
+
+int Ipm::getIter() const { return iter_; }
+void Ipm::getSolution(std::vector<double>& x, std::vector<double>& xl,
+                      std::vector<double>& xu, std::vector<double>& slack,
+                      std::vector<double>& y, std::vector<double>& zl,
+                      std::vector<double>& zu) const {
+  x = x_user;
+  xl = xl_user;
+  xu = xu_user;
+  slack = slack_user;
+  y = y_user;
+  zl = zl_user;
+  zu = zu_user;
 }

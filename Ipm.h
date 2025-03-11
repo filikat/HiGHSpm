@@ -43,13 +43,17 @@ class Ipm {
   double sigma_{}, sigma_affine_{};
 
   // Status of the solver
-  std::string ipm_status_ = "Max iter";
+  IpmStatus ipm_status_ = kIpmStatusMaxIter;
 
   // Run-time options
   Options options_{};
 
   // Timer for iterations
   Clock clock_;
+
+  // user solution
+  std::vector<double> x_user, xl_user, xu_user, slack_user, y_user, zl_user,
+      zu_user;
 
  public:
   // ===================================================================================
@@ -80,7 +84,16 @@ class Ipm {
   // ===================================================================================
   // Solve the LP
   // ===================================================================================
-  Output solve();
+  IpmStatus solve();
+
+  // ===================================================================================
+  // Extract information
+  // ===================================================================================
+  void getSolution(std::vector<double>& x, std::vector<double>& xl,
+                   std::vector<double>& xu, std::vector<double>& slack,
+                   std::vector<double>& y, std::vector<double>& zl,
+                   std::vector<double>& zu) const;
+  int getIter() const;
 
  private:
   // ===================================================================================
