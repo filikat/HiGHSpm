@@ -70,123 +70,19 @@ int main(int argc, char** argv) {
   //  constraints[i] is : =, <, >
   // ===================================================================================
 
-  // Make a local copy of LP data to be modified
   clock.start();
-  int n = lp.num_col_;
-  int m = lp.num_row_;
-  std::vector<double> obj(lp.col_cost_);
-  std::vector<double> lower(lp.col_lower_);
-  std::vector<double> upper(lp.col_upper_);
-  std::vector<int> colptr(lp.a_matrix_.start_);
-  std::vector<int> rowind(lp.a_matrix_.index_);
-  std::vector<double> values(lp.a_matrix_.value_);
+  int n, m;
+  std::vector<double> obj, rhs, lower, upper, Aval;
+  std::vector<int> Aptr, Aind;
+  std::vector<char> constraints;
 
-  // Prepare vectors for different formulation
-  std::vector<double> rhs(lp.num_row_);
-  std::vector<char> constraints(lp.num_row_);
+  fillInIpxData(lp, n, m, obj, lower, upper, Aptr, Aind, Aval, rhs,
+                constraints);
 
-  int num_free_col = 0;
-  for (int i = 0; i < n; ++i) {
-    if (lower[i] <= -kHighsInf && upper[i] >= kHighsInf) num_free_col++;
-  }
-  if (num_free_col) {
-    const double bound_on_free = 2e3;
-    printf("Model has %d free columns\n",
-           num_free_col);  //: replacing bounds with [%g, %g]\n",
-                           // num_free_col, n, -bound_on_free, bound_on_free);
-    /*for (int i = 0; i < n; ++i) {
-      if (lower[i] <= -kHighsInf && upper[i] >= kHighsInf) {
-        lower[i] = -bound_on_free;
-        upper[i] = bound_on_free;
-      }
-    }*/
-  }
-
-  int num_slacks{};
-
-  // Set up constraints and rhs based on row_lower_ and row_upper_ for each
-  // constraint
-  for (int i = 0; i < m; ++i) {
-    // equality constraint
-    if (lp.row_lower_[i] == lp.row_upper_[i]) {
-      constraints[i] = '=';
-      rhs[i] = lp.row_lower_[i];
-    }
-
-    // constraint <=
-    else if (lp.row_lower_[i] <= -kHighsInf && lp.row_upper_[i] < kHighsInf) {
-      constraints[i] = '<';
-      rhs[i] = lp.row_upper_[i];
-    }
-
-    // constraint >=
-    else if (lp.row_lower_[i] > -kHighsInf && lp.row_upper_[i] >= kHighsInf) {
-      constraints[i] = '>';
-      rhs[i] = lp.row_lower_[i];
-    }
-
-    // no constraint
-    else if (lp.row_lower_[i] <= -kHighsInf && lp.row_upper_[i] >= kHighsInf) {
-      std::cout << "======= Free variable not yet supported =======\n";
-      return 1;
-    }
-
-    // general constraint
-    else {
-      // keep track of how many slacks are needed to allocate memory
-      ++num_slacks;
-    }
-  }
-
-  // Reserve memory for slacks
-  obj.reserve(n + num_slacks);
-  lower.reserve(n + num_slacks);
-  upper.reserve(n + num_slacks);
-  colptr.reserve(n + num_slacks + 1);
-  rowind.reserve(lp.a_matrix_.numNz() + num_slacks);
-  values.reserve(lp.a_matrix_.numNz() + num_slacks);
-
-  for (int i = 0; i < m; ++i) {
-    if (lp.row_lower_[i] != lp.row_upper_[i] && lp.row_lower_[i] > -kHighsInf &&
-        lp.row_upper_[i] < kHighsInf) {
-      // If both row_lower_ and row_upper_ are finite and different, add slack:
-      //   lb <= a^T * x <= ub
-      //   becomes
-      //   a^T * x - s = 0 and lb <= s <= ub.
-      //
-      //  This requires:
-      //   - updating obj, lower, upper
-      //   - adding a column of -identity to A
-
-      constraints[i] = '=';
-      rhs[i] = 0.0;
-
-      // add slack
-      ++n;
-      obj.push_back(0.0);
-      lower.push_back(lp.row_lower_[i]);
-      upper.push_back(lp.row_upper_[i]);
-      colptr.push_back(colptr.back() + 1);
-      rowind.push_back(i);
-      values.push_back(-1.0);
-    }
-  }
   double setup_time = clock.stop();
 
   // ===================================================================================
-  // LOAD AND SOLVE THE PROBLEM
-  // ===================================================================================
-  clock.start();
-
-  // create instance of IPM
-  Ipm ipm{};
-
-  // scheduler should be already initialized, but no harm in doing it again
-  // HighsTaskExecutor::shutdown(true);
-  highs::parallel::initialize_scheduler();
-
-  // ===================================================================================
-  // Identify the option values and check their validity
+  // IDENTIFY OPTIONS
   // ===================================================================================
 
   Options options{};
@@ -218,10 +114,22 @@ int main(int argc, char** argv) {
   std::regex_search(model_file, match, rgx);
   pb_name = match[1];
 
+  // ===================================================================================
+  // LOAD AND SOLVE THE PROBLEM
+  // ===================================================================================
+  clock.start();
+
+  // create instance of IPM
+  Ipm ipm{};
+
+  // scheduler should be already initialized, but no harm in doing it again
+  // HighsTaskExecutor::shutdown(true);
+  highs::parallel::initialize_scheduler();
+
   // load the problem
   ipm.load(n, m, obj.data(), rhs.data(), lower.data(), upper.data(),
-           colptr.data(), rowind.data(), values.data(), constraints.data(),
-           pb_name, options);
+           Aptr.data(), Aind.data(), Aval.data(), constraints.data(), pb_name,
+           options);
   double load_time = clock.stop();
 
   // solve LP
@@ -261,18 +169,13 @@ int main(int argc, char** argv) {
 
   ipx::Parameters ipx_param;
   ipx_param.run_crossover = 1;
+  ipx_param.ipm_feasibility_tol = 1e-8;
+  ipx_param.ipm_optimality_tol = 1e-8;
   lps.SetParameters(ipx_param);
 
-  int num_col, num_row;
-  std::vector<int> Ap, Ai;
-  std::vector<double> objective, col_lb, col_ub, Av, rhs_ipx;
-  std::vector<char> constraint_type;
-  fillInIpxData(lp, num_col, num_row, objective, col_lb, col_ub, Ap, Ai, Av,
-                rhs_ipx, constraint_type);
-
   int load_status =
-      lps.LoadModel(num_col, &objective[0], &col_lb[0], &col_ub[0], num_row,
-                    &Ap[0], &Ai[0], &Av[0], &rhs_ipx[0], &constraint_type[0]);
+      lps.LoadModel(n, obj.data(), lower.data(), upper.data(), m, Aptr.data(),
+                    Aind.data(), Aval.data(), rhs.data(), constraints.data());
 
   assert(load_status == 0);
 
