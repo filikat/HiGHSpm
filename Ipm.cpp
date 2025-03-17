@@ -18,17 +18,14 @@ void Ipm::load(const int num_var, const int num_con, const double* obj,
   model_.init(num_var, num_con, obj, rhs, lower, upper, A_ptr, A_rows, A_vals,
               constraints, pb_name);
 
-  model_.scale();
-  model_.reformulate();
-
-  m_ = model_.m_;
-  n_ = model_.n_;
+  m_ = model_.m();
+  n_ = model_.n();
 
   options_ = options;
 }
 
 IpmStatus Ipm::solve() {
-  if (!model_.ready_) return kIpmStatusError;
+  if (!model_.ready()) return kIpmStatusError;
 
   printInfo();
 
@@ -46,7 +43,7 @@ IpmStatus Ipm::solve() {
 
   // initialize linear solver
   LS_.reset(new FactorHiGHSSolver(options_));
-  if (LS_->setup(model_.A_, options_)) return kIpmStatusError;
+  if (LS_->setup(model_.A(), options_)) return kIpmStatusError;
   LS_->clear();
 
   // initialize starting point, residuals and mu
@@ -112,7 +109,7 @@ bool Ipm::solveNewtonSystem(NewtonDir& delta) {
     std::vector<double> res8 = it_->residual8(res7);
 
     // factorise normal equations, if not yet done
-    if (!LS_->valid_ && LS_->factorNE(model_.A_, theta_inv)) goto failure;
+    if (!LS_->valid_ && LS_->factorNE(model_.A(), theta_inv)) goto failure;
 
     // solve with normal equations
     if (LS_->solveNE(res8, delta.y)) goto failure;
@@ -120,7 +117,7 @@ bool Ipm::solveNewtonSystem(NewtonDir& delta) {
     // Compute delta.x
     // Deltax = A^T * Deltay - res7;
     delta.x = res7;
-    model_.A_.alphaProductPlusY(-1.0, delta.y, delta.x, true);
+    model_.A().alphaProductPlusY(-1.0, delta.y, delta.x, true);
     vectorScale(delta.x, -1.0);
 
     // Deltax = (Theta^-1+Rp)^-1 * Deltax
@@ -132,7 +129,7 @@ bool Ipm::solveNewtonSystem(NewtonDir& delta) {
   // AUGMENTED SYSTEM
   else {
     // factorise augmented system, if not yet done
-    if (!LS_->valid_ && LS_->factorAS(model_.A_, theta_inv)) goto failure;
+    if (!LS_->valid_ && LS_->factorAS(model_.A(), theta_inv)) goto failure;
 
     // solve with augmented system
     if (LS_->solveAS(res7, it_->res1_, delta.x, delta.y)) goto failure;
@@ -180,7 +177,7 @@ bool Ipm::recoverDirection(NewtonDir& delta) {
 
   // not sure if this has any effect, but IPX uses it
   std::vector<double> Atdy(n_);
-  model_.A_.alphaProductPlusY(1.0, delta.y, Atdy, true);
+  model_.A().alphaProductPlusY(1.0, delta.y, Atdy, true);
   for (int i = 0; i < n_; ++i) {
     if (model_.hasLb(i) || model_.hasUb(i)) {
       if (std::isfinite(xl[i]) && std::isfinite(xu[i])) {
@@ -376,8 +373,8 @@ void Ipm::startingPoint() {
   // compute feasible x
   for (int i = 0; i < n_; ++i) {
     x[i] = 0.0;
-    x[i] = std::max(x[i], model_.lower_[i]);
-    x[i] = std::min(x[i], model_.upper_[i]);
+    x[i] = std::max(x[i], model_.lb(i));
+    x[i] = std::min(x[i], model_.ub(i));
   }
 
   const std::vector<double> temp_scaling(n_, 1.0);
@@ -385,14 +382,14 @@ void Ipm::startingPoint() {
 
   if (options_.nla == kOptionNlaNormEq) {
     // use y to store b-A*x
-    y = model_.b_;
-    model_.A_.alphaProductPlusY(-1.0, x, y);
+    y = model_.b();
+    model_.A().alphaProductPlusY(-1.0, x, y);
 
     // solve A*A^T * dx = b-A*x with factorization and store the result in
     // temp_m
 
     // factorize A*A^T
-    if (LS_->factorNE(model_.A_, temp_scaling)) goto failure;
+    if (LS_->factorNE(model_.A(), temp_scaling)) goto failure;
 
     if (LS_->solveNE(y, temp_m)) goto failure;
 
@@ -401,17 +398,17 @@ void Ipm::startingPoint() {
     // [ -I  A^T] [...] = [ -x]
     // [  A   0 ] [ dx] = [ b ]
 
-    if (LS_->factorAS(model_.A_, temp_scaling)) goto failure;
+    if (LS_->factorAS(model_.A(), temp_scaling)) goto failure;
 
     std::vector<double> rhs_x(n_);
     for (int i = 0; i < n_; ++i) rhs_x[i] = -x[i];
     std::vector<double> lhs_x(n_);
-    if (LS_->solveAS(rhs_x, model_.b_, lhs_x, temp_m)) goto failure;
+    if (LS_->solveAS(rhs_x, model_.b(), lhs_x, temp_m)) goto failure;
   }
 
   // compute dx = A^T * (A*A^T)^{-1} * (b-A*x) and store the result in xl
   xl.assign(n_, 0.0);
-  model_.A_.alphaProductPlusY(1.0, temp_m, xl, true);
+  model_.A().alphaProductPlusY(1.0, temp_m, xl, true);
 
   // x += dx;
   vectorAdd(x, xl, 1.0);
@@ -425,13 +422,13 @@ void Ipm::startingPoint() {
     double violation{};
     for (int i = 0; i < n_; ++i) {
       if (model_.hasLb(i)) {
-        xl[i] = x[i] - model_.lower_[i];
+        xl[i] = x[i] - model_.lb(i);
         violation = std::min(violation, xl[i]);
       } else {
         xl[i] = 0.0;
       }
       if (model_.hasUb(i)) {
-        xu[i] = model_.upper_[i] - x[i];
+        xu[i] = model_.ub(i) - x[i];
         violation = std::min(violation, xu[i]);
       } else {
         xu[i] = 0.0;
@@ -452,7 +449,7 @@ void Ipm::startingPoint() {
   if (options_.nla == kOptionNlaNormEq) {
     // compute A*c
     std::fill(temp_m.begin(), temp_m.end(), 0.0);
-    model_.A_.alphaProductPlusY(1.0, model_.c_, temp_m);
+    model_.A().alphaProductPlusY(1.0, model_.c(), temp_m);
 
     if (LS_->solveNE(temp_m, y)) goto failure;
 
@@ -464,7 +461,7 @@ void Ipm::startingPoint() {
     std::vector<double> rhs_y(m_, 0.0);
     std::vector<double> lhs_x(n_);
 
-    if (LS_->solveAS(model_.c_, rhs_y, lhs_x, y)) goto failure;
+    if (LS_->solveAS(model_.c(), rhs_y, lhs_x, y)) goto failure;
   }
   // *********************************************************************
 
@@ -472,8 +469,8 @@ void Ipm::startingPoint() {
   // zl, zu starting point
   // *********************************************************************
   // compute c - A^T * y and store in zl
-  zl = model_.c_;
-  model_.A_.alphaProductPlusY(-1.0, y, zl, true);
+  zl = model_.c();
+  model_.A().alphaProductPlusY(-1.0, y, zl, true);
 
   // split result between zl and zu
   {
@@ -826,7 +823,7 @@ void Ipm::backwardError(const NewtonDir& delta) const {
   // residuals of the six blocks of equations
   // res1 - A * dx
   std::vector<double> r1 = res1;
-  model_.A_.alphaProductPlusY(-1.0, delta.x, r1);
+  model_.A().alphaProductPlusY(-1.0, delta.x, r1);
 
   // res2 - dx + dxl
   std::vector<double> r2(n_);
@@ -839,7 +836,7 @@ void Ipm::backwardError(const NewtonDir& delta) const {
   // res4 - A^T * dy - dzl + dzu
   std::vector<double> r4(n_);
   for (int i = 0; i < n_; ++i) r4[i] = res4[i] - delta.zl[i] + delta.zu[i];
-  model_.A_.alphaProductPlusY(-1.0, delta.y, r4, true);
+  model_.A().alphaProductPlusY(-1.0, delta.y, r4, true);
 
   // res5 - Zl * Dxl - Xl * Dzl
   std::vector<double> r5(n_);
@@ -888,9 +885,10 @@ void Ipm::backwardError(const NewtonDir& delta) const {
   std::vector<double> norm_cols_A(n_);
   std::vector<double> norm_rows_A(m_);
   for (int col = 0; col < n_; ++col) {
-    for (int el = model_.A_.start_[col]; el < model_.A_.start_[col + 1]; ++el) {
-      int row = model_.A_.index_[el];
-      double val = model_.A_.value_[el];
+    for (int el = model_.A().start_[col]; el < model_.A().start_[col + 1];
+         ++el) {
+      int row = model_.A().index_[el];
+      double val = model_.A().value_[el];
       norm_cols_A[col] += std::abs(val);
       norm_rows_A[row] += std::abs(val);
     }
@@ -923,9 +921,10 @@ void Ipm::backwardError(const NewtonDir& delta) const {
   std::vector<double> abs_prod_A(m_);
   std::vector<double> abs_prod_At(n_);
   for (int col = 0; col < n_; ++col) {
-    for (int el = model_.A_.start_[col]; el < model_.A_.start_[col + 1]; ++el) {
-      int row = model_.A_.index_[el];
-      double val = model_.A_.value_[el];
+    for (int el = model_.A().start_[col]; el < model_.A().start_[col + 1];
+         ++el) {
+      int row = model_.A().index_[el];
+      double val = model_.A().value_[el];
       abs_prod_A[row] += std::abs(val) * std::abs(delta.x[col]);
       abs_prod_At[col] += std::abs(val) * std::abs(delta.y[row]);
     }
@@ -1022,9 +1021,9 @@ void Ipm::printOutput() const {
 
 void Ipm::printInfo() const {
   printf("\n");
-  printf("Problem %s\n", model_.pb_name_.c_str());
+  printf("Problem %s\n", model_.name().c_str());
   printf("%.2e rows, %.2e cols, %.2e nnz\n", (double)m_, (double)n_,
-         (double)model_.A_.numNz());
+         (double)model_.A().numNz());
   printf("Using %s\n", options_.nla == kOptionNlaAugmented
                            ? "augmented systems"
                            : "normal equations");

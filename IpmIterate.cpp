@@ -9,7 +9,7 @@ NewtonDir::NewtonDir(int m, int n)
 
 IpmIterate::IpmIterate(const IpmModel& model)
     : model_{model},
-      delta_(model_.m_, model_.n_),
+      delta_(model_.m(), model_.n()),
       dx_{delta_.x},
       dxl_{delta_.xl},
       dxu_{delta_.xu},
@@ -60,7 +60,7 @@ bool IpmIterate::isDirInf() const {
 void IpmIterate::mu() {
   mu_ = 0.0;
   int number_finite_bounds{};
-  for (int i = 0; i < model_.n_; ++i) {
+  for (int i = 0; i < model_.n(); ++i) {
     if (model_.hasLb(i)) {
       mu_ += xl_[i] * zl_[i];
       ++number_finite_bounds;
@@ -73,9 +73,9 @@ void IpmIterate::mu() {
   mu_ /= number_finite_bounds;
 }
 void IpmIterate::scaling() {
-  scaling_.assign(model_.n_, 0.0);
+  scaling_.assign(model_.n(), 0.0);
 
-  for (int i = 0; i < model_.n_; ++i) {
+  for (int i = 0; i < model_.n(); ++i) {
     if (model_.hasLb(i)) scaling_[i] += zl_[i] / xl_[i];
     if (model_.hasUb(i)) scaling_[i] += zu_[i] / xu_[i];
 
@@ -88,7 +88,7 @@ void IpmIterate::scaling() {
   double& max_theta = DataCollector::get()->back().max_theta;
   min_theta = kInf;
   max_theta = 0.0;
-  for (int i = 0; i < model_.n_; ++i) {
+  for (int i = 0; i < model_.n(); ++i) {
     if (scaling_[i] != 0.0) {
       min_theta = std::min(min_theta, 1.0 / scaling_[i]);
       max_theta = std::max(max_theta, 1.0 / scaling_[i]);
@@ -101,7 +101,7 @@ void IpmIterate::products() {
   int num_small = 0;
   int num_large = 0;
 
-  for (int i = 0; i < model_.n_; ++i) {
+  for (int i = 0; i < model_.n(); ++i) {
     if (model_.hasLb(i)) {
       double prod = xl_[i] * zl_[i] / mu_;
       min_prod = std::min(min_prod, prod);
@@ -133,12 +133,12 @@ void IpmIterate::indicators() {
   products();
 }
 
-void IpmIterate::primalObj() { pobj_ = dotProd(x_, model_.c_); }
+void IpmIterate::primalObj() { pobj_ = dotProd(x_, model_.c()); }
 void IpmIterate::dualObj() {
-  dobj_ = dotProd(y_, model_.b_);
-  for (int i = 0; i < model_.n_; ++i) {
-    if (model_.hasLb(i)) dobj_ += model_.lower_[i] * zl_[i];
-    if (model_.hasUb(i)) dobj_ -= model_.upper_[i] * zu_[i];
+  dobj_ = dotProd(y_, model_.b());
+  for (int i = 0; i < model_.n(); ++i) {
+    if (model_.hasLb(i)) dobj_ += model_.lb(i) * zl_[i];
+    if (model_.hasUb(i)) dobj_ -= model_.ub(i) * zu_[i];
   }
 }
 void IpmIterate::pdGap() {
@@ -160,18 +160,18 @@ void IpmIterate::dualInfeas() {
 void IpmIterate::primalInfeasUnscaled() {
   // relative infinity norm of unscaled primal residuals
   pinf_ = 0.0;
-  for (int i = 0; i < model_.m_; ++i) {
+  for (int i = 0; i < model_.m(); ++i) {
     double val = std::abs(res1_[i]);
-    if (!model_.rowexp_.empty()) val = std::ldexp(val, -model_.rowexp_[i]);
+    if (model_.scaled()) val = std::ldexp(val, -model_.rowexp(i));
     pinf_ = std::max(pinf_, val);
   }
-  for (int i = 0; i < model_.n_; ++i) {
+  for (int i = 0; i < model_.n(); ++i) {
     double val = std::abs(res2_[i]);
-    if (!model_.colexp_.empty()) val = std::ldexp(val, model_.colexp_[i]);
+    if (model_.scaled()) val = std::ldexp(val, model_.colexp(i));
     pinf_ = std::max(pinf_, val);
 
     val = std::abs(res3_[i]);
-    if (!model_.colexp_.empty()) val = std::ldexp(val, model_.colexp_[i]);
+    if (model_.scaled()) val = std::ldexp(val, model_.colexp(i));
     pinf_ = std::max(pinf_, val);
   }
   pinf_ /= (1.0 + model_.normUnscaledRhs());
@@ -179,9 +179,9 @@ void IpmIterate::primalInfeasUnscaled() {
 void IpmIterate::dualInfeasUnscaled() {
   // relative infinity norm of unscaled dual residual
   dinf_ = 0.0;
-  for (int i = 0; i < model_.n_; ++i) {
+  for (int i = 0; i < model_.n(); ++i) {
     double val = std::abs(res4_[i]);
-    if (model_.colexp_.size() > 0) val = std::ldexp(val, -model_.colexp_[i]);
+    if (model_.scaled()) val = std::ldexp(val, -model_.colexp(i));
     dinf_ = std::max(dinf_, val);
   }
   dinf_ /= (1.0 + model_.normUnscaledObj());
@@ -189,29 +189,29 @@ void IpmIterate::dualInfeasUnscaled() {
 
 void IpmIterate::residual1234() {
   // res1
-  res1_ = model_.b_;
-  model_.A_.alphaProductPlusY(-1.0, x_, res1_);
+  res1_ = model_.b();
+  model_.A().alphaProductPlusY(-1.0, x_, res1_);
 
   // res2
-  for (int i = 0; i < model_.n_; ++i) {
+  for (int i = 0; i < model_.n(); ++i) {
     if (model_.hasLb(i))
-      res2_[i] = model_.lower_[i] - x_[i] + xl_[i];
+      res2_[i] = model_.lb(i) - x_[i] + xl_[i];
     else
       res2_[i] = 0.0;
   }
 
   // res3
-  for (int i = 0; i < model_.n_; ++i) {
+  for (int i = 0; i < model_.n(); ++i) {
     if (model_.hasUb(i))
-      res3_[i] = model_.upper_[i] - x_[i] - xu_[i];
+      res3_[i] = model_.ub(i) - x_[i] - xu_[i];
     else
       res3_[i] = 0.0;
   }
 
   // res4
-  res4_ = model_.c_;
-  model_.A_.alphaProductPlusY(-1.0, y_, res4_, true);
-  for (int i = 0; i < model_.n_; ++i) {
+  res4_ = model_.c();
+  model_.A().alphaProductPlusY(-1.0, y_, res4_, true);
+  for (int i = 0; i < model_.n(); ++i) {
     if (model_.hasLb(i)) res4_[i] -= zl_[i];
     if (model_.hasUb(i)) res4_[i] += zu_[i];
   }
@@ -219,7 +219,7 @@ void IpmIterate::residual1234() {
   assert(!isResNan() && !isResInf());
 }
 void IpmIterate::residual56(double sigma) {
-  for (int i = 0; i < model_.n_; ++i) {
+  for (int i = 0; i < model_.n(); ++i) {
     // res5
     if (model_.hasLb(i))
       res5_[i] = sigma * mu_ - xl_[i] * zl_[i];
@@ -238,7 +238,7 @@ void IpmIterate::residual56(double sigma) {
 
 std::vector<double> IpmIterate::residual7() const {
   std::vector<double> res7(res4_);
-  for (int i = 0; i < model_.n_; ++i) {
+  for (int i = 0; i < model_.n(); ++i) {
     if (model_.hasLb(i)) res7[i] -= ((res5_[i] + zl_[i] * res2_[i]) / xl_[i]);
     if (model_.hasUb(i)) res7[i] += ((res6_[i] - zu_[i] * res3_[i]) / xu_[i]);
   }
@@ -250,38 +250,38 @@ std::vector<double> IpmIterate::residual8(
   std::vector<double> temp(res7);
 
   // temp = (Theta^-1+Rp)^-1 * res7
-  for (int i = 0; i < model_.n_; ++i)
+  for (int i = 0; i < model_.n(); ++i)
     temp[i] /= scaling_[i] + kPrimalStaticRegularization;
 
   // res8 += A * temp
-  model_.A_.alphaProductPlusY(1.0, temp, res8);
+  model_.A().alphaProductPlusY(1.0, temp, res8);
 
   return res8;
 }
 
 void IpmIterate::clearIter() {
-  x_.assign(model_.n_, 0.0);
-  xl_.assign(model_.n_, 0.0);
-  xu_.assign(model_.n_, 0.0);
-  y_.assign(model_.m_, 0.0);
-  zl_.assign(model_.n_, 0.0);
-  zu_.assign(model_.n_, 0.0);
+  x_.assign(model_.n(), 0.0);
+  xl_.assign(model_.n(), 0.0);
+  xu_.assign(model_.n(), 0.0);
+  y_.assign(model_.m(), 0.0);
+  zl_.assign(model_.n(), 0.0);
+  zu_.assign(model_.n(), 0.0);
 }
 void IpmIterate::clearRes() {
-  res1_.assign(model_.m_, 0.0);
-  res2_.assign(model_.n_, 0.0);
-  res3_.assign(model_.n_, 0.0);
-  res4_.assign(model_.n_, 0.0);
-  res5_.assign(model_.n_, 0.0);
-  res6_.assign(model_.n_, 0.0);
+  res1_.assign(model_.m(), 0.0);
+  res2_.assign(model_.n(), 0.0);
+  res3_.assign(model_.n(), 0.0);
+  res4_.assign(model_.n(), 0.0);
+  res5_.assign(model_.n(), 0.0);
+  res6_.assign(model_.n(), 0.0);
 }
 void IpmIterate::clearDir() {
-  dx_.assign(model_.n_, 0.0);
-  dxl_.assign(model_.n_, 0.0);
-  dxu_.assign(model_.n_, 0.0);
-  dy_.assign(model_.m_, 0.0);
-  dzl_.assign(model_.n_, 0.0);
-  dzu_.assign(model_.n_, 0.0);
+  dx_.assign(model_.n(), 0.0);
+  dxl_.assign(model_.n(), 0.0);
+  dxu_.assign(model_.n(), 0.0);
+  dy_.assign(model_.m(), 0.0);
+  dzl_.assign(model_.n(), 0.0);
+  dzu_.assign(model_.n(), 0.0);
 }
 
 void IpmIterate::extract(std::vector<double>& x, std::vector<double>& xl,
@@ -291,27 +291,27 @@ void IpmIterate::extract(std::vector<double>& x, std::vector<double>& xl,
   // Extract solution with internal format
 
   // Copy x, xl, xu, zl, zu without slacks
-  x = std::vector<double>(x_.begin(), x_.begin() + model_.num_var_);
-  xl = std::vector<double>(xl_.begin(), xl_.begin() + model_.num_var_);
-  xu = std::vector<double>(xu_.begin(), xu_.begin() + model_.num_var_);
-  zl = std::vector<double>(zl_.begin(), zl_.begin() + model_.num_var_);
-  zu = std::vector<double>(zu_.begin(), zu_.begin() + model_.num_var_);
+  x = std::vector<double>(x_.begin(), x_.begin() + model_.n_orig());
+  xl = std::vector<double>(xl_.begin(), xl_.begin() + model_.n_orig());
+  xu = std::vector<double>(xu_.begin(), xu_.begin() + model_.n_orig());
+  zl = std::vector<double>(zl_.begin(), zl_.begin() + model_.n_orig());
+  zu = std::vector<double>(zu_.begin(), zu_.begin() + model_.n_orig());
 
   // For the Lagrange multipliers, use slacks from zl and zu, to get correct
   // sign. NB: there is no explicit slack stored for equality constraints.
-  y.resize(model_.m_);
+  y.resize(model_.m());
   int slack_pos = 0;
-  for (int i = 0; i < model_.m_; ++i) {
-    switch (model_.constraints_[i]) {
+  for (int i = 0; i < model_.m(); ++i) {
+    switch (model_.constraint(i)) {
       case '=':
         y[i] = y_[i];
         break;
       case '>':
-        y[i] = zu_[model_.num_var_ + slack_pos];
+        y[i] = zu_[model_.n_orig() + slack_pos];
         ++slack_pos;
         break;
       case '<':
-        y[i] = -zl_[model_.num_var_ + slack_pos];
+        y[i] = -zl_[model_.n_orig() + slack_pos];
         ++slack_pos;
         break;
     }
@@ -319,19 +319,19 @@ void IpmIterate::extract(std::vector<double>& x, std::vector<double>& xl,
 
   // For x-slacks, use slacks from xl and xu, to get correct sign.
   // NB: there is no explicit slack stored for equality constraints.
-  slack.resize(model_.m_);
+  slack.resize(model_.m());
   slack_pos = 0;
-  for (int i = 0; i < model_.m_; ++i) {
-    switch (model_.constraints_[i]) {
+  for (int i = 0; i < model_.m(); ++i) {
+    switch (model_.constraint(i)) {
       case '=':
         slack[i] = 0.0;
         break;
       case '>':
-        slack[i] = -xu_[model_.num_var_ + slack_pos];
+        slack[i] = -xu_[model_.n_orig() + slack_pos];
         ++slack_pos;
         break;
       case '<':
-        slack[i] = xl_[model_.num_var_ + slack_pos];
+        slack[i] = xl_[model_.n_orig() + slack_pos];
         ++slack_pos;
         break;
     }
@@ -350,22 +350,22 @@ void IpmIterate::extract(std::vector<double>& x, std::vector<double>& slack,
   // They are removed from x and z, but they are used to compute slack and y.
 
   // Remove slacks from x and z
-  x = std::vector<double>(x_temp.begin(), x_temp.begin() + model_.num_var_);
-  z = std::vector<double>(z_temp.begin(), z_temp.begin() + model_.num_var_);
+  x = std::vector<double>(x_temp.begin(), x_temp.begin() + model_.n_orig());
+  z = std::vector<double>(z_temp.begin(), z_temp.begin() + model_.n_orig());
 
   // For inequality constraints, the corresponding z-slack may have been dropped
   // to zero, so build y from z-slacks.
   // NB: there is no explicit slack stored for equality constraints.
-  y.resize(model_.m_);
+  y.resize(model_.m());
   int slack_pos = 0;
-  for (int i = 0; i < model_.m_; ++i) {
-    switch (model_.constraints_[i]) {
+  for (int i = 0; i < model_.m(); ++i) {
+    switch (model_.constraint(i)) {
       case '=':
         y[i] = y_temp[i];
         break;
       case '>':
       case '<':
-        y[i] = -z_temp[model_.num_var_ + slack_pos];
+        y[i] = -z_temp[model_.n_orig() + slack_pos];
         ++slack_pos;
         break;
     }
@@ -373,16 +373,16 @@ void IpmIterate::extract(std::vector<double>& x, std::vector<double>& slack,
 
   // Use slacks from x_temp and add slack for equality constraints.
   // NB: there is no explicit slack stored for equality constraints.
-  slack.resize(model_.m_);
+  slack.resize(model_.m());
   slack_pos = 0;
-  for (int i = 0; i < model_.m_; ++i) {
-    switch (model_.constraints_[i]) {
+  for (int i = 0; i < model_.m(); ++i) {
+    switch (model_.constraint(i)) {
       case '=':
         slack[i] = 0.0;
         break;
       case '>':
       case '<':
-        slack[i] = x_temp[model_.num_var_ + slack_pos];
+        slack[i] = x_temp[model_.n_orig() + slack_pos];
         ++slack_pos;
         break;
     }
@@ -392,18 +392,18 @@ void IpmIterate::extract(std::vector<double>& x, std::vector<double>& slack,
 void IpmIterate::dropToComplementarity(std::vector<double>& x,
                                        std::vector<double>& y,
                                        std::vector<double>& z) const {
-  x.assign(model_.n_ + model_.m_, 0.0);
-  z.assign(model_.n_ + model_.m_, 0.0);
+  x.assign(model_.n() + model_.m(), 0.0);
+  z.assign(model_.n() + model_.m(), 0.0);
   y = y_;
 
-  for (int j = 0; j < model_.n_ + model_.m_; ++j) {
+  for (int j = 0; j < model_.n() + model_.m(); ++j) {
     // value of x_[j] within bounds
-    double xj = std::max(x_[j], model_.lower_[j]);
-    xj = std::min(xj, model_.upper_[j]);
+    double xj = std::max(x_[j], model_.lb(j));
+    xj = std::min(xj, model_.ub(j));
 
     // FIXED VARIABLE
-    if (model_.lower_[j] == model_.upper_[j]) {
-      x[j] = model_.lower_[j];
+    if (model_.lb(j) == model_.ub(j)) {
+      x[j] = model_.lb(j);
       z[j] = zl_[j] - zu_[j];
     }
 
@@ -414,7 +414,7 @@ void IpmIterate::dropToComplementarity(std::vector<double>& x,
         // Primal lower is smaller than primal upper, wrt respective duals
         if (zl_[j] >= xl_[j]) {
           // drop x to lower bound, set z positive
-          x[j] = model_.lower_[j];
+          x[j] = model_.lb(j);
           z[j] = std::max(0.0, zl_[j] - zu_[j]);
         } else {
           // drop z to zero, set x within bounds
@@ -426,7 +426,7 @@ void IpmIterate::dropToComplementarity(std::vector<double>& x,
         // Primal upper is smaller than primal lower, wrt respective duals
         if (zu_[j] >= xu_[j]) {
           // drop x to upper bound, set z negative
-          x[j] = model_.upper_[j];
+          x[j] = model_.ub(j);
           z[j] = std::min(0.0, zl_[j] - zu_[j]);
         } else {
           // drop z to zero, set x within bounds
@@ -440,7 +440,7 @@ void IpmIterate::dropToComplementarity(std::vector<double>& x,
     else if (model_.hasLb(j)) {
       if (zl_[j] >= xl_[j]) {
         // drop x to lower bound, set z positive
-        x[j] = model_.lower_[j];
+        x[j] = model_.lb(j);
         z[j] = std::max(0.0, zl_[j] - zu_[j]);
       } else {
         // drop z to zero, set x within bounds
@@ -453,7 +453,7 @@ void IpmIterate::dropToComplementarity(std::vector<double>& x,
     else if (model_.hasUb(j)) {
       if (zu_[j] >= xu_[j]) {
         // drop x to upper bound, set z negative
-        x[j] = model_.upper_[j];
+        x[j] = model_.ub(j);
         z[j] = std::min(0.0, zl_[j] - zu_[j]);
       } else {
         // drop z to zero, set x within bounds

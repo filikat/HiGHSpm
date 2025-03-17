@@ -25,6 +25,9 @@ void IpmModel::init(const int num_var, const int num_con, const double* obj,
 
   pb_name_ = pb_name;
 
+  scale();
+  reformulate();
+
   ready_ = true;
 }
 
