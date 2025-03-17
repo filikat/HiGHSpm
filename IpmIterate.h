@@ -128,16 +128,32 @@ struct IpmIterate {
   std::vector<double> residual8(const std::vector<double>& res7) const;
 
   // ===================================================================================
-  // Prepare solution to be returned to user:
+  // Extract solution to be returned to user:
   // - remove extra slacks from x, xl, xu, zl, zu
   // - adjust sign of y for inequality constraints
   // - compute and adjust sign of slacks
-  // - un-apply the scaling
   // ===================================================================================
-  void prepareForUser(std::vector<double>& x, std::vector<double>& xl,
-                      std::vector<double>& xu, std::vector<double>& slack,
-                      std::vector<double>& y, std::vector<double>& zl,
-                      std::vector<double>& zu) const;
+  void extract(std::vector<double>& x, std::vector<double>& xl,
+               std::vector<double>& xu, std::vector<double>& slack,
+               std::vector<double>& y, std::vector<double>& zl,
+               std::vector<double>& zu) const;
+
+  // ===================================================================================
+  // Extract complementary solution to be used for crossover with IPX:
+  // - drop variables to obtain complementary (x,y,z)
+  // - adjust y based on z-slacks
+  // - compute slacks
+  // - remove extra slacks from x, z
+  // ===================================================================================
+  void extract(std::vector<double>& x, std::vector<double>& slack,
+               std::vector<double>& y, std::vector<double>& z) const;
+
+  // ===================================================================================
+  // Construct a complementary point (x,y,z), such that for each j, either xj is
+  // at one of the bounds (lower or upper), or zj is zero.
+  // ===================================================================================
+  void dropToComplementarity(std::vector<double>& x, std::vector<double>& y,
+                             std::vector<double>& z) const;
 };
 
 #endif

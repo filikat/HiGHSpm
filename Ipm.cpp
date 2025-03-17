@@ -96,11 +96,6 @@ IpmStatus Ipm::solve() {
   }
 
   LS_->finalise();
-
-  // solution for the user
-  it_->prepareForUser(x_user, xl_user, xu_user, slack_user, y_user, zl_user,
-                      zu_user);
-
   DataCollector::get()->printIter();
   DataCollector::destruct();
 
@@ -295,13 +290,11 @@ void Ipm::stepSizes() {
   int num_finite = 0;
   for (int i = 0; i < n_; ++i) {
     if (model_.hasLb(i)) {
-      mu_full +=
-          (xl[i] + max_p * dxl[i]) * (zl[i] + max_d * dzl[i]);
+      mu_full += (xl[i] + max_p * dxl[i]) * (zl[i] + max_d * dzl[i]);
       ++num_finite;
     }
     if (model_.hasUb(i)) {
-      mu_full +=
-          (xu[i] + max_p * dxu[i]) * (zu[i] + max_d * dzu[i]);
+      mu_full += (xu[i] + max_p * dxu[i]) * (zu[i] + max_d * dzu[i]);
       ++num_finite;
     }
   }
@@ -1114,11 +1107,14 @@ void Ipm::getSolution(std::vector<double>& x, std::vector<double>& xl,
                       std::vector<double>& xu, std::vector<double>& slack,
                       std::vector<double>& y, std::vector<double>& zl,
                       std::vector<double>& zu) const {
-  x = x_user;
-  xl = xl_user;
-  xu = xu_user;
-  slack = slack_user;
-  y = y_user;
-  zl = zl_user;
-  zu = zu_user;
+  // prepare and return solution with internal format
+  it_->extract(x, xl, xu, slack, y, zl, zu);
+  model_.unscale(x, xl, xu, slack, y, zl, zu);
+}
+
+void Ipm::getSolution(std::vector<double>& x, std::vector<double>& slack,
+                      std::vector<double>& y, std::vector<double>& z) const {
+  // prepare and return solution with format for crossover
+  it_->extract(x, slack, y, z);
+  model_.unscale(x, slack, y, z);
 }

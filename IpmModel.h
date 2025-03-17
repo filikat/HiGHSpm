@@ -45,8 +45,6 @@ struct IpmModel {
   // exponents for scaling
   std::vector<int> colexp_{};
   std::vector<int> rowexp_{};
-  int cexp_{};
-  int bexp_{};
 
   // Check if variable has finite lower/upper bound
   bool hasLb(int j) const { return lower_[j] != -kInf; }
@@ -64,12 +62,16 @@ struct IpmModel {
   // Compute range of coefficients
   void checkCoefficients() const;
 
-  // (Un)scale the matrix
+  // Scale the problem
   void scale();
+
+  // Unscale a given solution
   void unscale(std::vector<double>& x, std::vector<double>& xl,
                std::vector<double>& xu, std::vector<double>& slack,
                std::vector<double>& y, std::vector<double>& zl,
                std::vector<double>& zu) const;
+  void unscale(std::vector<double>& x, std::vector<double>& slack,
+               std::vector<double>& y, std::vector<double>& z) const;
 
   double normScaledRhs() const;
   double normScaledObj() const;

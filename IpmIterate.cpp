@@ -133,21 +133,13 @@ void IpmIterate::indicators() {
   products();
 }
 
-void IpmIterate::primalObj() {
-  // compute unscaled primal objective
-  pobj_ = dotProd(x_, model_.c_);
-  if (model_.colexp_.size() > 0)
-    pobj_ = std::ldexp(pobj_, -model_.cexp_ - model_.bexp_);
-}
+void IpmIterate::primalObj() { pobj_ = dotProd(x_, model_.c_); }
 void IpmIterate::dualObj() {
-  // compute unscaled dual objective
   dobj_ = dotProd(y_, model_.b_);
   for (int i = 0; i < model_.n_; ++i) {
     if (model_.hasLb(i)) dobj_ += model_.lower_[i] * zl_[i];
     if (model_.hasUb(i)) dobj_ -= model_.upper_[i] * zu_[i];
   }
-  if (model_.colexp_.size() > 0)
-    dobj_ = std::ldexp(dobj_, -model_.cexp_ - model_.bexp_);
 }
 void IpmIterate::pdGap() {
   // relative primal-dual gap
@@ -170,19 +162,16 @@ void IpmIterate::primalInfeasUnscaled() {
   pinf_ = 0.0;
   for (int i = 0; i < model_.m_; ++i) {
     double val = std::abs(res1_[i]);
-    if (!model_.rowexp_.empty())
-      val = std::ldexp(val, -model_.bexp_ - model_.rowexp_[i]);
+    if (!model_.rowexp_.empty()) val = std::ldexp(val, -model_.rowexp_[i]);
     pinf_ = std::max(pinf_, val);
   }
   for (int i = 0; i < model_.n_; ++i) {
     double val = std::abs(res2_[i]);
-    if (!model_.colexp_.empty())
-      val = std::ldexp(val, -model_.bexp_ + model_.colexp_[i]);
+    if (!model_.colexp_.empty()) val = std::ldexp(val, model_.colexp_[i]);
     pinf_ = std::max(pinf_, val);
 
     val = std::abs(res3_[i]);
-    if (!model_.colexp_.empty())
-      val = std::ldexp(val, -model_.bexp_ + model_.colexp_[i]);
+    if (!model_.colexp_.empty()) val = std::ldexp(val, model_.colexp_[i]);
     pinf_ = std::max(pinf_, val);
   }
   pinf_ /= (1.0 + model_.normUnscaledRhs());
@@ -192,8 +181,7 @@ void IpmIterate::dualInfeasUnscaled() {
   dinf_ = 0.0;
   for (int i = 0; i < model_.n_; ++i) {
     double val = std::abs(res4_[i]);
-    if (model_.colexp_.size() > 0)
-      val = std::ldexp(val, -model_.cexp_ - model_.colexp_[i]);
+    if (model_.colexp_.size() > 0) val = std::ldexp(val, -model_.colexp_[i]);
     dinf_ = std::max(dinf_, val);
   }
   dinf_ /= (1.0 + model_.normUnscaledObj());
@@ -296,20 +284,21 @@ void IpmIterate::clearDir() {
   dzu_.assign(model_.n_, 0.0);
 }
 
-void IpmIterate::prepareForUser(std::vector<double>& x, std::vector<double>& xl,
-                                std::vector<double>& xu,
-                                std::vector<double>& slack,
-                                std::vector<double>& y, std::vector<double>& zl,
-                                std::vector<double>& zu) const {
-  // copy x, xl, xu, zl, zu without slacks
+void IpmIterate::extract(std::vector<double>& x, std::vector<double>& xl,
+                         std::vector<double>& xu, std::vector<double>& slack,
+                         std::vector<double>& y, std::vector<double>& zl,
+                         std::vector<double>& zu) const {
+  // Extract solution with internal format
+
+  // Copy x, xl, xu, zl, zu without slacks
   x = std::vector<double>(x_.begin(), x_.begin() + model_.num_var_);
   xl = std::vector<double>(xl_.begin(), xl_.begin() + model_.num_var_);
   xu = std::vector<double>(xu_.begin(), xu_.begin() + model_.num_var_);
   zl = std::vector<double>(zl_.begin(), zl_.begin() + model_.num_var_);
   zu = std::vector<double>(zu_.begin(), zu_.begin() + model_.num_var_);
 
-  // for the Lagrange multipliers, use slacks from zl and zu, to get correct
-  // sign
+  // For the Lagrange multipliers, use slacks from zl and zu, to get correct
+  // sign. NB: there is no explicit slack stored for equality constraints.
   y.resize(model_.m_);
   int slack_pos = 0;
   for (int i = 0; i < model_.m_; ++i) {
@@ -328,7 +317,8 @@ void IpmIterate::prepareForUser(std::vector<double>& x, std::vector<double>& xl,
     }
   }
 
-  // for x-slacks, use slacks from xl and xu, to get correct sign
+  // For x-slacks, use slacks from xl and xu, to get correct sign.
+  // NB: there is no explicit slack stored for equality constraints.
   slack.resize(model_.m_);
   slack_pos = 0;
   for (int i = 0; i < model_.m_; ++i) {
@@ -346,7 +336,136 @@ void IpmIterate::prepareForUser(std::vector<double>& x, std::vector<double>& xl,
         break;
     }
   }
+}
 
-  // unscale the solution
-  model_.unscale(x, xl, xu, slack, y, zl, zu);
+void IpmIterate::extract(std::vector<double>& x, std::vector<double>& slack,
+                         std::vector<double>& y, std::vector<double>& z) const {
+  // Extract solution with format for crossover
+
+  // Construct complementary point (x_temp, y_temp, z_temp)
+  std::vector<double> x_temp, y_temp, z_temp;
+  dropToComplementarity(x_temp, y_temp, z_temp);
+
+  // Both x_temp and z_temp include slacks.
+  // They are removed from x and z, but they are used to compute slack and y.
+
+  // Remove slacks from x and z
+  x = std::vector<double>(x_temp.begin(), x_temp.begin() + model_.num_var_);
+  z = std::vector<double>(z_temp.begin(), z_temp.begin() + model_.num_var_);
+
+  // For inequality constraints, the corresponding z-slack may have been dropped
+  // to zero, so build y from z-slacks.
+  // NB: there is no explicit slack stored for equality constraints.
+  y.resize(model_.m_);
+  int slack_pos = 0;
+  for (int i = 0; i < model_.m_; ++i) {
+    switch (model_.constraints_[i]) {
+      case '=':
+        y[i] = y_temp[i];
+        break;
+      case '>':
+      case '<':
+        y[i] = -z_temp[model_.num_var_ + slack_pos];
+        ++slack_pos;
+        break;
+    }
+  }
+
+  // Use slacks from x_temp and add slack for equality constraints.
+  // NB: there is no explicit slack stored for equality constraints.
+  slack.resize(model_.m_);
+  slack_pos = 0;
+  for (int i = 0; i < model_.m_; ++i) {
+    switch (model_.constraints_[i]) {
+      case '=':
+        slack[i] = 0.0;
+        break;
+      case '>':
+      case '<':
+        slack[i] = x_temp[model_.num_var_ + slack_pos];
+        ++slack_pos;
+        break;
+    }
+  }
+}
+
+void IpmIterate::dropToComplementarity(std::vector<double>& x,
+                                       std::vector<double>& y,
+                                       std::vector<double>& z) const {
+  x.assign(model_.n_ + model_.m_, 0.0);
+  z.assign(model_.n_ + model_.m_, 0.0);
+  y = y_;
+
+  for (int j = 0; j < model_.n_ + model_.m_; ++j) {
+    // value of x_[j] within bounds
+    double xj = std::max(x_[j], model_.lower_[j]);
+    xj = std::min(xj, model_.upper_[j]);
+
+    // FIXED VARIABLE
+    if (model_.lower_[j] == model_.upper_[j]) {
+      x[j] = model_.lower_[j];
+      z[j] = zl_[j] - zu_[j];
+    }
+
+    // BOTH BOUNDS FINITE
+    else if (model_.hasLb(j) && model_.hasUb(j)) {
+      if (zl_[j] * xu_[j] >= zu_[j] * xl_[j]) {
+        // xlj/zlj <= xuj/zuj
+        // Primal lower is smaller than primal upper, wrt respective duals
+        if (zl_[j] >= xl_[j]) {
+          // drop x to lower bound, set z positive
+          x[j] = model_.lower_[j];
+          z[j] = std::max(0.0, zl_[j] - zu_[j]);
+        } else {
+          // drop z to zero, set x within bounds
+          x[j] = xj;
+          z[j] = 0.0;
+        }
+      } else {
+        // xuj/zuj < xlj/zlj
+        // Primal upper is smaller than primal lower, wrt respective duals
+        if (zu_[j] >= xu_[j]) {
+          // drop x to upper bound, set z negative
+          x[j] = model_.upper_[j];
+          z[j] = std::min(0.0, zl_[j] - zu_[j]);
+        } else {
+          // drop z to zero, set x within bounds
+          x[j] = xj;
+          z[j] = 0.0;
+        }
+      }
+    }
+
+    // LOWER BOUND FINITE
+    else if (model_.hasLb(j)) {
+      if (zl_[j] >= xl_[j]) {
+        // drop x to lower bound, set z positive
+        x[j] = model_.lower_[j];
+        z[j] = std::max(0.0, zl_[j] - zu_[j]);
+      } else {
+        // drop z to zero, set x within bounds
+        x[j] = xj;
+        z[j] = 0.0;
+      }
+    }
+
+    // UPPER BOUND FINITE
+    else if (model_.hasUb(j)) {
+      if (zu_[j] >= xu_[j]) {
+        // drop x to upper bound, set z negative
+        x[j] = model_.upper_[j];
+        z[j] = std::min(0.0, zl_[j] - zu_[j]);
+      } else {
+        // drop z to zero, set x within bounds
+        x[j] = xj;
+        z[j] = 0.0;
+      }
+    }
+
+    // NO BOUNDS
+    else {
+      x[j] = xj;
+      z[j] = 0.0;
+    }
+  }
 }

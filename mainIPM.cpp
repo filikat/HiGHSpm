@@ -163,11 +163,13 @@ int main(int argc, char** argv) {
   // ===================================================================================
   // run ipx starting from optimal solution just found
 
-  printf("\n============= IPX ===============\n");
+  printf("\n============= IPX + crossover ===============\n");
 
   ipx::LpSolver lps;
 
   ipx::Parameters ipx_param;
+  ipx_param.display = 1;
+  ipx_param.dualize = 0;  // starting point not implemented in ipx if dualized
   ipx_param.run_crossover = 1;
   ipx_param.ipm_feasibility_tol = 1e-8;
   ipx_param.ipm_optimality_tol = 1e-8;
@@ -189,9 +191,16 @@ int main(int argc, char** argv) {
 
   lps.Solve();
 
-  std::vector<double> x_int(n);
-  lps.GetInteriorSolution(x_int.data(), nullptr, nullptr, nullptr, nullptr,
-                          nullptr, nullptr);
+  // Run crossover directly from optimal solution
+
+  printf("\n============= Crossover ===============\n");
+
+  std::vector<double> x2, slack2, y2, z2;
+  ipm.getSolution(x2, slack2, y2, z2);
+
+  start_point_status = lps.CrossoverFromStartingPoint(x2.data(), slack2.data(),
+                                                      y2.data(), z2.data());
+  assert(start_point_status == 0);
 
   return 0;
 }

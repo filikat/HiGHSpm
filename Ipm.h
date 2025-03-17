@@ -48,10 +48,6 @@ class Ipm {
   // Timer for iterations
   Clock clock_;
 
-  // user solution
-  std::vector<double> x_user, xl_user, xu_user, slack_user, y_user, zl_user,
-      zu_user;
-
  public:
   // ===================================================================================
   // Load an LP:
@@ -90,6 +86,8 @@ class Ipm {
                    std::vector<double>& xu, std::vector<double>& slack,
                    std::vector<double>& y, std::vector<double>& zl,
                    std::vector<double>& zu) const;
+  void getSolution(std::vector<double>& x, std::vector<double>& slack,
+                   std::vector<double>& y, std::vector<double>& z) const;
   int getIter() const;
 
  private:
@@ -172,9 +170,7 @@ class Ipm {
 
   // ===================================================================================
   // Compute the Mehrotra starting point.
-  // In doing so, CG is used to solve two linear systems with matrix A*A^T.
-  // This task does not need a factorization and can continue to use CG, because
-  // these linear systems are very easy to solve with CG.
+  // This requires to solve two linear systems with matrix A*A^T.
   // ===================================================================================
   void startingPoint();
 
@@ -248,9 +244,13 @@ class Ipm {
   // ===================================================================================
   void backwardError(const NewtonDir& delta) const;
 
+  // ===================================================================================
+  // Print to screen
+  // ===================================================================================
   void printInfo() const;
   void printHeader() const;
   void printOutput() const;
+
   void collectData() const;
 };
 
