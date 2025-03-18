@@ -6,7 +6,6 @@
 #include <vector>
 
 #include "CurtisReidScaling.h"
-#include "Ipm_aux.h"
 #include "util/HighsSparseMatrix.h"
 
 // Optimization problem:

@@ -11,10 +11,8 @@ cpp_sources = \
 		Ipm.cpp \
 		IpmModel.cpp \
 		VectorOperations.cpp \
-		Ipm_aux.cpp \
 		FactorHiGHSSolver.cpp \
 		CurtisReidScaling.cpp \
-		CgSolver.cpp \
 		IpmIterate.cpp \
 		../FactorHiGHS/Analyse.cpp \
 		../FactorHiGHS/Auxiliary.cpp \
@@ -102,10 +100,10 @@ test: $(cpp_objects) $(OBJDIR)/$(test_name).o
 
 .PHONY : clean
 clean: 
+	rm $(OBJDIR)/*.d
+	rm FactorHiGHS/*.d
 	rm $(OBJDIR)/*.o
 	rm FactorHiGHS/*.o
 	rm $(binary_name)
 	rm test
-	rm $(OBJDIR)/*.d
-	rm FactorHiGHS/*.d
 

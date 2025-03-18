@@ -24,6 +24,21 @@ struct Options {
   int format = kOptionFormatDefault;
 };
 
+enum IpmStatus {
+  kIpmStatusOptimal,
+  kIpmStatusError,
+  kIpmStatusMaxIter,
+  kIpmStatusNoProgress
+};
+
+enum LinearSolverStatus {
+  kLinearSolverStatusOk = 0,
+  kLinearSolverStatusErrorOom,
+  kLinearSolverStatusErrorAnalyse,
+  kLinearSolverStatusErrorFactorise,
+  kLinearSolverStatusErrorSolve
+};
+
 // parameters for termination
 const int kMaxIterations = 100;
 const double kIpmTolerance = 1e-8;

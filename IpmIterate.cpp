@@ -3,6 +3,7 @@
 #include <cassert>
 
 #include "../FactorHiGHS/DataCollector.h"
+#include "Ipm_const.h"
 
 NewtonDir::NewtonDir(int m, int n)
     : x(n, 0.0), y(m, 0.0), xl(n, 0.0), xu(n, 0.0), zl(n, 0.0), zu(n, 0.0) {}

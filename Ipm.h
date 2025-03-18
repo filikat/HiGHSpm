@@ -4,11 +4,9 @@
 #include <string>
 
 #include "../FactorHiGHS/FactorHiGHS.h"
-#include "CgSolver.h"
 #include "FactorHiGHSSolver.h"
 #include "IpmIterate.h"
 #include "IpmModel.h"
-#include "Ipm_aux.h"
 #include "Ipm_const.h"
 #include "LinearSolver.h"
 #include "VectorOperations.h"
