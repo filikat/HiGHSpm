@@ -201,7 +201,7 @@ bool Ipm::recoverDirection(NewtonDir& delta) {
     ipm_status_ = kIpmStatusError;
     return true;
   } else if (it_->isDirInf()) {
-    std::cerr << "Direciton is inf\n";
+    std::cerr << "Direction is inf\n";
     ipm_status_ = kIpmStatusError;
     return true;
   }

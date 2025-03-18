@@ -86,7 +86,7 @@ void IpmIterate::scaling() {
   // compute min and max entry in Theta
   double& min_theta = DataCollector::get()->back().min_theta;
   double& max_theta = DataCollector::get()->back().max_theta;
-  min_theta = kInf;
+  min_theta = kHighsInf;
   max_theta = 0.0;
   for (int i = 0; i < model_.n(); ++i) {
     if (scaling_[i] != 0.0) {

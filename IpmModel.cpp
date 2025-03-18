@@ -44,11 +44,11 @@ void IpmModel::reformulate() {
 
       // lower/upper bound for new slack
       if (constraints_[i] == '>') {
-        lower_.push_back(-kInf);
+        lower_.push_back(-kHighsInf);
         upper_.push_back(0.0);
       } else {
         lower_.push_back(0.0);
-        upper_.push_back(kInf);
+        upper_.push_back(kHighsInf);
       }
 
       // cost for new slack
@@ -67,7 +67,7 @@ void IpmModel::reformulate() {
 
 void IpmModel::checkCoefficients() const {
   // compute max and min entry of A in absolute value
-  double Amin = kInf;
+  double Amin = kHighsInf;
   double Amax = 0.0;
   for (int col = 0; col < A_.num_col_; ++col) {
     for (int el = A_.start_[col]; el < A_.start_[col + 1]; ++el) {
@@ -78,10 +78,10 @@ void IpmModel::checkCoefficients() const {
       }
     }
   }
-  if (Amin == kInf) Amin = 0.0;
+  if (std::isinf(Amin)) Amin = 0.0;
 
   // compute max and min entry of c
-  double cmin = kInf;
+  double cmin = kHighsInf;
   double cmax = 0.0;
   for (int i = 0; i < n_; ++i) {
     if (c_[i] != 0.0) {
@@ -89,10 +89,10 @@ void IpmModel::checkCoefficients() const {
       cmax = std::max(cmax, std::abs(c_[i]));
     }
   }
-  if (cmin == kInf) cmin = 0.0;
+  if (std::isinf(cmin)) cmin = 0.0;
 
   // compute max and min entry of b
-  double bmin = kInf;
+  double bmin = kHighsInf;
   double bmax = 0.0;
   for (int i = 0; i < m_; ++i) {
     if (b_[i] != 0.0) {
@@ -100,18 +100,12 @@ void IpmModel::checkCoefficients() const {
       bmax = std::max(bmax, std::abs(b_[i]));
     }
   }
-  if (bmin == kInf) bmin = 0.0;
+  if (std::isinf(bmin)) bmin = 0.0;
 
   // compute max and min for bounds
-  double boundmin = kInf;
+  double boundmin = kHighsInf;
   double boundmax = 0.0;
   for (int i = 0; i < n_; ++i) {
-    /*if (std::isfinite(lower_[i]) && std::isfinite(upper_[i]) &&
-        upper_[i] != lower_[i]) {
-      boundmin = std::min(boundmin, std::abs(upper_[i] - lower_[i]));
-      boundmax = std::max(boundmax, std::abs(upper_[i] - lower_[i]));
-    }*/
-
     if (lower_[i] != 0.0 && std::isfinite(lower_[i])) {
       boundmin = std::min(boundmin, std::abs(lower_[i]));
       boundmax = std::max(boundmax, std::abs(lower_[i]));
@@ -121,10 +115,10 @@ void IpmModel::checkCoefficients() const {
       boundmax = std::max(boundmax, std::abs(upper_[i]));
     }
   }
-  if (boundmin == kInf) boundmin = 0.0;
+  if (std::isinf(boundmin)) boundmin = 0.0;
 
   // compute max and min scaling
-  double scalemin = kInf;
+  double scalemin = kHighsInf;
   double scalemax = 0.0;
   if (scaled()) {
     for (int i = 0; i < n_; ++i) {
@@ -136,7 +130,7 @@ void IpmModel::checkCoefficients() const {
       scalemax = std::max(scalemax, rowscale_[i]);
     }
   }
-  if (scalemin == kInf) scalemin = 0.0;
+  if (std::isinf(scalemin)) scalemin = 0.0;
 
   // print ranges
   printf("Range of A      : [%5.1e, %5.1e], ratio ", Amin, Amax);
@@ -240,11 +234,11 @@ void IpmModel::unscale(std::vector<double>& x, std::vector<double>& xl,
   // set variables that were ignored
   for (int i = 0; i < num_var_; ++i) {
     if (!hasLb(i)) {
-      xl[i] = kInf;
+      xl[i] = kHighsInf;
       zl[i] = 0.0;
     }
     if (!hasUb(i)) {
-      xu[i] = kInf;
+      xu[i] = kHighsInf;
       zu[i] = 0.0;
     }
   }

@@ -22,9 +22,6 @@
 // preconditioning", Math. Prog. Comput. 12, 2020
 //
 
-// double infinity
-const double kInf = std::numeric_limits<double>::infinity();
-
 class IpmModel {
  private:
   // data of original problem
@@ -77,8 +74,8 @@ class IpmModel {
   double normUnscaledObj() const;
 
   // Check if variable has finite lower/upper bound
-  bool hasLb(int j) const { return lower_[j] != -kInf; }
-  bool hasUb(int j) const { return upper_[j] != kInf; }
+  bool hasLb(int j) const { return std::isfinite(lower_[j]); }
+  bool hasUb(int j) const { return std::isfinite(upper_[j]); }
 
   int m() const { return m_; }
   int n() const { return n_; }
