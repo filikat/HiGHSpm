@@ -43,9 +43,9 @@ class IpmModel {
 
   bool ready_ = false;
 
-  // exponents for scaling
-  std::vector<int> colexp_{};
-  std::vector<int> rowexp_{};
+  // coefficients for scaling
+  std::vector<double> colscale_{};
+  std::vector<double> rowscale_{};
 
   // Put the model into correct formulation
   void reformulate();
@@ -90,10 +90,10 @@ class IpmModel {
   double ub(int i) const { return upper_[i]; }
   const std::string& name() const { return pb_name_; }
   char constraint(int i) const { return constraints_[i]; }
-  int colexp(int i) const { return colexp_[i]; }
-  int rowexp(int i) const { return rowexp_[i]; }
+  double colScale(int i) const { return colscale_[i]; }
+  double rowScale(int i) const { return rowscale_[i]; }
   bool ready() const { return ready_; }
-  bool scaled() const { return colexp_.size() > 0; }
+  bool scaled() const { return colscale_.size() > 0; }
 };
 
 #endif

@@ -162,16 +162,16 @@ void IpmIterate::primalInfeasUnscaled() {
   pinf_ = 0.0;
   for (int i = 0; i < model_.m(); ++i) {
     double val = std::abs(res1_[i]);
-    if (model_.scaled()) val = std::ldexp(val, -model_.rowexp(i));
+    if (model_.scaled()) val /= model_.rowScale(i);
     pinf_ = std::max(pinf_, val);
   }
   for (int i = 0; i < model_.n(); ++i) {
     double val = std::abs(res2_[i]);
-    if (model_.scaled()) val = std::ldexp(val, model_.colexp(i));
+    if (model_.scaled()) val *= model_.colScale(i);
     pinf_ = std::max(pinf_, val);
 
     val = std::abs(res3_[i]);
-    if (model_.scaled()) val = std::ldexp(val, model_.colexp(i));
+    if (model_.scaled()) val *= model_.colScale(i);
     pinf_ = std::max(pinf_, val);
   }
   pinf_ /= (1.0 + model_.normUnscaledRhs());
@@ -181,7 +181,7 @@ void IpmIterate::dualInfeasUnscaled() {
   dinf_ = 0.0;
   for (int i = 0; i < model_.n(); ++i) {
     double val = std::abs(res4_[i]);
-    if (model_.scaled()) val = std::ldexp(val, -model_.colexp(i));
+    if (model_.scaled()) val /= model_.colScale(i);
     dinf_ = std::max(dinf_, val);
   }
   dinf_ /= (1.0 + model_.normUnscaledObj());
