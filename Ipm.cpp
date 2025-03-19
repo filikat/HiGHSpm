@@ -791,9 +791,12 @@ bool Ipm::checkBadIter() {
 }
 
 bool Ipm::checkTermination() {
-  if (it_->pdgap_ < kIpmTolerance &&  // primal-dual gap is small
-      it_->pinf_ < kIpmTolerance &&   // primal feasibility
-      it_->dinf_ < kIpmTolerance) {   // dual feasibility
+  bool feasible = it_->pinf_ < kIpmTolerance && it_->dinf_ < kIpmTolerance;
+  bool optimal = it_->pdgap_ < kIpmTolerance;
+  bool ready_for_crossover = true;
+  // ready_for_crossover = it_->infeasAfterDropping() < kIpmTolerance;
+
+  if (feasible && optimal && ready_for_crossover) {
     printf("\n===== Optimal solution found =====\n\n");
 
     ipm_status_ = kIpmStatusOptimal;

@@ -89,6 +89,7 @@ struct IpmIterate {
   void dualInfeas();
   void primalInfeasUnscaled();
   void dualInfeasUnscaled();
+  double infeasAfterDropping() const;
 
   // complementarity products
   void products();

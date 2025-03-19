@@ -393,11 +393,11 @@ void IpmIterate::extract(std::vector<double>& x, std::vector<double>& slack,
 void IpmIterate::dropToComplementarity(std::vector<double>& x,
                                        std::vector<double>& y,
                                        std::vector<double>& z) const {
-  x.assign(model_.n() + model_.m(), 0.0);
-  z.assign(model_.n() + model_.m(), 0.0);
+  x.assign(model_.n(), 0.0);
+  z.assign(model_.n(), 0.0);
   y = y_;
 
-  for (int j = 0; j < model_.n() + model_.m(); ++j) {
+  for (int j = 0; j < model_.n(); ++j) {
     // value of x_[j] within bounds
     double xj = std::max(x_[j], model_.lb(j));
     xj = std::min(xj, model_.ub(j));
@@ -469,4 +469,61 @@ void IpmIterate::dropToComplementarity(std::vector<double>& x,
       z[j] = 0.0;
     }
   }
+}
+
+double IpmIterate::infeasAfterDropping() const {
+  // Compute estimate of residuals after dropping to complementarity (taken from
+  // ipx).
+
+  double pinf_max = 0.0;
+  double dinf_max = 0.0;
+
+  for (int j = 0; j < model_.n(); ++j) {
+    double xdrop = 0.0;
+    double zdrop = 0.0;
+
+    if (model_.hasLb(j) && model_.hasUb(j)) {
+      // BOTH BOUNDS FINITE
+      if (zl_[j] * xu_[j] >= zu_[j] * xl_[j]) {
+        if (zl_[j] >= xl_[j])
+          xdrop = x_[j] - model_.lb(j);
+        else
+          zdrop = zl_[j] - zu_[j];
+      } else {
+        if (zu_[j] >= xu_[j])
+          xdrop = x_[j] - model_.ub(j);
+        else
+          zdrop = zl_[j] - zu_[j];
+      }
+    }
+
+    // LOWER BOUND FINITE
+    else if (model_.hasLb(j)) {
+      if (zl_[j] >= xl_[j])
+        xdrop = x_[j] - model_.lb(j);
+      else
+        zdrop = zl_[j] - zu_[j];
+    }
+
+    // UPPER BOUND FINITE
+    else if (model_.hasUb(j)) {
+      if (zu_[j] >= xu_[j])
+        xdrop = x_[j] - model_.ub(j);
+      else
+        zdrop = zl_[j] - zu_[j];
+    }
+
+    // largest entry in column j of A
+    double Amax = 0.0;
+    for (int el = model_.A().start_[j]; el < model_.A().start_[j + 1]; ++el)
+      Amax = std::max(Amax, std::abs(model_.A().value_[el]));
+
+    pinf_max = std::max(pinf_max, std::abs(xdrop) * Amax);
+    dinf_max = std::max(dinf_max, std::abs(zdrop));
+  }
+
+  pinf_max /= (1.0 + model_.normScaledRhs());
+  dinf_max /= (1.0 + model_.normScaledObj());
+
+  return std::max(pinf_max, dinf_max);
 }
