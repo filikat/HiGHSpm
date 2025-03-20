@@ -27,76 +27,103 @@ void Ipm::load(const int num_var, const int num_con, const double* obj,
 IpmStatus Ipm::solve() {
   if (!model_.ready()) return kIpmStatusError;
 
+  DataCollector::start();
   printInfo();
 
-  // ------------------------------------------
-  // ---- INITIALIZE --------------------------
-  // ------------------------------------------
+  runIpm();
+
+  DataCollector::get()->printIter();
+  DataCollector::destruct();
+
+  return ipm_status_;
+}
+
+void Ipm::runIpm() {
+  if (initialize()) return;
+
+  while (iter_ < kMaxIterations) {
+    if (prepareIter()) break;
+    if (predictor()) break;
+    if (correctors()) break;
+    makeStep();
+  }
+
+  LS_->finalise();
+}
+
+bool Ipm::initialize() {
+  // Prepare ipm for execution.
+  // Return true if an error occurred.
 
   // start timer
   clock_.start();
-
-  DataCollector::start();
 
   // initialize iterate object
   it_.reset(new IpmIterate(model_));
 
   // initialize linear solver
   LS_.reset(new FactorHiGHSSolver(options_));
-  if (LS_->setup(model_.A(), options_)) return kIpmStatusError;
+  if (LS_->setup(model_.A(), options_)) {
+    ipm_status_ = kIpmStatusError;
+    return true;
+  }
   LS_->clear();
 
-  // initialize starting point, residuals and mu
   startingPoint();
+
   it_->residual1234();
   it_->mu();
   it_->indicators();
+
   printOutput();
 
-  // ------------------------------------------
-  // ---- MAIN LOOP ---------------------------
-  // ------------------------------------------
+  return false;
+}
 
-  while (iter_ < kMaxIterations) {
-    if (checkIterate()) break;
-    if (checkBadIter()) break;
-    if (checkTermination()) break;
+bool Ipm::prepareIter() {
+  // Prepare next iteration.
+  // Return true if Ipm main loop should be stopped
 
-    ++iter_;
+  if (checkIterate()) return true;
+  if (checkBadIter()) return true;
+  if (checkTermination()) return true;
 
-    // Clear Newton direction
-    it_->clearDir();
+  ++iter_;
 
-    // Clear any existing data in the linear solver
-    LS_->clear();
+  // Clear Newton direction
+  it_->clearDir();
 
-    // compute theta inverse
-    it_->scaling();
+  // Clear any existing data in the linear solver
+  LS_->clear();
 
-    // ===== PREDICTOR =====
-    sigmaAffine();
-    it_->residual56(sigma_);
-    if (solveNewtonSystem(it_->delta_)) break;
-    if (recoverDirection(it_->delta_)) break;
+  // compute theta inverse
+  it_->scaling();
 
-    // ===== CORRECTORS =====
-    sigmaCorrectors();
-    if (centralityCorrectors()) break;
+  return false;
+}
 
-    // ===== STEP =====
-    makeStep();
-    it_->residual1234();
-    it_->mu();
-    it_->indicators();
-    collectData();
-    printOutput();
-  }
+bool Ipm::predictor() {
+  // Compute affine scaling direction.
+  // Return true if an error occurred.
 
-  LS_->finalise();
-  DataCollector::get()->printIter();
-  DataCollector::destruct();
+  // compute sigma and residuals for affine scaling direction
+  sigmaAffine();
+  it_->residual56(sigma_);
 
-  return ipm_status_;
+  if (solveNewtonSystem(it_->delta_)) return true;
+  if (recoverDirection(it_->delta_)) return true;
+
+  return false;
+}
+
+bool Ipm::correctors() {
+  // Compute multiple centrality correctors.
+  // Return true if an error occurred.
+
+  sigmaCorrectors();
+  if (centralityCorrectors()) return true;
+
+  return false;
 }
 
 bool Ipm::solveNewtonSystem(NewtonDir& delta) {
@@ -346,17 +373,27 @@ void Ipm::stepSizes() {
 void Ipm::makeStep() {
   stepSizes();
 
+  // keep track of iterations with small stepsizes
   if (std::min(alpha_primal_, alpha_dual_) < 0.05)
     ++bad_iter_;
   else
     bad_iter_ = 0;
 
+  // update iterate
   vectorAdd(it_->x_, it_->dx_, alpha_primal_);
   vectorAdd(it_->xl_, it_->dxl_, alpha_primal_);
   vectorAdd(it_->xu_, it_->dxu_, alpha_primal_);
   vectorAdd(it_->y_, it_->dy_, alpha_dual_);
   vectorAdd(it_->zl_, it_->dzl_, alpha_dual_);
   vectorAdd(it_->zu_, it_->dzu_, alpha_dual_);
+
+  // compute new quantities
+  it_->residual1234();
+  it_->mu();
+  it_->indicators();
+
+  collectData();
+  printOutput();
 }
 
 void Ipm::startingPoint() {

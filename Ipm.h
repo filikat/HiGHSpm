@@ -89,6 +89,13 @@ class Ipm {
   int getIter() const;
 
  private:
+  // Functions to run the various stages of the ipm
+  void runIpm();
+  bool initialize();
+  bool prepareIter();
+  bool predictor();
+  bool correctors();
+
   // ===================================================================================
   // Solve:
   //
