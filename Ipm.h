@@ -49,6 +49,7 @@ class Ipm {
 
   // Interface to ipx
   ipx::LpSolver ipx_lps_;
+  bool ipx_used_ = false;
 
  public:
   // ===================================================================================
@@ -99,8 +100,23 @@ class Ipm {
   bool prepareIter();
   bool predictor();
   bool correctors();
+
+  // ===================================================================================
+  // Load model and parameters into ipx and set the last iterate as starting
+  // point.
+  // ===================================================================================
   bool prepareIpx();
+
+  // ===================================================================================
+  // If solution is not precise, try running ipx starting from last iterate.
+  // If solution is precise and crossover is requested, run ipx.
+  // ===================================================================================
   void refineWithIpx();
+
+  // ===================================================================================
+  // Run crossover with ipx directly from the last iterate, without refining it
+  // with ipx.
+  // ===================================================================================
   void runCrossover();
 
   // ===================================================================================

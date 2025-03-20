@@ -22,6 +22,7 @@ void Ipm::load(const int num_var, const int num_con, const double* obj,
   n_ = model_.n();
 
   options_ = options;
+  ipx_used_ = false;
 }
 
 IpmStatus Ipm::solve() {
@@ -128,8 +129,6 @@ bool Ipm::correctors() {
 }
 
 bool Ipm::prepareIpx() {
-  // Load model and parameters into ipx and set the last iterate as starting
-  // point.
   // Return true if an error occurred;
 
   ipx::Parameters ipx_param;
@@ -163,9 +162,6 @@ bool Ipm::prepareIpx() {
 }
 
 void Ipm::refineWithIpx() {
-  // If solution is not precise, try running ipx starting from last iterate.
-  // If solution is precise and crossover is requested, run ipx.
-
   if (ipm_status_ == kIpmStatusNoProgress || ipm_status_ == kIpmStatusMaxIter) {
     printf("\nIpm did not converge, restarting with IPX\n\n");
   } else if (options_.crossover == kOptionCrossoverOn) {
@@ -177,12 +173,11 @@ void Ipm::refineWithIpx() {
   if (prepareIpx()) return;
 
   ipx_lps_.Solve();
+
+  ipx_used_ = true;
 }
 
 void Ipm::runCrossover() {
-  // Run crossover with ipx directly from the last iterate, without refining it
-  // with ipx.
-
   prepareIpx();
 
   std::vector<double> x, slack, y, z;
@@ -190,6 +185,8 @@ void Ipm::runCrossover() {
 
   ipx_lps_.CrossoverFromStartingPoint(x.data(), slack.data(), y.data(),
                                       z.data());
+
+  ipx_used_ = true;
 }
 
 bool Ipm::solveNewtonSystem(NewtonDir& delta) {
@@ -1213,13 +1210,25 @@ void Ipm::getSolution(std::vector<double>& x, std::vector<double>& xl,
                       std::vector<double>& y, std::vector<double>& zl,
                       std::vector<double>& zu) const {
   // prepare and return solution with internal format
-  it_->extract(x, xl, xu, slack, y, zl, zu);
-  model_.unscale(x, xl, xu, slack, y, zl, zu);
+
+  if (!ipx_used_) {
+    it_->extract(x, xl, xu, slack, y, zl, zu);
+    model_.unscale(x, xl, xu, slack, y, zl, zu);
+  } else {
+    ipx_lps_.GetInteriorSolution(x.data(), xl.data(), xu.data(), slack.data(),
+                                 y.data(), zl.data(), zu.data());
+  }
 }
 
 void Ipm::getSolution(std::vector<double>& x, std::vector<double>& slack,
                       std::vector<double>& y, std::vector<double>& z) const {
   // prepare and return solution with format for crossover
-  it_->extract(x, slack, y, z);
-  model_.unscale(x, slack, y, z);
+
+  if (!ipx_used_) {
+    it_->extract(x, slack, y, z);
+    model_.unscale(x, slack, y, z);
+  } else {
+    ipx_lps_.GetBasicSolution(x.data(), slack.data(), y.data(), z.data(),
+                              nullptr, nullptr);
+  }
 }
