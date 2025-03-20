@@ -7,6 +7,7 @@
 
 #include "CurtisReidScaling.h"
 #include "util/HighsSparseMatrix.h"
+#include "ipm/ipx/lp_solver.h"
 
 // Optimization problem:
 // min  c^T * x
@@ -25,6 +26,15 @@ class IpmModel {
  private:
   // data of original problem
   int num_var_{};
+  int num_con_{};
+  const double* c_orig_;
+  const double* b_orig_;
+  const double* lower_orig_;
+  const double* upper_orig_;
+  const int* A_ptr_orig_;
+  const int* A_rows_orig_;
+  const double* A_vals_orig_;
+  const char* constraints_orig_;
 
   // data of reformulated problem
   int n_{};
@@ -90,6 +100,8 @@ class IpmModel {
   double rowScale(int i) const { return rowscale_[i]; }
   bool ready() const { return ready_; }
   bool scaled() const { return colscale_.size() > 0; }
+
+  int loadIntoIpx(ipx::LpSolver& lps) const;
 };
 
 #endif

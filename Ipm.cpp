@@ -31,6 +31,7 @@ IpmStatus Ipm::solve() {
   printInfo();
 
   runIpm();
+  refineWithIpx();
 
   DataCollector::get()->printIter();
   DataCollector::destruct();
@@ -124,6 +125,71 @@ bool Ipm::correctors() {
   if (centralityCorrectors()) return true;
 
   return false;
+}
+
+bool Ipm::prepareIpx() {
+  // Load model and parameters into ipx and set the last iterate as starting
+  // point.
+  // Return true if an error occurred;
+
+  ipx::Parameters ipx_param;
+  ipx_param.display = 1;
+  ipx_param.dualize = 0;
+  ipx_param.run_crossover = options_.crossover;
+  ipx_param.ipm_feasibility_tol = kIpmTolerance;
+  ipx_param.ipm_optimality_tol = kIpmTolerance;
+  ipx_lps_.SetParameters(ipx_param);
+
+  int load_status = model_.loadIntoIpx(ipx_lps_);
+
+  if (load_status) {
+    printf("Error loading model into IPX\n");
+    return true;
+  }
+
+  std::vector<double> x, xl, xu, slack, y, zl, zu;
+  getSolution(x, xl, xu, slack, y, zl, zu);
+
+  int start_point_status = ipx_lps_.LoadIPMStartingPoint(
+      x.data(), xl.data(), xu.data(), slack.data(), y.data(), zl.data(),
+      zu.data());
+
+  if (start_point_status) {
+    printf("Error loading starting point into IPX\n");
+    return true;
+  }
+
+  return false;
+}
+
+void Ipm::refineWithIpx() {
+  // If solution is not precise, try running ipx starting from last iterate.
+  // If solution is precise and crossover is requested, run ipx.
+
+  if (ipm_status_ == kIpmStatusNoProgress || ipm_status_ == kIpmStatusMaxIter) {
+    printf("\nIpm did not converge, restarting with IPX\n\n");
+  } else if (options_.crossover == kOptionCrossoverOn) {
+    printf("\nIpm converged, running crossover with IPX\n\n");
+  } else {
+    return;
+  }
+
+  if (prepareIpx()) return;
+
+  ipx_lps_.Solve();
+}
+
+void Ipm::runCrossover() {
+  // Run crossover with ipx directly from the last iterate, without refining it
+  // with ipx.
+
+  prepareIpx();
+
+  std::vector<double> x, slack, y, z;
+  getSolution(x, slack, y, z);
+
+  ipx_lps_.CrossoverFromStartingPoint(x.data(), slack.data(), y.data(),
+                                      z.data());
 }
 
 bool Ipm::solveNewtonSystem(NewtonDir& delta) {

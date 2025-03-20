@@ -16,16 +16,18 @@ enum ArgC {
   kModelFileArg = 1,
   kOptionNlaArg,
   kOptionFormat,
+  kOptionCrossover,
   kMaxArgC
 };
 
 int main(int argc, char** argv) {
   if (argc < kMinArgC || argc > kMaxArgC) {
     std::cerr << "======= How to use: ./ipm LP_name.mps(.gz) nla_option "
-                 "format_option =======\n";
-    std::cerr << "nla_option     : 0 aug sys, 1 norm eq\n";
-    std::cerr << "format_option  : 0 full, 1 hybrid packed, 2 hybrid hybrid, 3 "
-                 "packed packed\n";
+                 "format_option crossover_option =======\n";
+    std::cerr << "nla_option       : 0 aug sys, 1 norm eq\n";
+    std::cerr << "format_option    : 0 full, 1 hybrid packed, 2 hybrid hybrid, "
+                 "3 packed packed\n";
+    std::cerr << "crossover_option : 0 off, 1 on\n";
     return 1;
   }
 
@@ -107,6 +109,17 @@ int main(int argc, char** argv) {
     return 1;
   }
 
+  // option to choose crossover
+  options.crossover = argc > kOptionCrossover ? atoi(argv[kOptionCrossover])
+                                              : kOptionCrossoverDefault;
+  if (options.crossover < kOptionCrossoverMin ||
+      options.crossover > kOptionCrossoverMax) {
+    std::cerr << "Illegal value of " << options.crossover
+              << " for option_crossover: must be in [" << kOptionCrossoverMin
+              << ", " << kOptionCrossoverMax << "]\n";
+    return 1;
+  }
+
   // extract problem name witout mps from path
   std::string pb_name{};
   std::regex rgx("([^/]+)\\.(mps|lp)");
@@ -157,50 +170,6 @@ int main(int argc, char** argv) {
            100 * sum_time / run_time);
     printf("Run       %5.2f\n", run_time);
   }
-
-  // ===================================================================================
-  // RUN IPX
-  // ===================================================================================
-  // run ipx starting from optimal solution just found
-
-  printf("\n============= IPX + crossover ===============\n");
-
-  ipx::LpSolver lps;
-
-  ipx::Parameters ipx_param;
-  ipx_param.display = 1;
-  ipx_param.dualize = 0;  // starting point not implemented in ipx if dualized
-  ipx_param.run_crossover = 1;
-  ipx_param.ipm_feasibility_tol = 1e-8;
-  ipx_param.ipm_optimality_tol = 1e-8;
-  lps.SetParameters(ipx_param);
-
-  int load_status =
-      lps.LoadModel(n, obj.data(), lower.data(), upper.data(), m, Aptr.data(),
-                    Aind.data(), Aval.data(), rhs.data(), constraints.data());
-
-  assert(load_status == 0);
-
-  std::vector<double> x, xl, xu, slack, y, zl, zu;
-  ipm.getSolution(x, xl, xu, slack, y, zl, zu);
-
-  int start_point_status =
-      lps.LoadIPMStartingPoint(x.data(), xl.data(), xu.data(), slack.data(),
-                               y.data(), zl.data(), zu.data());
-  assert(start_point_status == 0);
-
-  lps.Solve();
-
-  // Run crossover directly from optimal solution
-
-  printf("\n============= Crossover ===============\n");
-
-  std::vector<double> x2, slack2, y2, z2;
-  ipm.getSolution(x2, slack2, y2, z2);
-
-  start_point_status = lps.CrossoverFromStartingPoint(x2.data(), slack2.data(),
-                                                      y2.data(), z2.data());
-  assert(start_point_status == 0);
 
   return 0;
 }

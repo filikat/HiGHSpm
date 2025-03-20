@@ -19,9 +19,18 @@ enum OptionFormat {
   kOptionFormatDefault = kOptionFormatHybridHybrid
 };
 
+enum kOptionCrossover {
+  kOptionCrossoverMin = 0,
+  kOptionCrossoverOff = kOptionCrossoverMin,
+  kOptionCrossoverOn,
+  kOptionCrossoverMax = kOptionCrossoverOn,
+  kOptionCrossoverDefault = kOptionCrossoverOff
+};
+
 struct Options {
   int nla = kOptionNlaDefault;
   int format = kOptionFormatDefault;
+  int crossover = kOptionCrossoverOff;
 };
 
 enum IpmStatus {

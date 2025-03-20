@@ -10,6 +10,7 @@
 #include "Ipm_const.h"
 #include "LinearSolver.h"
 #include "VectorOperations.h"
+#include "ipm/ipx/lp_solver.h"
 #include "util/HighsSparseMatrix.h"
 
 class Ipm {
@@ -45,6 +46,9 @@ class Ipm {
 
   // Timer for iterations
   Clock clock_;
+
+  // Interface to ipx
+  ipx::LpSolver ipx_lps_;
 
  public:
   // ===================================================================================
@@ -95,6 +99,9 @@ class Ipm {
   bool prepareIter();
   bool predictor();
   bool correctors();
+  bool prepareIpx();
+  void refineWithIpx();
+  void runCrossover();
 
   // ===================================================================================
   // Solve:
