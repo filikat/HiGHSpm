@@ -34,10 +34,12 @@ struct Options {
 };
 
 enum IpmStatus {
-  kIpmStatusOptimal,
   kIpmStatusError,
   kIpmStatusMaxIter,
-  kIpmStatusNoProgress
+  kIpmStatusNoProgress,
+  kIpmStatusOptimal,
+  kIpmStatusPDFeas,
+  kIpmStatusBasic
 };
 
 enum LinearSolverStatus {

@@ -8,19 +8,27 @@
 #include "Highs.h"
 #include "Ipm.h"
 #include "io/Filereader.h"
+#include "ipm/IpxWrapper.h"
 #include "parallel/HighsParallel.h"
 
-enum ArgC { kMinArgC = 1, kOptionNlaArg = 1, kOptionFormat, kMaxArgC };
+enum ArgC {
+  kMinArgC = 1,
+  kOptionNlaArg = 1,
+  kOptionFormat,
+  kOptionCrossover,
+  kMaxArgC
+};
 
 int main(int argc, char** argv) {
   // run all Netlib collection
 
   if (argc < kMinArgC || argc > kMaxArgC) {
-    std::cerr << "======= How to use: ./test nla_option format_option "
-                 "=======\n";
-    std::cerr << "nla_option     : 0 aug sys, 1 norm eq\n";
-    std::cerr << "format_option  : 0 full, 1 hybrid packed, 2 hybrid hybrid, 3 "
-                 "packed packed\n";
+    std::cerr << "======= How to use: ./test nla_option "
+                 "format_option crossover_option =======\n";
+    std::cerr << "nla_option       : 0 aug sys, 1 norm eq\n";
+    std::cerr << "format_option    : 0 full, 1 hybrid packed, 2 hybrid hybrid, "
+                 "3 packed packed\n";
+    std::cerr << "crossover_option : 0 off, 1 on\n";
     return 1;
   }
 
@@ -83,109 +91,15 @@ int main(int argc, char** argv) {
     //  constraints[i] is : =, <, >
     // ===================================================================================
 
-    // Make a local copy of LP data to be modified
     clock1.start();
-    int n = lp.num_col_;
-    int m = lp.num_row_;
-    std::vector<double> obj(lp.col_cost_);
-    std::vector<double> lower(lp.col_lower_);
-    std::vector<double> upper(lp.col_upper_);
-    std::vector<int> colptr(lp.a_matrix_.start_);
-    std::vector<int> rowind(lp.a_matrix_.index_);
-    std::vector<double> values(lp.a_matrix_.value_);
+    int n, m;
+    std::vector<double> obj, rhs, lower, upper, Aval;
+    std::vector<int> Aptr, Aind;
+    std::vector<char> constraints;
 
-    // Prepare vectors for different formulation
-    std::vector<double> rhs(lp.num_row_);
-    std::vector<char> constraints(lp.num_row_);
+    fillInIpxData(lp, n, m, obj, lower, upper, Aptr, Aind, Aval, rhs,
+                  constraints);
 
-    int num_free_col = 0;
-    for (int i = 0; i < n; ++i) {
-      if (lower[i] <= -kHighsInf && upper[i] >= kHighsInf) num_free_col++;
-    }
-    if (num_free_col) {
-      const double bound_on_free = 2e3;
-      printf("Model has %d free columns\n",
-             num_free_col);  //: replacing bounds with [%g, %g]\n",
-                             // num_free_col, n, -bound_on_free, bound_on_free);
-      /*for (int i = 0; i < n; ++i) {
-        if (lower[i] <= -kHighsInf && upper[i] >= kHighsInf) {
-          lower[i] = -bound_on_free;
-          upper[i] = bound_on_free;
-        }
-      }*/
-    }
-
-    int num_slacks{};
-
-    // Set up constraints and rhs based on row_lower_ and row_upper_ for each
-    // constraint
-    for (int i = 0; i < m; ++i) {
-      // equality constraint
-      if (lp.row_lower_[i] == lp.row_upper_[i]) {
-        constraints[i] = '=';
-        rhs[i] = lp.row_lower_[i];
-      }
-
-      // constraint <=
-      else if (lp.row_lower_[i] <= -kHighsInf && lp.row_upper_[i] < kHighsInf) {
-        constraints[i] = '<';
-        rhs[i] = lp.row_upper_[i];
-      }
-
-      // constraint >=
-      else if (lp.row_lower_[i] > -kHighsInf && lp.row_upper_[i] >= kHighsInf) {
-        constraints[i] = '>';
-        rhs[i] = lp.row_lower_[i];
-      }
-
-      // no constraint
-      else if (lp.row_lower_[i] <= -kHighsInf &&
-               lp.row_upper_[i] >= kHighsInf) {
-        std::cout << "======= Free variable not yet supported =======\n";
-        return 1;
-      }
-
-      // general constraint
-      else {
-        // keep track of how many slacks are needed to allocate memory
-        ++num_slacks;
-      }
-    }
-
-    // Reserve memory for slacks
-    obj.reserve(n + num_slacks);
-    lower.reserve(n + num_slacks);
-    upper.reserve(n + num_slacks);
-    colptr.reserve(n + num_slacks + 1);
-    rowind.reserve(lp.a_matrix_.numNz() + num_slacks);
-    values.reserve(lp.a_matrix_.numNz() + num_slacks);
-
-    for (int i = 0; i < m; ++i) {
-      if (lp.row_lower_[i] != lp.row_upper_[i] &&
-          lp.row_lower_[i] > -kHighsInf && lp.row_upper_[i] < kHighsInf) {
-        // If both row_lower_ and row_upper_ are finite and different, add
-        // slack:
-        //   lb <= a^T * x <= ub
-        //   becomes
-        //   a^T * x - s = 0 and lb <= s <= ub.
-        //
-        //  This requires:
-        //   - updating obj, lower, upper
-        //   - adding a column of -identity to A
-
-        constraints[i] = '=';
-        rhs[i] = 0.0;
-
-        // add slack
-        ++n;
-        obj.push_back(0.0);
-        lower.push_back(lp.row_lower_[i]);
-        upper.push_back(lp.row_upper_[i]);
-        colptr.push_back(colptr.back() + 1);
-        rowind.push_back(i);
-        values.push_back(-1.0);
-      }
-    }
     double setup_time = clock1.stop();
 
     // ===================================================================================
@@ -222,6 +136,17 @@ int main(int argc, char** argv) {
       return 1;
     }
 
+    // option to choose crossover
+    options.crossover = argc > kOptionCrossover ? atoi(argv[kOptionCrossover])
+                                                : kOptionCrossoverDefault;
+    if (options.crossover < kOptionCrossoverMin ||
+        options.crossover > kOptionCrossoverMax) {
+      std::cerr << "Illegal value of " << options.crossover
+                << " for option_crossover: must be in [" << kOptionCrossoverMin
+                << ", " << kOptionCrossoverMax << "]\n";
+      return 1;
+    }
+
     // extract problem name without mps
     std::regex rgx("(.+)\\.mps");
     std::smatch match;
@@ -230,22 +155,44 @@ int main(int argc, char** argv) {
 
     // load the problem
     ipm.load(n, m, obj.data(), rhs.data(), lower.data(), upper.data(),
-             colptr.data(), rowind.data(), values.data(), constraints.data(),
-             pb_name, options);
+             Aptr.data(), Aind.data(), Aval.data(), constraints.data(), pb_name,
+             options);
     double load_time = clock1.stop();
 
     // solve LP
     clock1.start();
     IpmStatus ipm_status = ipm.solve();
     double optimize_time = clock1.stop();
-    if (ipm_status == kIpmStatusOptimal) {
+
+    if ((options.crossover && ipm_status == kIpmStatusBasic) ||
+        (!options.crossover && ipm_status == kIpmStatusPDFeas))
       ++converged;
-    }
 
     double run_time = clock0.stop();
 
+    std::string status_string;
+    switch (ipm_status) {
+      case kIpmStatusError:
+        status_string = "Error";
+        break;
+      case kIpmStatusMaxIter:
+        status_string = "Max iter";
+        break;
+      case kIpmStatusNoProgress:
+        status_string = "No progress";
+        break;
+      case kIpmStatusPDFeas:
+        status_string = "PD feas";
+        break;
+      case kIpmStatusBasic:
+        status_string = "Basic";
+        break;
+      default:
+        break;
+    }
+
     ss << std::setw(20) << pb_name << ' ';
-    ss << std::setw(12) << ipm_status << ' ';
+    ss << std::setw(12) << status_string << ' ';
     ss << std::setw(6) << ipm.getIter() << ' ';
     ss << std::setw(12) << std::fixed << std::setprecision(3) << optimize_time
        << '\n';

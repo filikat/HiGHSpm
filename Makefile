@@ -40,8 +40,8 @@ cpp_sources = \
 # binary file name
 binary_name = ipm
 
-#test_name = masterNetlib
-test_name = ../FactorHiGHS/test
+test_name = masterNetlib
+#test_name = ../FactorHiGHS/test
 
 # object files directory
 OBJDIR = obj

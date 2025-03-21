@@ -8,7 +8,6 @@
 #include "Ipm.h"
 #include "io/Filereader.h"
 #include "ipm/IpxWrapper.h"
-#include "ipm/ipx/lp_solver.h"
 #include "parallel/HighsParallel.h"
 
 enum ArgC {

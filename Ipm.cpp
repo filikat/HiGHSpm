@@ -162,7 +162,9 @@ bool Ipm::prepareIpx() {
 }
 
 void Ipm::refineWithIpx() {
-  if (ipm_status_ == kIpmStatusNoProgress || ipm_status_ == kIpmStatusMaxIter) {
+  if (ipm_status_ == kIpmStatusError) return;
+
+  if (ipm_status_ < kIpmStatusOptimal) {
     printf("\nIpm did not converge, restarting with IPX\n\n");
   } else if (options_.crossover == kOptionCrossoverOn) {
     printf("\nIpm converged, running crossover with IPX\n\n");
@@ -173,6 +175,12 @@ void Ipm::refineWithIpx() {
   if (prepareIpx()) return;
 
   ipx_lps_.Solve();
+
+  if (ipx_lps_.GetInfo().status_ipm == IPX_STATUS_optimal)
+    ipm_status_ = kIpmStatusPDFeas;
+
+  if (ipx_lps_.GetInfo().status_crossover == IPX_STATUS_optimal)
+    ipm_status_ = kIpmStatusBasic;
 
   ipx_used_ = true;
 }
@@ -883,7 +891,7 @@ bool Ipm::checkIterate() {
 bool Ipm::checkBadIter() {
   // If too many bad iterations, stop
   if (bad_iter_ >= kMaxBadIter) {
-    printf("\n Failure: no progress\n\n");
+    printf("=== No progress\n");
     ipm_status_ = kIpmStatusNoProgress;
     return true;
   }
@@ -893,16 +901,26 @@ bool Ipm::checkBadIter() {
 bool Ipm::checkTermination() {
   bool feasible = it_->pinf_ < kIpmTolerance && it_->dinf_ < kIpmTolerance;
   bool optimal = it_->pdgap_ < kIpmTolerance;
-  bool ready_for_crossover = true;
-  // ready_for_crossover = it_->infeasAfterDropping() < kIpmTolerance;
 
-  if (feasible && optimal && ready_for_crossover) {
-    printf("\n===== Optimal solution found =====\n\n");
+  bool terminate = false;
 
-    ipm_status_ = kIpmStatusOptimal;
-    return true;
+  if (feasible && optimal) {
+    if (ipm_status_ != kIpmStatusPDFeas)
+      printf("=== Primal-dual feasible point found\n");
+
+    ipm_status_ = kIpmStatusPDFeas;
+
+    if (options_.crossover) {
+      bool ready_for_crossover = it_->infeasAfterDropping() < kIpmTolerance;
+      if (ready_for_crossover) {
+        printf("=== Ready for crossover\n");
+        terminate = true;
+      }
+    } else {
+      terminate = true;
+    }
   }
-  return false;
+  return terminate;
 }
 
 void Ipm::backwardError(const NewtonDir& delta) const {
