@@ -1,6 +1,6 @@
 
 # paths
-HIGHS_PATH = $(HOME)/Documents/HiGHS
+HIGHS_PATH = $(HOME)/Desktop/HiGHS
 METIS_PATH = $(HOME)/Documents/METIS
 LOCAL_PATH = $(HOME)/local
 BLAS_PATH  = /Library/Developer/CommandLineTools/SDKs/MacOSX14.4.sdk/System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/Headers
@@ -60,6 +60,7 @@ CPPFLAGS = -std=c++11 -O3 -g3 -Wno-deprecated #-fsanitize=address #ASAN_OPTIONS=
 includes = -I$(HIGHS_PATH)/build -I$(HIGHS_PATH)/src/ -I$(METIS_PATH)/include -I$(LOCAL_PATH)/include -I$(BLAS_PATH)
 libs_path = -L$(HIGHS_PATH)/build/lib -L$(METIS_PATH)/build/libmetis -L$(LOCAL_PATH)/lib #-L$(OPENBLAS_PATH)/lib
 libs = -lhighs -lmetis -lGKlib -lblas
+rpath = -Wl,-rpath,$(HIGHS_PATH)/build/lib
 
 # name of objects
 cpp_objects = $(cpp_sources:%.cpp=$(OBJDIR)/%.o)
@@ -73,7 +74,7 @@ dep = $(cpp_sources:%.cpp=$(OBJDIR)/%.d)
 # link ipm
 $(binary_name): $(cpp_objects) $(OBJDIR)/mainIPM.o
 	@echo Linking objects into $@
-	@$(CPP) $(CPPFLAGS) $(libs_path) $(libs) $^ -o $@
+	@$(CPP) $(CPPFLAGS) $(libs_path) $(libs) $(rpath) $^ -o $@
 
 # manage dependencies
 -include $(dep)

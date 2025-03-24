@@ -76,8 +76,9 @@ int main(int argc, char** argv) {
   std::vector<double> obj, rhs, lower, upper, Aval;
   std::vector<int> Aptr, Aind;
   std::vector<char> constraints;
+  double offset;
 
-  fillInIpxData(lp, n, m, obj, lower, upper, Aptr, Aind, Aval, rhs,
+  fillInIpxData(lp, n, m, offset, obj, lower, upper, Aptr, Aind, Aval, rhs,
                 constraints);
 
   double setup_time = clock.stop();

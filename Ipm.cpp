@@ -880,7 +880,7 @@ bool Ipm::checkIterate() {
         (model_.hasLb(i) && it_->zl_[i] < 0) ||
         (model_.hasUb(i) && it_->xu_[i] < 0) ||
         (model_.hasUb(i) && it_->zu_[i] < 0)) {
-      printf("\nIterative has negative component\n");
+      printf("\nIterate has negative component\n");
       return true;
     }
   }

@@ -314,9 +314,9 @@ double IpmModel::normUnscaledRhs() const {
 }
 
 int IpmModel::loadIntoIpx(ipx::LpSolver& lps) const {
-  int load_status = lps.LoadModel(num_var_, c_orig_, lower_orig_, upper_orig_,
-                                  num_con_, A_ptr_orig_, A_rows_orig_,
-                                  A_vals_orig_, b_orig_, constraints_orig_);
+  int load_status = lps.LoadModel(
+      num_var_, 0, c_orig_, lower_orig_, upper_orig_, num_con_, A_ptr_orig_,
+      A_rows_orig_, A_vals_orig_, b_orig_, constraints_orig_);
 
   return load_status;
 }
