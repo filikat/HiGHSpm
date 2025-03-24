@@ -96,8 +96,9 @@ int main(int argc, char** argv) {
     std::vector<double> obj, rhs, lower, upper, Aval;
     std::vector<int> Aptr, Aind;
     std::vector<char> constraints;
+    double offset;
 
-    fillInIpxData(lp, n, m, obj, lower, upper, Aptr, Aind, Aval, rhs,
+    fillInIpxData(lp, n, m, offset, obj, lower, upper, Aptr, Aind, Aval, rhs,
                   constraints);
 
     double setup_time = clock1.stop();
@@ -155,8 +156,8 @@ int main(int argc, char** argv) {
 
     // load the problem
     ipm.load(n, m, obj.data(), rhs.data(), lower.data(), upper.data(),
-             Aptr.data(), Aind.data(), Aval.data(), constraints.data(), pb_name,
-             options);
+             Aptr.data(), Aind.data(), Aval.data(), constraints.data(), offset,
+             pb_name, options);
     double load_time = clock1.stop();
 
     // solve LP

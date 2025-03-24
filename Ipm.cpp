@@ -9,14 +9,14 @@
 void Ipm::load(const int num_var, const int num_con, const double* obj,
                const double* rhs, const double* lower, const double* upper,
                const int* A_ptr, const int* A_rows, const double* A_vals,
-               const char* constraints, const std::string& pb_name,
-               const Options& options) {
+               const char* constraints, double offset,
+               const std::string& pb_name, const Options& options) {
   if (!obj || !rhs || !lower || !upper || !A_ptr || !A_rows || !A_vals ||
       !constraints)
     return;
 
   model_.init(num_var, num_con, obj, rhs, lower, upper, A_ptr, A_rows, A_vals,
-              constraints, pb_name);
+              constraints, offset, pb_name);
 
   m_ = model_.m();
   n_ = model_.n();

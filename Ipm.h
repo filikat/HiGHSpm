@@ -73,6 +73,7 @@ class Ipm {
             const int* A_rows,           // row indices of A
             const double* A_vals,        // values of A
             const char* constraints,     // type of constraints
+            double offset,               // offset from presolve
             const std::string& pb_name,  // problem name
             const Options& options       // options
   );

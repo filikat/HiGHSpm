@@ -3,7 +3,8 @@
 void IpmModel::init(const int num_var, const int num_con, const double* obj,
                     const double* rhs, const double* lower, const double* upper,
                     const int* A_ptr, const int* A_rows, const double* A_vals,
-                    const char* constraints, const std::string& pb_name) {
+                    const char* constraints, double offset,
+                    const std::string& pb_name) {
   // copy the input into the model
 
   num_var_ = num_var;
@@ -16,6 +17,7 @@ void IpmModel::init(const int num_var, const int num_con, const double* obj,
   A_rows_orig_ = A_rows;
   A_vals_orig_ = A_vals;
   constraints_orig_ = constraints;
+  offset_ = offset;
 
   n_ = num_var;
   m_ = num_con;
@@ -315,8 +317,8 @@ double IpmModel::normUnscaledRhs() const {
 
 int IpmModel::loadIntoIpx(ipx::LpSolver& lps) const {
   int load_status = lps.LoadModel(
-      num_var_, 0, c_orig_, lower_orig_, upper_orig_, num_con_, A_ptr_orig_,
-      A_rows_orig_, A_vals_orig_, b_orig_, constraints_orig_);
+      num_var_, offset_, c_orig_, lower_orig_, upper_orig_, num_con_,
+      A_ptr_orig_, A_rows_orig_, A_vals_orig_, b_orig_, constraints_orig_);
 
   return load_status;
 }

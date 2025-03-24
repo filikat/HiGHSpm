@@ -134,9 +134,11 @@ void IpmIterate::indicators() {
   products();
 }
 
-void IpmIterate::primalObj() { pobj_ = dotProd(x_, model_.c()); }
+void IpmIterate::primalObj() {
+  pobj_ = model_.offset() + dotProd(x_, model_.c());
+}
 void IpmIterate::dualObj() {
-  dobj_ = dotProd(y_, model_.b());
+  dobj_ = model_.offset() + dotProd(y_, model_.b());
   for (int i = 0; i < model_.n(); ++i) {
     if (model_.hasLb(i)) dobj_ += model_.lb(i) * zl_[i];
     if (model_.hasUb(i)) dobj_ -= model_.ub(i) * zu_[i];

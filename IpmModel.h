@@ -6,8 +6,8 @@
 #include <vector>
 
 #include "CurtisReidScaling.h"
-#include "util/HighsSparseMatrix.h"
 #include "ipm/ipx/lp_solver.h"
+#include "util/HighsSparseMatrix.h"
 
 // Optimization problem:
 // min  c^T * x
@@ -35,6 +35,7 @@ class IpmModel {
   const int* A_rows_orig_;
   const double* A_vals_orig_;
   const char* constraints_orig_;
+  double offset_;
 
   // data of reformulated problem
   int n_{};
@@ -64,7 +65,7 @@ class IpmModel {
   void init(const int num_var, const int num_con, const double* obj,
             const double* rhs, const double* lower, const double* upper,
             const int* A_ptr, const int* A_rows, const double* A_vals,
-            const char* constraints, const std::string& pb_name);
+            const char* constraints, double offset, const std::string& pb_name);
 
   // Compute range of coefficients
   void checkCoefficients() const;
@@ -100,6 +101,7 @@ class IpmModel {
   double rowScale(int i) const { return rowscale_[i]; }
   bool ready() const { return ready_; }
   bool scaled() const { return colscale_.size() > 0; }
+  double offset() const { return offset_; }
 
   int loadIntoIpx(ipx::LpSolver& lps) const;
 };
