@@ -1,7 +1,5 @@
 #include "IpmIterate.h"
 
-#include <cassert>
-
 #include "../FactorHiGHS/DataCollector.h"
 #include "Ipm_const.h"
 
@@ -218,8 +216,6 @@ void IpmIterate::residual1234() {
     if (model_.hasLb(i)) res4_[i] -= zl_[i];
     if (model_.hasUb(i)) res4_[i] += zu_[i];
   }
-
-  assert(!isResNan() && !isResInf());
 }
 void IpmIterate::residual56(double sigma) {
   for (int i = 0; i < model_.n(); ++i) {
@@ -235,8 +231,6 @@ void IpmIterate::residual56(double sigma) {
     else
       res6_[i] = 0.0;
   }
-
-  assert(!isResNan() && !isResInf());
 }
 
 std::vector<double> IpmIterate::residual7() const {

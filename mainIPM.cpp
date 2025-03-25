@@ -171,5 +171,7 @@ int main(int argc, char** argv) {
     printf("Run       %5.2f\n", run_time);
   }
 
+  printf("Ipm iterations: %d\n", ipm.getIter());
+
   return 0;
 }
