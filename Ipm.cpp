@@ -71,6 +71,9 @@ bool Ipm::initialize() {
   }
   LS_->clear();
 
+  // decide number of correctors to use
+  maxCorrectors();
+
   startingPoint();
 
   it_->residual1234();
@@ -768,7 +771,7 @@ bool Ipm::centralityCorrectors() {
 #endif
 
   int cor;
-  for (cor = 0; cor < kMaxCorrectors; ++cor) {
+  for (cor = 0; cor < max_correctors_; ++cor) {
     // compute rhs for corrector
     residualsMcc();
 
@@ -1249,4 +1252,19 @@ void Ipm::getSolution(std::vector<double>& x, std::vector<double>& slack,
     ipx_lps_.GetBasicSolution(x.data(), slack.data(), y.data(), z.data(),
                               nullptr, nullptr);
   }
+}
+
+void Ipm::maxCorrectors() {
+  double fact_effort = LS_->flops();
+  int matrix_size = options_.nla == kOptionNlaNormEq ? m_ : n_;
+  double solv_effort = 2.0 * LS_->nz() + 12.0 * matrix_size;
+
+  double ratio = fact_effort / solv_effort;
+
+  max_correctors_ = 2;
+  if (ratio >= 10) max_correctors_ = 3;
+  if (ratio >= 30) max_correctors_ = 4;
+  if (ratio >= 50) max_correctors_ = 5;
+
+  printf("Using %d correctors, ratio %.1f\n\n", max_correctors_, ratio);
 }

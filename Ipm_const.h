@@ -58,7 +58,6 @@ const int kMaxBadIter = 5;
 // parameters for correctors
 const double kGammaCorrector = 0.1;
 const double kSigmaAffine = 0.01;
-const int kMaxCorrectors = 5;
 const double kMccIncreaseAlpha = 0.1;
 const double kMccIncreaseMin = 0.1;
 const double kSmallProduct = 1e-3;

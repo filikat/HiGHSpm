@@ -51,6 +51,8 @@ class Ipm {
   ipx::LpSolver ipx_lps_;
   bool ipx_used_ = false;
 
+  int max_correctors_{};
+
  public:
   // ===================================================================================
   // Load an LP:
@@ -119,6 +121,13 @@ class Ipm {
   // with ipx.
   // ===================================================================================
   void runCrossover();
+
+  // ===================================================================================
+  // Determine the maximum number of correctors to use, based on the relative
+  // cost of factorisation and solve. Based on the heuristic in "Multiple
+  // Centrality Corrections in a Primal-Dual Method for Linear Programming".
+  // ===================================================================================
+  void maxCorrectors();
 
   // ===================================================================================
   // Solve:

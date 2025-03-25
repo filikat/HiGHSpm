@@ -20,6 +20,8 @@
 // - setup: perform any preliminary calculation (e.g. symbolic factorization)
 // - refine: apply iterative refinement to the solution
 // - finalise: perform any final action
+// - flops: return number of flops needed for factorisation
+// - nz: return number of nonzeros in factorisation
 //
 // NB: forming the normal equations or augmented system is delegated to the
 // linear solver chosen, so that only the appropriate data (upper triangle,
@@ -74,6 +76,9 @@ class LinearSolver {
                       std::vector<double>& lhs_x, std::vector<double>& lhs_y) {}
 
   virtual void finalise() {}
+
+  virtual double flops() const { return 0; }
+  virtual double nz() const { return 0; }
 };
 
 #endif

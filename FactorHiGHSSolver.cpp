@@ -291,3 +291,6 @@ int computeLowerAThetaAT(const HighsSparseMatrix& matrix,
   AAT.p_end_.clear();
   return kLinearSolverStatusOk;
 }
+
+double FactorHiGHSSolver::flops() const { return S_.flops(); }
+double FactorHiGHSSolver::nz() const { return S_.nz(); }

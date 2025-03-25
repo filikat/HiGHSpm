@@ -32,6 +32,8 @@ class FactorHiGHSSolver : public LinearSolver {
   int setup(const HighsSparseMatrix& A, const Options& options) override;
   void clear() override;
   void finalise() override;
+  double flops() const override;
+  double nz() const override;
 };
 
 #endif
