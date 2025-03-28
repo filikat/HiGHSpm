@@ -33,6 +33,7 @@ class FactorHiGHSSolver : public LinearSolver {
   void clear() override;
   void finalise() override;
   double flops() const override;
+  double spops() const override;
   double nz() const override;
 };
 

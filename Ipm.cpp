@@ -32,7 +32,7 @@ IpmStatus Ipm::solve() {
   printInfo();
 
   runIpm();
-  refineWithIpx();
+  // refineWithIpx();
 
   DataCollector::get()->printIter();
   DataCollector::destruct();
@@ -49,6 +49,13 @@ void Ipm::runIpm() {
     if (correctors()) break;
     makeStep();
   }
+
+  int matrix_size = options_.nla == kOptionNlaNormEq ? m_ : n_ + m_;
+  fact_effort_ /= num_fact_;
+  solv_effort_ /= num_solves_;
+  double ratio = fact_effort_ / solv_effort_;
+  printf("Effort %.2e %.2e %.2e %.2e %.2e\n", ratio, (double)matrix_size, LS_->nz(),
+         LS_->flops(),LS_->spops());
 
   LS_->finalise();
 }
@@ -210,10 +217,18 @@ bool Ipm::solveNewtonSystem(NewtonDir& delta) {
     std::vector<double> res8 = it_->residual8(res7);
 
     // factorise normal equations, if not yet done
-    if (!LS_->valid_ && LS_->factorNE(model_.A(), theta_inv)) goto failure;
+    if (!LS_->valid_) {
+      clock_effort_.start();
+      if (LS_->factorNE(model_.A(), theta_inv)) goto failure;
+      fact_effort_ += clock_effort_.stop();
+      ++num_fact_;
+    }
 
     // solve with normal equations
+    clock_effort_.start();
     if (LS_->solveNE(res8, delta.y)) goto failure;
+    solv_effort_ += clock_effort_.stop();
+    ++num_solves_;
 
     // Compute delta.x
     // Deltax = A^T * Deltay - res7;
@@ -230,10 +245,18 @@ bool Ipm::solveNewtonSystem(NewtonDir& delta) {
   // AUGMENTED SYSTEM
   else {
     // factorise augmented system, if not yet done
-    if (!LS_->valid_ && LS_->factorAS(model_.A(), theta_inv)) goto failure;
+    if (!LS_->valid_) {
+      clock_effort_.start();
+      if (LS_->factorAS(model_.A(), theta_inv)) goto failure;
+      fact_effort_ += clock_effort_.stop();
+      ++num_fact_;
+    }
 
     // solve with augmented system
+    clock_effort_.start();
     if (LS_->solveAS(res7, it_->res1_, delta.x, delta.y)) goto failure;
+    solv_effort_ += clock_effort_.stop();
+    ++num_solves_;
   }
 
   return false;

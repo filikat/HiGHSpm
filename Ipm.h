@@ -53,6 +53,11 @@ class Ipm {
 
   int max_correctors_{};
 
+  Clock clock_effort_;
+  double fact_effort_{}, solv_effort_{};
+  int num_solves_{};
+  int num_fact_{};
+
  public:
   // ===================================================================================
   // Load an LP:

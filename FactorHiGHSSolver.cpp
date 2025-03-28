@@ -293,4 +293,5 @@ int computeLowerAThetaAT(const HighsSparseMatrix& matrix,
 }
 
 double FactorHiGHSSolver::flops() const { return S_.flops(); }
+double FactorHiGHSSolver::spops() const { return S_.spops(); }
 double FactorHiGHSSolver::nz() const { return S_.nz(); }
