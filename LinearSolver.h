@@ -78,6 +78,7 @@ class LinearSolver {
   virtual void finalise() {}
 
   virtual double flops() const { return 0; }
+  virtual double spops() const { return 0; }
   virtual double nz() const { return 0; }
 };
 

@@ -1255,42 +1255,40 @@ void Ipm::getSolution(std::vector<double>& x, std::vector<double>& slack,
 }
 
 void Ipm::maxCorrectors() {
-  if (kMaxCorrectors <= 0) {
+  if (kMaxCorrectors > 0) {
     // Compute estimate of effort to factorise and solve
 
     // Effort to factorise depends on the number of flops
-    double fact_effort = LS_->flops();
+    double fact_effort = LS_->flops() + 100 * LS_->spops();
 
-    // Effort to solve depends on the number of nonzeros of L and on the size of
-    // the vector. Nonzeros are multiplied by 2, because there are two sweeps
-    // through L (forward and backward). The size of the vector is multiplied by
-    // an empirical coefficient, to account for the various operations that are
-    // performed.
-    int matrix_size = options_.nla == kOptionNlaNormEq ? m_ : n_;
-    double solv_effort = 2.0 * LS_->nz() + 12.0 * matrix_size;
+    // Effort to solve depends on the number of nonzeros of L multiplied by 2,
+    // because there are two sweeps through L (forward and backward).
+    double solv_effort = 2.0 * LS_->nz();
 
     // The factorise phase uses BLAS-3 and can be parallelized, the solve phase
     // uses BLAS-2 and cannot be parallelized. To account for this, the
-    // factorisation effort is multiplied by a coefficient < 1.
+    // factorisation effort is multiplied by a coefficient < 1, estimated
+    // empirically.
+    double alpha = 1.0 / 112.0;
 
-    double ratio = 0.5 * fact_effort / solv_effort;
+    double ratio = alpha * fact_effort / solv_effort;
 
     // At each ipm iteration, there are up to (1+k) directions computed, where k
     // is the number of correctors. Each direction requires up (1+f) solves,
     // where f is the number of refinement steps. So, up to (1+k)(1+f) solves
-    // are performed per iteration. Therefore, we want (1+k)(1+f) < ratio.
+    // are performed per iteration. However, not all refinement steps are used
+    // all the time, so use f/2.
+    // Therefore, we want (1+k)(1+f/2) < ratio.
 
-    double thresh = ratio / (1.0 + kMaxRefinementIter) - 1;
+    double thresh = ratio / (1.0 + kMaxRefinementIter / 2.0) - 1;
 
-    max_correctors_ = 1;
-    if (thresh >= 2.0) max_correctors_ = 2;
-    if (thresh >= 3.0) max_correctors_ = 3;
-    if (thresh >= 4.0) max_correctors_ = 4;
-    if (thresh >= 5.0) max_correctors_ = 5;
+    max_correctors_ = std::floor(thresh);
+    max_correctors_ = std::max(max_correctors_, 1);
+    max_correctors_ = std::min(max_correctors_, kMaxCorrectors);
 
     printf("Using %d correctors, ratio %.1f, thresh %.1f\n\n", max_correctors_,
            ratio, thresh);
   } else {
-    max_correctors_ = kMaxCorrectors;
+    max_correctors_ = -kMaxCorrectors;
   }
 }
