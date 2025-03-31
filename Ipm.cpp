@@ -77,7 +77,7 @@ bool Ipm::initialize() {
   startingPoint();
 
   it_->residual1234();
-  it_->mu();
+  it_->computeMu();
   it_->indicators();
 
   printOutput();
@@ -102,7 +102,7 @@ bool Ipm::prepareIter() {
   LS_->clear();
 
   // compute theta inverse
-  it_->scaling();
+  it_->computeScaling();
 
   return false;
 }
@@ -115,8 +115,8 @@ bool Ipm::predictor() {
   sigmaAffine();
   it_->residual56(sigma_);
 
-  if (solveNewtonSystem(it_->delta_)) return true;
-  if (recoverDirection(it_->delta_)) return true;
+  if (solveNewtonSystem(it_->delta)) return true;
+  if (recoverDirection(it_->delta)) return true;
 
   return false;
 }
@@ -201,7 +201,7 @@ void Ipm::runCrossover() {
 }
 
 bool Ipm::solveNewtonSystem(NewtonDir& delta) {
-  std::vector<double>& theta_inv = it_->scaling_;
+  std::vector<double>& theta_inv = it_->scaling;
 
   std::vector<double> res7 = it_->residual7();
 
@@ -233,7 +233,7 @@ bool Ipm::solveNewtonSystem(NewtonDir& delta) {
     if (!LS_->valid_ && LS_->factorAS(model_.A(), theta_inv)) goto failure;
 
     // solve with augmented system
-    if (LS_->solveAS(res7, it_->res1_, delta.x, delta.y)) goto failure;
+    if (LS_->solveAS(res7, it_->res1, delta.x, delta.y)) goto failure;
   }
 
   return false;
@@ -247,15 +247,15 @@ failure:
 
 bool Ipm::recoverDirection(NewtonDir& delta) {
   // Recover components xl, xu, zl, zu of partial direction delta.
-  std::vector<double>& xl = it_->xl_;
-  std::vector<double>& xu = it_->xu_;
-  std::vector<double>& zl = it_->zl_;
-  std::vector<double>& zu = it_->zu_;
-  std::vector<double>& res2 = it_->res2_;
-  std::vector<double>& res3 = it_->res3_;
-  std::vector<double>& res4 = it_->res4_;
-  std::vector<double>& res5 = it_->res5_;
-  std::vector<double>& res6 = it_->res6_;
+  std::vector<double>& xl = it_->xl;
+  std::vector<double>& xu = it_->xu;
+  std::vector<double>& zl = it_->zl;
+  std::vector<double>& zu = it_->zu;
+  std::vector<double>& res2 = it_->res2;
+  std::vector<double>& res3 = it_->res3;
+  std::vector<double>& res4 = it_->res4;
+  std::vector<double>& res5 = it_->res5;
+  std::vector<double>& res6 = it_->res6;
 
   for (int i = 0; i < n_; ++i) {
     if (model_.hasLb(i) || model_.hasUb(i)) {
@@ -343,13 +343,13 @@ void Ipm::stepsToBoundary(double& alpha_primal, double& alpha_dual,
   // weight.
 
   int block;
-  double axl = stepToBoundary(it_->xl_, delta.xl, cor ? &(cor->xl) : nullptr,
+  double axl = stepToBoundary(it_->xl, delta.xl, cor ? &(cor->xl) : nullptr,
                               weight, true);
-  double axu = stepToBoundary(it_->xu_, delta.xu, cor ? &(cor->xu) : nullptr,
+  double axu = stepToBoundary(it_->xu, delta.xu, cor ? &(cor->xu) : nullptr,
                               weight, false);
-  double azl = stepToBoundary(it_->zl_, delta.zl, cor ? &(cor->zl) : nullptr,
+  double azl = stepToBoundary(it_->zl, delta.zl, cor ? &(cor->zl) : nullptr,
                               weight, true);
-  double azu = stepToBoundary(it_->zu_, delta.zu, cor ? &(cor->zu) : nullptr,
+  double azu = stepToBoundary(it_->zu, delta.zu, cor ? &(cor->zu) : nullptr,
                               weight, false);
 
   alpha_primal = std::min(axl, axu);
@@ -360,14 +360,14 @@ void Ipm::stepsToBoundary(double& alpha_primal, double& alpha_dual,
 
 void Ipm::stepSizes() {
   // Compute primal and dual stepsizes.
-  std::vector<double>& xl = it_->xl_;
-  std::vector<double>& xu = it_->xu_;
-  std::vector<double>& zl = it_->zl_;
-  std::vector<double>& zu = it_->zu_;
-  std::vector<double>& dxl = it_->dxl_;
-  std::vector<double>& dxu = it_->dxu_;
-  std::vector<double>& dzl = it_->dzl_;
-  std::vector<double>& dzu = it_->dzu_;
+  std::vector<double>& xl = it_->xl;
+  std::vector<double>& xu = it_->xu;
+  std::vector<double>& zl = it_->zl;
+  std::vector<double>& zu = it_->zu;
+  std::vector<double>& dxl = it_->delta.xl;
+  std::vector<double>& dxu = it_->delta.xu;
+  std::vector<double>& dzl = it_->delta.zl;
+  std::vector<double>& dzu = it_->delta.zu;
 
   // parameters for Mehrotra heuristic
   const double gamma_f = 0.9;
@@ -454,16 +454,16 @@ void Ipm::makeStep() {
     bad_iter_ = 0;
 
   // update iterate
-  vectorAdd(it_->x_, it_->dx_, alpha_primal_);
-  vectorAdd(it_->xl_, it_->dxl_, alpha_primal_);
-  vectorAdd(it_->xu_, it_->dxu_, alpha_primal_);
-  vectorAdd(it_->y_, it_->dy_, alpha_dual_);
-  vectorAdd(it_->zl_, it_->dzl_, alpha_dual_);
-  vectorAdd(it_->zu_, it_->dzu_, alpha_dual_);
+  vectorAdd(it_->x, it_->delta.x, alpha_primal_);
+  vectorAdd(it_->xl, it_->delta.xl, alpha_primal_);
+  vectorAdd(it_->xu, it_->delta.xu, alpha_primal_);
+  vectorAdd(it_->y, it_->delta.y, alpha_dual_);
+  vectorAdd(it_->zl, it_->delta.zl, alpha_dual_);
+  vectorAdd(it_->zu, it_->delta.zu, alpha_dual_);
 
   // compute new quantities
   it_->residual1234();
-  it_->mu();
+  it_->computeMu();
   it_->indicators();
 
   collectData();
@@ -471,12 +471,12 @@ void Ipm::makeStep() {
 }
 
 void Ipm::startingPoint() {
-  std::vector<double>& x = it_->x_;
-  std::vector<double>& xl = it_->xl_;
-  std::vector<double>& xu = it_->xu_;
-  std::vector<double>& y = it_->y_;
-  std::vector<double>& zl = it_->zl_;
-  std::vector<double>& zu = it_->zu_;
+  std::vector<double>& x = it_->x;
+  std::vector<double>& xl = it_->xl;
+  std::vector<double>& xu = it_->xu;
+  std::vector<double>& y = it_->y;
+  std::vector<double>& zl = it_->zl;
+  std::vector<double>& zu = it_->zu;
 
   // *********************************************************************
   // x starting point
@@ -686,20 +686,20 @@ void Ipm::sigmaCorrectors() {
 
 void Ipm::residualsMcc() {
   // compute right-hand side for multiple centrality correctors
-  std::vector<double>& xl = it_->xl_;
-  std::vector<double>& xu = it_->xu_;
-  std::vector<double>& zl = it_->zl_;
-  std::vector<double>& zu = it_->zu_;
-  std::vector<double>& res5 = it_->res5_;
-  std::vector<double>& res6 = it_->res6_;
-  double& mu = it_->mu_;
+  std::vector<double>& xl = it_->xl;
+  std::vector<double>& xu = it_->xu;
+  std::vector<double>& zl = it_->zl;
+  std::vector<double>& zu = it_->zu;
+  std::vector<double>& res5 = it_->res5;
+  std::vector<double>& res6 = it_->res6;
+  double& mu = it_->mu;
 
   // clear existing residuals
   it_->clearRes();
 
   // stepsizes of current direction
   double alpha_p, alpha_d;
-  stepsToBoundary(alpha_p, alpha_d, it_->delta_);
+  stepsToBoundary(alpha_p, alpha_d, it_->delta);
 
   // compute increased stepsizes
   alpha_p = std::max(1.0, alpha_p + kMccIncreaseAlpha);
@@ -710,10 +710,10 @@ void Ipm::residualsMcc() {
   std::vector<double> xut = xu;
   std::vector<double> zlt = zl;
   std::vector<double> zut = zu;
-  vectorAdd(xlt, it_->dxl_, alpha_p);
-  vectorAdd(xut, it_->dxu_, alpha_p);
-  vectorAdd(zlt, it_->dzl_, alpha_d);
-  vectorAdd(zut, it_->dzu_, alpha_d);
+  vectorAdd(xlt, it_->delta.xl, alpha_p);
+  vectorAdd(xut, it_->delta.xu, alpha_p);
+  vectorAdd(zlt, it_->delta.zl, alpha_d);
+  vectorAdd(zut, it_->delta.zu, alpha_d);
 
   // compute right-hand side for mcc
   for (int i = 0; i < n_; ++i) {
@@ -764,7 +764,7 @@ void Ipm::residualsMcc() {
 bool Ipm::centralityCorrectors() {
   // compute stepsizes of current direction
   double alpha_p_old, alpha_d_old;
-  stepsToBoundary(alpha_p_old, alpha_d_old, it_->delta_);
+  stepsToBoundary(alpha_p_old, alpha_d_old, it_->delta);
 
 #ifdef PRINT_CORRECTORS
   printf("(%.2f,%.2f) -> ", alpha_p_old, alpha_d_old);
@@ -783,7 +783,7 @@ bool Ipm::centralityCorrectors() {
     double alpha_p, alpha_d;
     double wp = alpha_p_old * alpha_d_old;
     double wd = wp;
-    bestWeight(it_->delta_, corr, wp, wd, alpha_p, alpha_d);
+    bestWeight(it_->delta, corr, wp, wd, alpha_p, alpha_d);
 
 #ifdef PRINT_CORRECTORS
     printf("(%.2f,%.2f) -> ", alpha_p, alpha_d);
@@ -800,16 +800,16 @@ bool Ipm::centralityCorrectors() {
 
     if (alpha_p >= alpha_p_old + kMccIncreaseAlpha * kMccIncreaseMin) {
       // accept primal corrector
-      vectorAdd(it_->dx_, corr.x, wp);
-      vectorAdd(it_->dxl_, corr.xl, wp);
-      vectorAdd(it_->dxu_, corr.xu, wp);
+      vectorAdd(it_->delta.x, corr.x, wp);
+      vectorAdd(it_->delta.xl, corr.xl, wp);
+      vectorAdd(it_->delta.xu, corr.xu, wp);
       alpha_p_old = alpha_p;
     }
     if (alpha_d >= alpha_d_old + kMccIncreaseAlpha * kMccIncreaseMin) {
       // accept dual corrector
-      vectorAdd(it_->dy_, corr.y, wd);
-      vectorAdd(it_->dzl_, corr.zl, wd);
-      vectorAdd(it_->dzu_, corr.zu, wd);
+      vectorAdd(it_->delta.y, corr.y, wd);
+      vectorAdd(it_->delta.zl, corr.zl, wd);
+      vectorAdd(it_->delta.zu, corr.zu, wd);
       alpha_d_old = alpha_d;
     }
 
@@ -879,10 +879,10 @@ bool Ipm::checkIterate() {
 
   // check that no component is negative
   for (int i = 0; i < n_; ++i) {
-    if ((model_.hasLb(i) && it_->xl_[i] < 0) ||
-        (model_.hasLb(i) && it_->zl_[i] < 0) ||
-        (model_.hasUb(i) && it_->xu_[i] < 0) ||
-        (model_.hasUb(i) && it_->zu_[i] < 0)) {
+    if ((model_.hasLb(i) && it_->xl[i] < 0) ||
+        (model_.hasLb(i) && it_->zl[i] < 0) ||
+        (model_.hasUb(i) && it_->xu[i] < 0) ||
+        (model_.hasUb(i) && it_->zu[i] < 0)) {
       printf("\nIterate has negative component\n");
       return true;
     }
@@ -902,8 +902,8 @@ bool Ipm::checkBadIter() {
 }
 
 bool Ipm::checkTermination() {
-  bool feasible = it_->pinf_ < kIpmTolerance && it_->dinf_ < kIpmTolerance;
-  bool optimal = it_->pdgap_ < kIpmTolerance;
+  bool feasible = it_->pinf < kIpmTolerance && it_->dinf < kIpmTolerance;
+  bool optimal = it_->pdgap < kIpmTolerance;
 
   bool terminate = false;
 
@@ -927,18 +927,18 @@ bool Ipm::checkTermination() {
 }
 
 void Ipm::backwardError(const NewtonDir& delta) const {
-  std::vector<double>& x = it_->x_;
-  std::vector<double>& xl = it_->xl_;
-  std::vector<double>& xu = it_->xu_;
-  std::vector<double>& y = it_->y_;
-  std::vector<double>& zl = it_->zl_;
-  std::vector<double>& zu = it_->zu_;
-  std::vector<double>& res1 = it_->res1_;
-  std::vector<double>& res2 = it_->res2_;
-  std::vector<double>& res3 = it_->res3_;
-  std::vector<double>& res4 = it_->res4_;
-  std::vector<double>& res5 = it_->res5_;
-  std::vector<double>& res6 = it_->res6_;
+  std::vector<double>& x = it_->x;
+  std::vector<double>& xl = it_->xl;
+  std::vector<double>& xu = it_->xu;
+  std::vector<double>& y = it_->y;
+  std::vector<double>& zl = it_->zl;
+  std::vector<double>& zu = it_->zu;
+  std::vector<double>& res1 = it_->res1;
+  std::vector<double>& res2 = it_->res2;
+  std::vector<double>& res3 = it_->res3;
+  std::vector<double>& res4 = it_->res4;
+  std::vector<double>& res5 = it_->res5;
+  std::vector<double>& res6 = it_->res6;
 
   // ===================================================================================
   // Normwise backward error
@@ -1139,8 +1139,8 @@ void Ipm::printOutput() const {
   printf(
       "%5d %16.8e %16.8e %10.2e %10.2e %10.2e %6.2f %5.2f %9.2e "
       "%7.1f\n",
-      iter_, it_->pobj_, it_->dobj_, it_->pinf_, it_->dinf_, it_->mu_,
-      alpha_primal_, alpha_dual_, it_->pdgap_, clock_.stop());
+      iter_, it_->pobj, it_->dobj, it_->pinf, it_->dinf, it_->mu, alpha_primal_,
+      alpha_dual_, it_->pdgap, clock_.stop());
 }
 
 void Ipm::printInfo() const {
@@ -1165,12 +1165,12 @@ void Ipm::printInfo() const {
 }
 
 void Ipm::collectData() const {
-  DataCollector::get()->back().p_obj = it_->pobj_;
-  DataCollector::get()->back().d_obj = it_->dobj_;
-  DataCollector::get()->back().p_inf = it_->pinf_;
-  DataCollector::get()->back().d_inf = it_->dinf_;
-  DataCollector::get()->back().mu = it_->mu_;
-  DataCollector::get()->back().pd_gap = it_->pdgap_;
+  DataCollector::get()->back().p_obj = it_->pobj;
+  DataCollector::get()->back().d_obj = it_->dobj;
+  DataCollector::get()->back().p_inf = it_->pinf;
+  DataCollector::get()->back().d_inf = it_->dinf;
+  DataCollector::get()->back().mu = it_->mu;
+  DataCollector::get()->back().pd_gap = it_->pdgap;
   DataCollector::get()->back().p_alpha = alpha_primal_;
   DataCollector::get()->back().d_alpha = alpha_dual_;
 
@@ -1194,24 +1194,24 @@ void Ipm::collectData() const {
 
   for (int i = 0; i < n_; ++i) {
     if (model_.hasLb(i)) {
-      minxl = std::min(minxl, std::abs(it_->xl_[i]));
-      maxxl = std::max(maxxl, std::abs(it_->xl_[i]));
-      minzl = std::min(minzl, std::abs(it_->zl_[i]));
-      maxzl = std::max(maxzl, std::abs(it_->zl_[i]));
-      mindxl = std::min(mindxl, std::abs(it_->dxl_[i]));
-      maxdxl = std::max(maxdxl, std::abs(it_->dxl_[i]));
-      mindzl = std::min(mindzl, std::abs(it_->dzl_[i]));
-      maxdzl = std::max(maxdzl, std::abs(it_->dzl_[i]));
+      minxl = std::min(minxl, std::abs(it_->xl[i]));
+      maxxl = std::max(maxxl, std::abs(it_->xl[i]));
+      minzl = std::min(minzl, std::abs(it_->zl[i]));
+      maxzl = std::max(maxzl, std::abs(it_->zl[i]));
+      mindxl = std::min(mindxl, std::abs(it_->delta.xl[i]));
+      maxdxl = std::max(maxdxl, std::abs(it_->delta.xl[i]));
+      mindzl = std::min(mindzl, std::abs(it_->delta.zl[i]));
+      maxdzl = std::max(maxdzl, std::abs(it_->delta.zl[i]));
     }
     if (model_.hasUb(i)) {
-      minxu = std::min(minxu, std::abs(it_->xu_[i]));
-      maxxu = std::max(maxxu, std::abs(it_->xu_[i]));
-      minzu = std::min(minzu, std::abs(it_->zu_[i]));
-      maxzu = std::max(maxzu, std::abs(it_->zu_[i]));
-      mindxu = std::min(mindxu, std::abs(it_->dxu_[i]));
-      maxdxu = std::max(maxdxu, std::abs(it_->dxu_[i]));
-      mindzu = std::min(mindzu, std::abs(it_->dzu_[i]));
-      maxdzu = std::max(maxdzu, std::abs(it_->dzu_[i]));
+      minxu = std::min(minxu, std::abs(it_->xu[i]));
+      maxxu = std::max(maxxu, std::abs(it_->xu[i]));
+      minzu = std::min(minzu, std::abs(it_->zu[i]));
+      maxzu = std::max(maxzu, std::abs(it_->zu[i]));
+      mindxu = std::min(mindxu, std::abs(it_->delta.xu[i]));
+      maxdxu = std::max(maxdxu, std::abs(it_->delta.xu[i]));
+      mindzu = std::min(mindzu, std::abs(it_->delta.zu[i]));
+      maxdzu = std::max(maxdzu, std::abs(it_->delta.zu[i]));
     }
   }
 

@@ -19,28 +19,27 @@ struct NewtonDir {
 
 struct IpmIterate {
   // lp model
-  const IpmModel& model_;
+  const IpmModel* model;
 
   // ipm point
-  std::vector<double> x_, xl_, xu_, y_, zl_, zu_;
+  std::vector<double> x, xl, xu, y, zl, zu;
 
   // residuals
-  std::vector<double> res1_, res2_, res3_, res4_, res5_, res6_;
+  std::vector<double> res1, res2, res3, res4, res5, res6;
 
   // Newton direction
-  NewtonDir delta_;
-  std::vector<double>&dx_, &dxl_, &dxu_, &dy_, &dzl_, &dzu_;
+  NewtonDir delta;
 
   // indicators
-  double pobj_, dobj_, pinf_, dinf_, pdgap_;
+  double pobj, dobj, pinf, dinf, pdgap;
 
-  double mu_;
-  std::vector<double> scaling_;
+  double mu;
+  std::vector<double> scaling;
 
   // ===================================================================================
   // Functions to construct, clear and check for nan or inf
   // ===================================================================================
-  IpmIterate(const IpmModel& model);
+  IpmIterate(const IpmModel& model_input);
 
   // clear existing data
   void clearIter();
@@ -61,7 +60,7 @@ struct IpmIterate {
   // for variables: i with a finite lower bound
   //                j with a finite upper bound
   // ===================================================================================
-  void mu();
+  void computeMu();
 
   // ===================================================================================
   // Compute diagonal scaling Theta^{-1}
@@ -69,7 +68,7 @@ struct IpmIterate {
   // Theta^{-1} only considers the terms above if the corresponding upper/lower
   // bound is finite.
   // ===================================================================================
-  void scaling();
+  void computeScaling();
 
   // ===================================================================================
   // Compute convergence indicators
@@ -134,10 +133,10 @@ struct IpmIterate {
   // - adjust sign of y for inequality constraints
   // - compute and adjust sign of slacks
   // ===================================================================================
-  void extract(std::vector<double>& x, std::vector<double>& xl,
-               std::vector<double>& xu, std::vector<double>& slack,
-               std::vector<double>& y, std::vector<double>& zl,
-               std::vector<double>& zu) const;
+  void extract(std::vector<double>& x_user, std::vector<double>& xl_user,
+               std::vector<double>& xu_user, std::vector<double>& slack_user,
+               std::vector<double>& y_user, std::vector<double>& zl_user,
+               std::vector<double>& zu_user) const;
 
   // ===================================================================================
   // Extract complementary solution to be used for crossover with IPX:
@@ -146,15 +145,16 @@ struct IpmIterate {
   // - compute slacks
   // - remove extra slacks from x, z
   // ===================================================================================
-  void extract(std::vector<double>& x, std::vector<double>& slack,
-               std::vector<double>& y, std::vector<double>& z) const;
+  void extract(std::vector<double>& x_user, std::vector<double>& slack_user,
+               std::vector<double>& y_user, std::vector<double>& z_user) const;
 
   // ===================================================================================
   // Construct a complementary point (x,y,z), such that for each j, either xj is
   // at one of the bounds (lower or upper), or zj is zero.
   // ===================================================================================
-  void dropToComplementarity(std::vector<double>& x, std::vector<double>& y,
-                             std::vector<double>& z) const;
+  void dropToComplementarity(std::vector<double>& x_cmp,
+                             std::vector<double>& y_cmp,
+                             std::vector<double>& z_cmp) const;
 };
 
 #endif
