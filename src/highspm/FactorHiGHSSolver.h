@@ -3,7 +3,7 @@
 
 #include <algorithm>
 
-#include "../FactorHiGHS/FactorHiGHS.h"
+#include "factorhighs/FactorHiGHS.h"
 #include "LinearSolver.h"
 
 class FactorHiGHSSolver : public LinearSolver {

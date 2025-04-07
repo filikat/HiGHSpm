@@ -1,6 +1,6 @@
 #include "FactorHiGHSSolver.h"
 
-#include "../FactorHiGHS/KrylovMethods.h"
+#include "factorhighs/KrylovMethods.h"
 
 int computeLowerAThetaAT(const HighsSparseMatrix& matrix,
                          const std::vector<double>& scaling,

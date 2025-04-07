@@ -1,6 +1,6 @@
 #include "CurtisReidScaling.h"
 
-#include "../FactorHiGHS/KrylovMethods.h"
+#include "factorhighs/KrylovMethods.h"
 
 void product(const double* x, std::vector<double>& y,
              const std::vector<int>& ptr, const std::vector<int>& rows) {

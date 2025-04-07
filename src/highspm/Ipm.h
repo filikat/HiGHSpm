@@ -3,13 +3,13 @@
 
 #include <string>
 
-#include "../FactorHiGHS/FactorHiGHS.h"
+#include "factorhighs/FactorHiGHS.h"
 #include "FactorHiGHSSolver.h"
 #include "IpmIterate.h"
 #include "IpmModel.h"
 #include "Ipm_const.h"
 #include "LinearSolver.h"
-#include "VectorOperations.h"
+#include "auxiliary/VectorOperations.h"
 #include "ipm/ipx/lp_solver.h"
 #include "util/HighsSparseMatrix.h"
 

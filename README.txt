@@ -1,3 +1,3 @@
 
 IPM solver for HiGHS, based on the direct solver FactorHiGHS.
-Adjust the paths in the Makefile before compiling.
+Compile using cmake. It may require to set CMAKE_PREFIX_PATH and/or CMAKE_INCLUDE_PATH for now.

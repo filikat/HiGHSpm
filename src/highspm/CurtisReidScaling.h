@@ -4,7 +4,7 @@
 #include <cmath>
 #include <vector>
 
-#include "VectorOperations.h"
+#include "auxiliary/VectorOperations.h"
 
 void CurtisReidScaling(const std::vector<int>& ptr,
                        const std::vector<int>& rows,

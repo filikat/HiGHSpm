@@ -4,7 +4,7 @@
 #include <vector>
 
 #include "Ipm_const.h"
-#include "VectorOperations.h"
+#include "auxiliary/VectorOperations.h"
 #include "util/HighsSparseMatrix.h"
 
 // Interface class for solving augmented system or normal equations.

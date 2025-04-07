@@ -1,0 +1,276 @@
+#include "Numeric.h"
+
+#include "auxiliary/VectorOperations.h"
+#include "Auxiliary.h"
+#include "CallAndTimeBlas.h"
+#include "DataCollector.h"
+#include "FormatHandler.h"
+#include "FullSolveHandler.h"
+#include "HybridSolveHandler.h"
+#include "PackedSolveHandler.h"
+#include "Timing.h"
+#include "util/HighsCDouble.h"
+#include "util/HighsRandom.h"
+
+Numeric::Numeric(const Symbolic& S) : S_{S} {
+  // initialize solve handler
+  switch (S_.formatType()) {
+    case FormatType::Full:
+      SH_.reset(new FullSolveHandler(S_, sn_columns_));
+      break;
+    case FormatType::HybridPacked:
+    case FormatType::HybridHybrid:
+      SH_.reset(new HybridSolveHandler(S_, sn_columns_, swaps_, pivot_2x2_));
+      break;
+    case FormatType::PackedPacked:
+      SH_.reset(new PackedSolveHandler(S_, sn_columns_));
+      break;
+  }
+}
+
+void Numeric::solve(std::vector<double>& x) const {
+#ifdef COARSE_TIMING
+  Clock clock{};
+#endif
+
+  // permute rhs
+  permuteVectorInverse(x, S_.iperm());
+
+  // make a copy of permuted rhs, for refinement
+  const std::vector<double> rhs(x);
+
+  // solve
+  SH_->forwardSolve(x);
+  SH_->diagSolve(x);
+  SH_->backwardSolve(x);
+  DataCollector::get()->countSolves();
+
+  // iterative refinement
+  refine(rhs, x);
+
+  // unpermute solution
+  permuteVector(x, S_.iperm());
+
+#ifdef COARSE_TIMING
+  DataCollector::get()->sumTime(kTimeSolve, clock.stop());
+#endif
+}
+
+std::vector<double> Numeric::residual(const std::vector<double>& rhs,
+                                      const std::vector<double>& x) const {
+  // Compute the residual rhs - A * x - Reg * x
+  std::vector<double> res(rhs);
+  symProduct(ptrA_, rowsA_, valA_, x, res, -1.0);
+  for (int i = 0; i < x.size(); ++i) res[i] -= total_reg_[i] * x[i];
+
+  return res;
+}
+
+std::vector<double> Numeric::residualQuad(const std::vector<double>& rhs,
+                                          const std::vector<double>& x) const {
+  std::vector<HighsCDouble> res(rhs.size());
+  for (int i = 0; i < rhs.size(); ++i) res[i] = rhs[i];
+
+  symProductQuad(ptrA_, rowsA_, valA_, x, res, -1.0);
+
+  for (int i = 0; i < x.size(); ++i)
+    res[i] -= (HighsCDouble)total_reg_[i] * (HighsCDouble)x[i];
+
+  std::vector<double> result(res.size());
+  for (int i = 0; i < res.size(); ++i) {
+    result[i] = (double)res[i];
+  }
+
+  return result;
+}
+
+void Numeric::refine(const std::vector<double>& rhs,
+                     std::vector<double>& x) const {
+  double old_omega{};
+
+  // compute residual
+  std::vector<double> res = residualQuad(rhs, x);
+  double omega = computeOmega(rhs, x);
+
+  int iter = 0;
+  for (; iter < kMaxRefinementIter; ++iter) {
+    // termination criterion
+    if (omega < kRefinementTolerance) break;
+
+#ifdef PRINT_ITER_REF
+    printf("%e  --> ", omega);
+#endif
+
+    // compute correction
+    SH_->forwardSolve(res);
+    SH_->diagSolve(res);
+    SH_->backwardSolve(res);
+    DataCollector::get()->countSolves();
+
+    // add correction
+    std::vector<double> temp(x);
+    vectorAdd(temp, res);
+
+    // compute new residual
+    res = residualQuad(rhs, temp);
+
+    old_omega = omega;
+    omega = computeOmega(rhs, temp);
+
+    if (omega < old_omega) {
+      x = temp;
+    } else {
+#ifdef PRINT_ITER_REF
+      printf(" xxx ");
+#endif
+      omega = old_omega;
+      break;
+    }
+  }
+
+#ifdef PRINT_ITER_REF
+  printf("%e\n", omega);
+#endif
+
+  double& omg = DataCollector::get()->back().omega;
+  omg = std::max(omg, omega);
+}
+
+double Numeric::computeOmega(const std::vector<double>& b,
+                             const std::vector<double>& x) const {
+  // Termination of iterative refinement based on "Solving sparse linear systems
+  // with sparse backward error", Arioli, Demmel, Duff.
+
+  const int n = x.size();
+
+  // residual b-Ax
+  const std::vector<double> res = residualQuad(b, x);
+
+  // infinity norm of x
+  const double inf_norm_x = infNorm(x);
+
+  // infinity norm of columns of A
+  std::vector<double> inf_norm_cols(n);
+  for (int col = 0; col < n; ++col) {
+    for (int el = ptrA_[col]; el < ptrA_[col + 1]; ++el) {
+      int row = rowsA_[el];
+      double val = valA_[el];
+      inf_norm_cols[col] = std::max(inf_norm_cols[col], std::abs(val));
+      if (row != col)
+        inf_norm_cols[row] = std::max(inf_norm_cols[row], std::abs(val));
+    }
+  }
+
+  // one norm of columns of A
+  std::vector<double> one_norm_cols(n);
+  for (int col = 0; col < n; ++col) {
+    for (int el = ptrA_[col]; el < ptrA_[col + 1]; ++el) {
+      int row = rowsA_[el];
+      double val = valA_[el];
+      one_norm_cols[col] += std::abs(val);
+      if (row != col) one_norm_cols[row] += std::abs(val);
+    }
+  }
+
+  // |A|*|x|
+  std::vector<double> abs_prod(n);
+  for (int col = 0; col < n; ++col) {
+    for (int el = ptrA_[col]; el < ptrA_[col + 1]; ++el) {
+      int row = rowsA_[el];
+      double val = valA_[el];
+      abs_prod[row] += std::abs(val) * std::abs(x[col]);
+      if (row != col) abs_prod[col] += std::abs(val) * std::abs(x[row]);
+    }
+  }
+
+  double omega_1{};
+  double omega_2{};
+
+  for (int i = 0; i < n; ++i) {
+    // threshold 1000 * n * eps * (||Ai|| * ||x|| + |bi|)
+    double tau =
+        1000 * n * 1e-16 * (inf_norm_cols[i] * inf_norm_x + std::abs(b[i]));
+
+    if (abs_prod[i] + std::abs(b[i]) > tau) {
+      // case 1, denominator is large enough
+      double omega = std::abs(res[i]) / (abs_prod[i] + std::abs(b[i]));
+      omega_1 = std::max(omega_1, omega);
+    } else {
+      // case 2, denominator would be small, change it
+      double omega =
+          std::abs(res[i]) / (abs_prod[i] + one_norm_cols[i] * inf_norm_x);
+      omega_2 = std::max(omega_2, omega);
+    }
+  }
+
+  return omega_1 + omega_2;
+}
+
+void Numeric::conditionNumber() const {
+  HighsRandom random;
+
+  const int n = S_.size();
+
+  // estimate largest eigenvalue with power iteration:
+  // x <- x / ||x||
+  // y <- M * x
+  // lambda = ||y||
+
+  double lambda_large{};
+  std::vector<double> x(n);
+  for (int i = 0; i < n; ++i) x[i] = random.fraction();
+
+  for (int iter = 0; iter < 10; ++iter) {
+    // normalize x
+    double x_norm = norm2(x);
+    vectorScale(x, 1.0 / x_norm);
+
+    // multiply by matrix
+    std::vector<double> y(n);
+    symProduct(ptrA_, rowsA_, valA_, x, y);
+
+    double norm_y = norm2(y);
+
+    if (std::abs(lambda_large - norm_y) / std::max(1.0, lambda_large) < 1e-2) {
+      // converged
+      break;
+    }
+
+    lambda_large = norm_y;
+    x = std::move(y);
+  }
+
+  // estimate inverse of smallest eigenvalue with inverse power iteration:
+  // x <- x / ||x||
+  // y <- M^-1 * x
+  // lambda_inv = ||y||
+
+  double lambda_small_inv{};
+  for (int i = 0; i < n; ++i) x[i] = random.fraction();
+
+  for (int iter = 0; iter < 10; ++iter) {
+    // normalize x
+    double x_norm = norm2(x);
+    vectorScale(x, 1.0 / x_norm);
+
+    // solve with matrix
+    std::vector<double> y(x);
+    SH_->forwardSolve(y);
+    SH_->diagSolve(y);
+    SH_->backwardSolve(y);
+
+    double norm_y = norm2(y);
+
+    if (std::abs(lambda_small_inv - norm_y) / std::max(1.0, lambda_small_inv) <
+        1e-2) {
+      // converged
+      break;
+    }
+
+    lambda_small_inv = norm_y;
+    x = std::move(y);
+  }
+
+  // condition number: lambda_large / lambda_small
+  double cond = lambda_large * lambda_small_inv;
+}

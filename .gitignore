@@ -1,13 +1,11 @@
 *.m
 data_*
-main.cpp
 .DS_Store
 .vscode
 *~
 *.csv
 *.ods
 ml.mps
-ipm
 runNetlib
 a.out
 ipm.dSYM
@@ -18,3 +16,5 @@ debug_data
 netlib_*
 test*
 Makefile_local
+build
+old_stuff

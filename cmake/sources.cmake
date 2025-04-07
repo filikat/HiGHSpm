@@ -1,0 +1,72 @@
+set(ipm_sources 
+    highspm/CurtisReidScaling.cpp 
+    highspm/FactorHiGHSSolver.cpp 
+    highspm/Ipm.cpp
+    highspm/IpmIterate.cpp 
+    highspm/IpmModel.cpp)
+
+set(ipm_headers
+    highspm/CurtisReidScaling.h
+    highspm/FactorHiGHSSolver.h
+    highspm/Ipm.h
+    highspm/IpmIterate.h
+    highspm/IpmModel.h
+    highspm/Ipm_const.h
+    highspm/LinearSolver.h)
+
+set(factor_highs_sources
+    factorhighs/Analyse.cpp
+    factorhighs/Auxiliary.cpp
+    factorhighs/CallAndTimeBlas.cpp
+    factorhighs/DataCollector.cpp
+    factorhighs/DenseFactFull.cpp
+    factorhighs/DenseFactHybrid.cpp
+    factorhighs/DenseFactKernel.cpp
+    factorhighs/DgemmParallel.cpp
+    factorhighs/Factorise.cpp
+    factorhighs/FormatHandler.cpp
+    factorhighs/FullFormatHandler.cpp
+    factorhighs/FullSolveHandler.cpp
+    factorhighs/HybridHybridFormatHandler.cpp
+    factorhighs/HybridPackedFormatHandler.cpp
+    factorhighs/HybridSolveHandler.cpp
+    factorhighs/KrylovMethods.cpp
+    factorhighs/Numeric.cpp
+    factorhighs/PackedPackedFormatHandler.cpp
+    factorhighs/PackedSolveHandler.cpp
+    factorhighs/SolveHandler.cpp
+    factorhighs/SymScaling.cpp
+    factorhighs/Symbolic.cpp)
+
+set(factor_highs_headers
+    factorhighs/Analyse.h
+    factorhighs/Auxiliary.h
+    factorhighs/CallAndTimeBlas.h
+    factorhighs/DataCollector.h
+    factorhighs/DenseFact.h
+    factorhighs/DgemmParallel.h
+    factorhighs/FactorHiGHS.h
+    factorhighs/FactorHiGHSSettings.h
+    factorhighs/Factorise.h
+    factorhighs/FormatHandler.h
+    factorhighs/FullFormatHandler.h
+    factorhighs/FullSolveHandler.h
+    factorhighs/HybridHybridFormatHandler.h
+    factorhighs/HybridPackedFormatHandler.h
+    factorhighs/HybridSolveHandler.h
+    factorhighs/KrylovMethods.h
+    factorhighs/Numeric.h
+    factorhighs/PackedPackedFormatHandler.h
+    factorhighs/PackedSolveHandler.h
+    factorhighs/ReturnValues.h
+    factorhighs/SolveHandler.h
+    factorhighs/SymScaling.h
+    factorhighs/Symbolic.h
+    factorhighs/Timing.h)
+
+set(util_sources
+    auxiliary/VectorOperations.cpp)
+
+set(util_headers
+    auxiliary/VectorOperations.h)
+

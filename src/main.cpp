@@ -3,9 +3,9 @@
 #include <iostream>
 #include <regex>
 
-#include "../FactorHiGHS/Auxiliary.h"
+#include "factorhighs/Auxiliary.h"
 #include "Highs.h"
-#include "Ipm.h"
+#include "highspm/Ipm.h"
 #include "io/Filereader.h"
 #include "ipm/IpxWrapper.h"
 #include "parallel/HighsParallel.h"

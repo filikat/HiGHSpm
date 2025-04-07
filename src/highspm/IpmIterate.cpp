@@ -1,6 +1,6 @@
 #include "IpmIterate.h"
 
-#include "../FactorHiGHS/DataCollector.h"
+#include "factorhighs/DataCollector.h"
 #include "Ipm_const.h"
 
 NewtonDir::NewtonDir(int m, int n)
