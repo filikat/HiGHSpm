@@ -17,5 +17,4 @@ target_compile_options(ipm PRIVATE -O3 -Wno-deprecated)
 
 add_subdirectory(src)
 
-target_link_libraries(ipm libipm)
-include_directories(${PROJECT_SOURCE_DIR}/src)
+target_link_libraries(ipm highspm)

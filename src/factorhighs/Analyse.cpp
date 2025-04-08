@@ -5,7 +5,7 @@
 #include <random>
 #include <stack>
 
-#include "Auxiliary.h"
+#include "auxiliary/Auxiliary.h"
 #include "DataCollector.h"
 #include "FactorHiGHSSettings.h"
 #include "GKlib.h"

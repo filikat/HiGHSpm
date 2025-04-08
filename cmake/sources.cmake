@@ -16,7 +16,6 @@ set(ipm_headers
 
 set(factor_highs_sources
     factorhighs/Analyse.cpp
-    factorhighs/Auxiliary.cpp
     factorhighs/CallAndTimeBlas.cpp
     factorhighs/DataCollector.cpp
     factorhighs/DenseFactFull.cpp
@@ -35,12 +34,12 @@ set(factor_highs_sources
     factorhighs/PackedPackedFormatHandler.cpp
     factorhighs/PackedSolveHandler.cpp
     factorhighs/SolveHandler.cpp
+    factorhighs/Swaps.cpp
     factorhighs/SymScaling.cpp
     factorhighs/Symbolic.cpp)
 
 set(factor_highs_headers
     factorhighs/Analyse.h
-    factorhighs/Auxiliary.h
     factorhighs/CallAndTimeBlas.h
     factorhighs/DataCollector.h
     factorhighs/DenseFact.h
@@ -60,13 +59,16 @@ set(factor_highs_headers
     factorhighs/PackedSolveHandler.h
     factorhighs/ReturnValues.h
     factorhighs/SolveHandler.h
+    factorhighs/Swaps.h
     factorhighs/SymScaling.h
     factorhighs/Symbolic.h
     factorhighs/Timing.h)
 
 set(util_sources
+    auxiliary/Auxiliary.cpp
     auxiliary/VectorOperations.cpp)
 
 set(util_headers
+    auxiliary/Auxiliary.h
     auxiliary/VectorOperations.h)
 

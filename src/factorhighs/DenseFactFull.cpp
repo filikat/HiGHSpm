@@ -1,6 +1,6 @@
 #include <cmath>
 
-#include "Auxiliary.h"
+#include "auxiliary/Auxiliary.h"
 #include "CallAndTimeBlas.h"
 #include "DataCollector.h"
 #include "DenseFact.h"

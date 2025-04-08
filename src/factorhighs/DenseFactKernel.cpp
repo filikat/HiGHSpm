@@ -1,8 +1,9 @@
-#include "Auxiliary.h"
 #include "CallAndTimeBlas.h"
 #include "DataCollector.h"
 #include "FactorHiGHSSettings.h"
 #include "ReturnValues.h"
+#include "Swaps.h"
+#include "auxiliary/Auxiliary.h"
 #include "util/HighsRandom.h"
 
 // Dense Factorization kernel
@@ -108,7 +109,7 @@ bool blockBunchKaufman(int j, int n, double* A, int lda, int* swaps, int* sign,
 
     if (sign[j] * A[j + lda * j] < 0) {
       DataCollector::get()->setWrongSign(A[j + lda * j]);
-      //A[j + lda * j] = sign[j] * thresh;
+      // A[j + lda * j] = sign[j] * thresh;
     }
 
     if (std::max(std::abs(Ajj), gamma_j) < thresh) {

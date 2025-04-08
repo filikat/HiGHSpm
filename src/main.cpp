@@ -3,7 +3,6 @@
 #include <iostream>
 #include <regex>
 
-#include "factorhighs/Auxiliary.h"
 #include "Highs.h"
 #include "highspm/Ipm.h"
 #include "io/Filereader.h"

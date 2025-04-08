@@ -1,7 +1,7 @@
 #include "Numeric.h"
 
 #include "auxiliary/VectorOperations.h"
-#include "Auxiliary.h"
+#include "auxiliary/Auxiliary.h"
 #include "CallAndTimeBlas.h"
 #include "DataCollector.h"
 #include "FormatHandler.h"

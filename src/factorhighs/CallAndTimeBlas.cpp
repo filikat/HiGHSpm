@@ -3,7 +3,7 @@
 
 #include <cblas.h>
 
-#include "Auxiliary.h"
+#include "auxiliary/Auxiliary.h"
 #include "DenseFact.h"
 #include "Timing.h"
 

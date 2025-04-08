@@ -2,7 +2,7 @@
 #define FACTOR_HIGHS_H
 
 #include "Analyse.h"
-#include "Auxiliary.h"
+#include "auxiliary/Auxiliary.h"
 #include "DataCollector.h"
 #include "FactorHiGHSSettings.h"
 #include "Factorise.h"

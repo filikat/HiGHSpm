@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <fstream>
 
-#include "Auxiliary.h"
+#include "auxiliary/Auxiliary.h"
 #include "DataCollector.h"
 #include "FactorHiGHSSettings.h"
 #include "FormatHandler.h"

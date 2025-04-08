@@ -1,10 +1,11 @@
-#include "DgemmParallel.h"
-#include "Auxiliary.h"
 #include "CallAndTimeBlas.h"
 #include "DataCollector.h"
 #include "DenseFact.h"
+#include "DgemmParallel.h"
 #include "FactorHiGHSSettings.h"
 #include "ReturnValues.h"
+#include "Swaps.h"
+#include "auxiliary/Auxiliary.h"
 
 // Factorization with "hybrid formats".
 
