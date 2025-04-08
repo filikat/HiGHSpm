@@ -19,6 +19,10 @@ add_subdirectory(src)
 
 target_link_libraries(ipm highspm)
 
+# flags for address sanitizer
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer -fsanitize=address")
+#set(CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -fno-omit-frame-pointer -fsanitize=address")
+
 # tests
 enable_testing()
 
