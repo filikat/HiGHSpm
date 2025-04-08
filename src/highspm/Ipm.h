@@ -12,6 +12,7 @@
 #include "auxiliary/VectorOperations.h"
 #include "ipm/ipx/lp_solver.h"
 #include "util/HighsSparseMatrix.h"
+#include "auxiliary/Auxiliary.h"
 
 class Ipm {
   // LP model
