@@ -23,6 +23,11 @@ target_link_libraries(ipm highspm)
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer -fsanitize=address")
 #set(CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -fno-omit-frame-pointer -fsanitize=address")
 
+# executable to run benchmark problems
+add_executable(run_test src/mainTest.cpp)
+target_compile_options(run_test PRIVATE -O3 -Wno-deprecated)
+target_link_libraries(run_test highspm)
+
 # tests
 enable_testing()
 
