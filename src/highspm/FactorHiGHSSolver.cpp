@@ -21,70 +21,93 @@ void FactorHiGHSSolver::clear() {
   DataCollector::get()->append();
 }
 
-int FactorHiGHSSolver::setup(const HighsSparseMatrix& A,
-                             const Options& options) {
-  std::vector<int> ptrLower;
-  std::vector<int> rowsLower;
+int getNE(const HighsSparseMatrix& A, std::vector<int>& ptr,
+          std::vector<int>& rows) {
+  // Normal equations, full matrix
+  std::vector<double> theta;
+  HighsSparseMatrix AAt;
+  int status = computeLowerAThetaAT(A, theta, AAt);
+  if (status) return kLinearSolverStatusErrorOom;
+
+  rows = std::move(AAt.index_);
+  ptr = std::move(AAt.start_);
+
+  return kLinearSolverStatusOk;
+}
+
+int getAS(const HighsSparseMatrix& A, std::vector<int>& ptr,
+          std::vector<int>& rows) {
+  // Augmented system, lower triangular
 
   int nA = A.num_col_;
   int mA = A.num_row_;
   int nzA = A.numNz();
 
-  int negative_pivots{};
+  ptr.resize(nA + mA + 1);
+  rows.resize(nA + nzA + mA);
 
-  int nla_type = options.nla;
+  int next = 0;
 
-  // Build the matrix
-  if (nla_type == kOptionNlaAugmented) {
-    // Augmented system, lower triangular
+  for (int i = 0; i < nA; ++i) {
+    // diagonal element
+    rows[next] = i;
+    ++next;
 
-    ptrLower.resize(nA + mA + 1);
-    rowsLower.resize(nA + nzA + mA);
-
-    int next = 0;
-
-    for (int i = 0; i < nA; ++i) {
-      // diagonal element
-      rowsLower[next] = i;
+    // column of A
+    for (int el = A.start_[i]; el < A.start_[i + 1]; ++el) {
+      rows[next] = A.index_[el] + nA;
       ++next;
-
-      // column of A
-      for (int el = A.start_[i]; el < A.start_[i + 1]; ++el) {
-        rowsLower[next] = A.index_[el] + nA;
-        ++next;
-      }
-
-      ptrLower[i + 1] = next;
     }
 
-    // 2,2 block
-    for (int i = 0; i < mA; ++i) {
-      rowsLower[next] = nA + i;
-      ++next;
-      ptrLower[nA + i + 1] = ptrLower[nA + i] + 1;
-    }
-
-    negative_pivots = nA;
-
-  } else {
-    // Normal equations, full matrix
-    std::vector<double> theta;
-    HighsSparseMatrix AAt;
-    int status = computeLowerAThetaAT(A, theta, AAt);
-    if (status) {
-      printf("Failure: AAt is too large\n");
-      return kLinearSolverStatusErrorOom;
-    }
-
-    rowsLower = std::move(AAt.index_);
-    ptrLower = std::move(AAt.start_);
+    ptr[i + 1] = next;
   }
 
-  // Perform analyse phase
-  Analyse analyse(S_, rowsLower, ptrLower, negative_pivots);
-  if (int status = analyse.run()) return kLinearSolverStatusErrorAnalyse;
-  DataCollector::get()->printSymbolic(1);
+  // 2,2 block
+  for (int i = 0; i < mA; ++i) {
+    rows[next] = nA + i;
+    ++next;
+    ptr[nA + i + 1] = ptr[nA + i] + 1;
+  }
 
+  return kLinearSolverStatusOk;
+}
+
+int FactorHiGHSSolver::setup(const HighsSparseMatrix& A, Options& options) {
+  std::vector<int> ptrLower, rowsLower;
+
+  int status = kLinearSolverStatusOk;
+
+  printf("\n");
+
+  // Build the matrix
+  switch (options.nla) {
+    case kOptionNlaAugmented: {
+      getAS(A, ptrLower, rowsLower);
+      Analyse analyse(S_, rowsLower, ptrLower, A.num_col_);
+      if (analyse.run()) status = kLinearSolverStatusErrorAnalyse;
+      printf("Using augmented system as requested\n");
+      break;
+    }
+
+    case kOptionNlaNormEq: {
+      int NE_status = getNE(A, ptrLower, rowsLower);
+      if (NE_status) {
+        printf("Failure: AAt is too large\n");
+        return kLinearSolverStatusErrorOom;
+      }
+      Analyse analyse(S_, rowsLower, ptrLower, 0);
+      if (analyse.run()) status = kLinearSolverStatusErrorAnalyse;
+      printf("Using normal equations as requested\n");
+      break;
+    }
+
+    case kOptionNlaChoose: {
+      if (choose(A, options)) status = kLinearSolverStatusErrorAnalyse;
+      break;
+    }
+  }
+
+  DataCollector::get()->printSymbolic(1);
   return kLinearSolverStatusOk;
 }
 
@@ -295,3 +318,87 @@ int computeLowerAThetaAT(const HighsSparseMatrix& matrix,
 double FactorHiGHSSolver::flops() const { return S_.flops(); }
 double FactorHiGHSSolver::spops() const { return S_.spops(); }
 double FactorHiGHSSolver::nz() const { return S_.nz(); }
+
+int FactorHiGHSSolver::choose(const HighsSparseMatrix& A, Options& options) {
+  // Choose whether to use augmented system or normal equations.
+
+  assert(options.nla == kOptionNlaChoose);
+
+  Symbolic symb_NE, symb_AS;
+  bool failure_NE = false;
+  bool failure_AS = false;
+
+  // Perform analyse phase of normal equations
+  {
+    std::vector<int> ptrLower, rowsLower;
+    int NE_status = getNE(A, ptrLower, rowsLower);
+    if (NE_status)
+      failure_NE = true;
+    else {
+      Analyse analyse_NE(symb_NE, rowsLower, ptrLower, 0);
+      NE_status = analyse_NE.run();
+      if (NE_status) failure_NE = true;
+    }
+  }
+
+  // Perform analyse phase of augmented system
+  {
+    std::vector<int> ptrLower, rowsLower;
+    getAS(A, ptrLower, rowsLower);
+    Analyse analyse_AS(symb_AS, rowsLower, ptrLower, A.num_col_);
+    int AS_status = analyse_AS.run();
+    if (AS_status) failure_AS = true;
+  }
+
+  int status = kLinearSolverStatusOk;
+
+  // Decision may be forces by failures
+  if (failure_NE && !failure_AS) {
+    options.nla = kOptionNlaAugmented;
+    S_ = std::move(symb_AS);
+    printf("Using augmented system because normal equations failed\n");
+  } else if (failure_AS && !failure_NE) {
+    options.nla = kOptionNlaNormEq;
+    S_ = std::move(symb_NE);
+    printf("Using normal equations because augmented system failed\n");
+  } else if (failure_AS && failure_NE) {
+    status = kLinearSolverStatusErrorAnalyse;
+    printf("Failure: both approaches failed analyse phase\n");
+  } else {
+    // Coefficients for heuristic
+    double kSpopsWeight = 30.0;
+    double kThreshOps = 10.0;
+    double kThreshSn = 1.5;
+
+    // Total number of operations, given by dense flops and sparse indexing
+    // operations, weighted with an empirical factor
+    double ops_NE = symb_NE.flops() + symb_NE.spops() * kSpopsWeight;
+    double ops_AS = symb_AS.flops() + symb_AS.spops() + kSpopsWeight;
+
+    // Average size of supernodes
+    double sn_size_NE = (double)symb_NE.size() / symb_NE.sn();
+    double sn_size_AS = (double)symb_AS.size() / symb_AS.sn();
+
+    double ratio_ops = ops_NE / ops_AS;
+    double ratio_sn = sn_size_AS / sn_size_NE;
+
+    bool NE_much_more_expensive = ratio_ops > kThreshOps;
+    bool AS_not_too_expensive = ratio_ops > 1.0 / kThreshOps;
+    bool sn_AS_larger_than_NE = ratio_sn > kThreshSn;
+
+    if (NE_much_more_expensive ||
+        (sn_AS_larger_than_NE && AS_not_too_expensive)) {
+      options.nla = kOptionNlaAugmented;
+      S_ = std::move(symb_AS);
+      printf("Using augmented system because it is preferrable: %f %f\n",
+             ratio_ops, ratio_sn);
+    } else {
+      options.nla = kOptionNlaNormEq;
+      S_ = std::move(symb_NE);
+      printf("Using normal equations because it is preferrable: %f %f\n",
+             ratio_ops, ratio_sn);
+    }
+  }
+
+  return status;
+}

@@ -21,6 +21,7 @@
 // - refine: apply iterative refinement to the solution
 // - finalise: perform any final action
 // - flops: return number of flops needed for factorisation
+// - spops: return number of sparse ops needed for factorisation
 // - nz: return number of nonzeros in factorisation
 //
 // NB: forming the normal equations or augmented system is delegated to the
@@ -65,7 +66,7 @@ class LinearSolver {
   // Virtual functions.
   // These may be overridden by derived classes, if needed.
   // =================================================================
-  virtual int setup(const HighsSparseMatrix& A, const Options& options) {
+  virtual int setup(const HighsSparseMatrix& A, Options& options) {
     return 0;
   }
 

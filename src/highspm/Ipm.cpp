@@ -1148,9 +1148,6 @@ void Ipm::printInfo() const {
   printf("Problem %s\n", model_.name().c_str());
   printf("%.2e rows, %.2e cols, %.2e nnz\n", (double)m_, (double)n_,
          (double)model_.A().numNz());
-  printf("Using %s\n", options_.nla == kOptionNlaAugmented
-                           ? "augmented systems"
-                           : "normal equations");
 
 #if (defined(PARALLEL_TREE) || defined(PARALLEL_NODE))
   printf("Running on %d threads\n", highs::parallel::num_threads());
@@ -1286,8 +1283,8 @@ void Ipm::maxCorrectors() {
     max_correctors_ = std::max(max_correctors_, 1);
     max_correctors_ = std::min(max_correctors_, kMaxCorrectors);
 
-    printf("Using %d correctors, ratio %.1f, thresh %.1f\n\n", max_correctors_,
-           ratio, thresh);
+    printf("Using %d corrector%s, ratio %.1f, thresh %.1f\n\n", max_correctors_,
+           max_correctors_ > 1 ? "s" : "", ratio, thresh);
   } else {
     max_correctors_ = -kMaxCorrectors;
   }

@@ -3,8 +3,8 @@
 
 #include <algorithm>
 
-#include "factorhighs/FactorHiGHS.h"
 #include "LinearSolver.h"
+#include "factorhighs/FactorHiGHS.h"
 
 class FactorHiGHSSolver : public LinearSolver {
   // symbolic factorization
@@ -29,12 +29,14 @@ class FactorHiGHSSolver : public LinearSolver {
   int solveAS(const std::vector<double>& rhs_x,
               const std::vector<double>& rhs_y, std::vector<double>& lhs_x,
               std::vector<double>& lhs_y) override;
-  int setup(const HighsSparseMatrix& A, const Options& options) override;
+  int setup(const HighsSparseMatrix& A, Options& options) override;
   void clear() override;
   void finalise() override;
   double flops() const override;
   double spops() const override;
   double nz() const override;
+
+  int choose(const HighsSparseMatrix& A, Options& options);
 };
 
 #endif

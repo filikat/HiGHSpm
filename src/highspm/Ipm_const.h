@@ -5,8 +5,9 @@ enum OptionNla {
   kOptionNlaMin = 0,
   kOptionNlaAugmented = kOptionNlaMin,
   kOptionNlaNormEq,
-  kOptionNlaMax = kOptionNlaNormEq,
-  kOptionNlaDefault = kOptionNlaNormEq
+  kOptionNlaChoose,
+  kOptionNlaMax = kOptionNlaChoose,
+  kOptionNlaDefault = kOptionNlaChoose
 };
 
 enum OptionFormat {
