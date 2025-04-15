@@ -25,8 +25,8 @@
 class IpmModel {
  private:
   // data of original problem
-  int num_var_{};
-  int num_con_{};
+  int n_orig_{};
+  int m_orig_{};
   const double* c_orig_;
   const double* b_orig_;
   const double* lower_orig_;
@@ -54,11 +54,16 @@ class IpmModel {
   std::vector<double> colscale_{};
   std::vector<double> rowscale_{};
 
+  // information about empty rows, for postprocessing
+  std::vector<int> rows_shift_{};
+
   // Put the model into correct formulation
   void reformulate();
 
   // Scale the problem
   void scale();
+
+  void preprocess();
 
  public:
   // Initialize the model
@@ -69,6 +74,8 @@ class IpmModel {
 
   // Compute range of coefficients
   void checkCoefficients() const;
+
+  void postprocess(std::vector<double>& slack, std::vector<double>& y) const;
 
   // Unscale a given solution
   void unscale(std::vector<double>& x, std::vector<double>& xl,
@@ -89,7 +96,7 @@ class IpmModel {
 
   int m() const { return m_; }
   int n() const { return n_; }
-  int n_orig() const { return num_var_; }
+  int n_orig() const { return n_orig_; }
   const HighsSparseMatrix& A() const { return A_; }
   const std::vector<double>& b() const { return b_; }
   const std::vector<double>& c() const { return c_; }

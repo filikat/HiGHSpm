@@ -1232,6 +1232,7 @@ void Ipm::getSolution(std::vector<double>& x, std::vector<double>& xl,
   if (!ipx_used_) {
     it_->extract(x, xl, xu, slack, y, zl, zu);
     model_.unscale(x, xl, xu, slack, y, zl, zu);
+    model_.postprocess(slack, y);
   } else {
     ipx_lps_.GetInteriorSolution(x.data(), xl.data(), xu.data(), slack.data(),
                                  y.data(), zl.data(), zu.data());
@@ -1245,6 +1246,7 @@ void Ipm::getSolution(std::vector<double>& x, std::vector<double>& slack,
   if (!ipx_used_) {
     it_->extract(x, slack, y, z);
     model_.unscale(x, slack, y, z);
+    model_.postprocess(slack, y);
   } else {
     ipx_lps_.GetBasicSolution(x.data(), slack.data(), y.data(), z.data(),
                               nullptr, nullptr);

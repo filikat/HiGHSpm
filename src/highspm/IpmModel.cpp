@@ -7,8 +7,8 @@ void IpmModel::init(const int num_var, const int num_con, const double* obj,
                     const std::string& pb_name) {
   // copy the input into the model
 
-  num_var_ = num_var;
-  num_con_ = num_con;
+  n_orig_ = num_var;
+  m_orig_ = num_con;
   c_orig_ = obj;
   b_orig_ = rhs;
   lower_orig_ = lower;
@@ -37,10 +37,95 @@ void IpmModel::init(const int num_var, const int num_con, const double* obj,
 
   pb_name_ = pb_name;
 
+  preprocess();
   scale();
   reformulate();
 
   ready_ = true;
+}
+
+void IpmModel::preprocess() {
+  // Perform some basic preprocessing, in case the problem is run without
+  // presolve
+
+  // ==========================================
+  // Remove empty rows
+  // ==========================================
+
+  // find empty rows
+  std::vector<int> entries_per_row(m_, 0);
+  for (int col = 0; col < n_; ++col) {
+    for (int el = A_.start_[col]; el < A_.start_[col + 1]; ++el) {
+      const int row = A_.index_[el];
+      ++entries_per_row[row];
+    }
+  }
+
+  rows_shift_.assign(m_, 0);
+  int empty_rows{};
+  for (int i = 0; i < m_; ++i) {
+    if (entries_per_row[i] == 0) {
+      // count number of empty rows
+      ++empty_rows;
+
+      // count how many empty rows there are before a given row
+      for (int j = i + 1; j < m_; ++j) ++rows_shift_[j];
+
+      rows_shift_[i] = -1;
+    }
+  }
+
+  if (empty_rows > 0) {
+    // shift each row index by the number of empty rows before it
+    for (int col = 0; col < n_; ++col) {
+      for (int el = A_.start_[col]; el < A_.start_[col + 1]; ++el) {
+        const int row = A_.index_[el];
+        A_.index_[el] -= rows_shift_[row];
+      }
+    }
+    A_.num_row_ -= empty_rows;
+
+    // shift entries in b and constraints
+    for (int i = 0; i < m_; ++i) {
+      // ignore entries to be removed
+      if (rows_shift_[i] == -1) continue;
+
+      int shifted_pos = i - rows_shift_[i];
+      b_[shifted_pos] = b_[i];
+      constraints_[shifted_pos] = constraints_[i];
+    }
+    b_.resize(A_.num_row_);
+    constraints_.resize(A_.num_row_);
+
+    m_ = A_.num_row_;
+
+    printf("Removed %d empty rows\n", empty_rows);
+  }
+}
+
+void IpmModel::postprocess(std::vector<double>& slack,
+                           std::vector<double>& y) const {
+  // Add Lagrange multiplier for empty rows that were removed
+  // Add slack for constraints that were removed
+
+  std::vector<double> new_y(rows_shift_.size(), 0.0);
+  std::vector<double> new_slack(rows_shift_.size(), 0.0);
+
+  // position to read from y and slack
+  int pos{};
+
+  for (int i = 0; i < rows_shift_.size(); ++i) {
+    // ignore shift of empty rows, they will receive a value of 0
+    if (rows_shift_[i] == -1) continue;
+
+    // re-align value of y and slack, considering empty rows
+    new_y[pos + rows_shift_[i]] = y[pos];
+    new_slack[pos + rows_shift_[i]] = slack[pos];
+    ++pos;
+  }
+
+  y = std::move(new_y);
+  slack = std::move(new_slack);
 }
 
 void IpmModel::reformulate() {
@@ -230,7 +315,7 @@ void IpmModel::unscale(std::vector<double>& x, std::vector<double>& xl,
   // Undo the scaling with internal format
 
   if (scaled()) {
-    for (int i = 0; i < num_var_; ++i) {
+    for (int i = 0; i < n_orig_; ++i) {
       x[i] *= colscale_[i];
       xl[i] *= colscale_[i];
       xu[i] *= colscale_[i];
@@ -244,7 +329,7 @@ void IpmModel::unscale(std::vector<double>& x, std::vector<double>& xl,
   }
 
   // set variables that were ignored
-  for (int i = 0; i < num_var_; ++i) {
+  for (int i = 0; i < n_orig_; ++i) {
     if (!hasLb(i)) {
       xl[i] = kHighsInf;
       zl[i] = 0.0;
@@ -261,7 +346,7 @@ void IpmModel::unscale(std::vector<double>& x, std::vector<double>& slack,
   // Undo the scaling with format for crossover
 
   if (scaled()) {
-    for (int i = 0; i < num_var_; ++i) {
+    for (int i = 0; i < n_orig_; ++i) {
       x[i] *= colscale_[i];
       z[i] /= colscale_[i];
     }
@@ -317,8 +402,8 @@ double IpmModel::normUnscaledRhs() const {
 
 int IpmModel::loadIntoIpx(ipx::LpSolver& lps) const {
   int load_status = lps.LoadModel(
-      num_var_, offset_, c_orig_, lower_orig_, upper_orig_, num_con_,
-      A_ptr_orig_, A_rows_orig_, A_vals_orig_, b_orig_, constraints_orig_);
+      n_orig_, offset_, c_orig_, lower_orig_, upper_orig_, m_orig_, A_ptr_orig_,
+      A_rows_orig_, A_vals_orig_, b_orig_, constraints_orig_);
 
   return load_status;
 }
