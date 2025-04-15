@@ -1,16 +1,12 @@
-#ifndef KRYLOV_METHODS_H
-#define KRYLOV_METHODS_H
+#ifndef KRYLOV_METHODS_IPM_H
+#define KRYLOV_METHODS_IPM_H
 
 #include <vector>
 
 #include "Numeric.h"
+#include "auxiliary/KrylovMethods.h"
 #include "util/HighsSparseMatrix.h"
 
-// Abstract class for matrices inside of a Krylov method
-class AbstractMatrix {
- public:
-  virtual void apply(std::vector<double>& x) const = 0;
-};
 
 // Class to perform matrix-vector products with ipm matrix
 class IpmMatrix : public AbstractMatrix {
@@ -41,17 +37,5 @@ class NeDiagPrec : public AbstractMatrix {
   void reset(const HighsSparseMatrix& A, const std::vector<double>& scaling);
   void apply(std::vector<double>& x) const override;
 };
-
-// =================
-// Krylov solvers
-// =================
-
-int Gmres(const AbstractMatrix* M, const AbstractMatrix* P,
-          const std::vector<double>& b, std::vector<double>& x, double tol,
-          int maxit);
-
-int Cg(const AbstractMatrix* M, const AbstractMatrix* P,
-       const std::vector<double>& b, std::vector<double>& x, double tol,
-       int maxit);
 
 #endif

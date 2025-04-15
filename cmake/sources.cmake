@@ -29,7 +29,7 @@ set(factor_highs_sources
     factorhighs/HybridHybridFormatHandler.cpp
     factorhighs/HybridPackedFormatHandler.cpp
     factorhighs/HybridSolveHandler.cpp
-    factorhighs/KrylovMethods.cpp
+    factorhighs/KrylovMethodsIpm.cpp
     factorhighs/Numeric.cpp
     factorhighs/PackedPackedFormatHandler.cpp
     factorhighs/PackedSolveHandler.cpp
@@ -53,7 +53,7 @@ set(factor_highs_headers
     factorhighs/HybridHybridFormatHandler.h
     factorhighs/HybridPackedFormatHandler.h
     factorhighs/HybridSolveHandler.h
-    factorhighs/KrylovMethods.h
+    factorhighs/KrylovMethodsIpm.h
     factorhighs/Numeric.h
     factorhighs/PackedPackedFormatHandler.h
     factorhighs/PackedSolveHandler.h
@@ -66,9 +66,11 @@ set(factor_highs_headers
 
 set(util_sources
     auxiliary/Auxiliary.cpp
+    auxiliary/KrylovMethods.cpp
     auxiliary/VectorOperations.cpp)
 
 set(util_headers
     auxiliary/Auxiliary.h
+    auxiliary/KrylovMethods.h
     auxiliary/VectorOperations.h)
 
