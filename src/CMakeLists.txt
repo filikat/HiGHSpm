@@ -7,7 +7,7 @@ set(headers ${ipm_headers} ${factor_highs_headers} ${util_headers})
 add_library(highspm ${sources} ${headers})
 
 # set compiler flags
-target_compile_options(highspm PRIVATE -O3 -Wno-deprecated)
+target_compile_options(highspm PRIVATE -O3)
 
 target_include_directories(highspm PUBLIC ${PROJECT_SOURCE_DIR}/src)
 
@@ -15,10 +15,6 @@ target_include_directories(highspm PUBLIC ${PROJECT_SOURCE_DIR}/src)
 # (may require to define CMAKE_PREFIX_PATH and/or CMAKE_INCLUDE_PATH)
 
 # BLAS
-find_path(BLAS_PATH NAMES "cblas.h" REQUIRED)
-message("Found BLAS header at ${BLAS_PATH}")
-target_include_directories(highspm PRIVATE "${BLAS_PATH}")
-
 find_library(BLAS_LIB NAMES blas)
 if(BLAS_LIB)
     message("Found BLAS library at ${BLAS_LIB}")
