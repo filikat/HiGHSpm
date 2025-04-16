@@ -1,5 +1,5 @@
-#ifndef KRYLOV_METHODS_H
-#define KRYLOV_METHODS_H
+#ifndef HIGHSPM_KRYLOV_METHODS_H
+#define HIGHSPM_KRYLOV_METHODS_H
 
 #include <vector>
 

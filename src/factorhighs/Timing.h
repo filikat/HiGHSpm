@@ -1,5 +1,5 @@
-#ifndef TIMING_H
-#define TIMING_H
+#ifndef FACTORHIGHS_TIMING_H
+#define FACTORHIGHS_TIMING_H
 
 #include "FactorHiGHSSettings.h"
 

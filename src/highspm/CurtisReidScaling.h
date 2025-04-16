@@ -1,5 +1,5 @@
-#ifndef CURTIS_REID_SCALING_H
-#define CURTIS_REID_SCALING_H
+#ifndef HIGHSPM_CURTIS_REID_SCALING_H
+#define HIGHSPM_CURTIS_REID_SCALING_H
 
 #include <cmath>
 #include <vector>

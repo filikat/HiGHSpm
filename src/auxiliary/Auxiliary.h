@@ -1,5 +1,5 @@
-#ifndef AUXILIARY_H
-#define AUXILIARY_H
+#ifndef HIGHSPM_AUXILIARY_H
+#define HIGHSPM_AUXILIARY_H
 
 #include <chrono>
 #include <fstream>

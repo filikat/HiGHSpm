@@ -1,5 +1,5 @@
-#ifndef LINEAR_SOLVER_H
-#define LINEAR_SOLVER_H
+#ifndef HIGHSPM_LINEAR_SOLVER_H
+#define HIGHSPM_LINEAR_SOLVER_H
 
 #include <vector>
 

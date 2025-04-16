@@ -1,5 +1,5 @@
-#ifndef ANALYSE_H
-#define ANALYSE_H
+#ifndef FACTORHIGHS_ANALYSE_H
+#define FACTORHIGHS_ANALYSE_H
 
 #include <algorithm>
 #include <vector>

@@ -1,5 +1,5 @@
-#ifndef IPM_ITERATE_H
-#define IPM_ITERATE_H
+#ifndef HIGHSPM_IPM_ITERATE_H
+#define HIGHSPM_IPM_ITERATE_H
 
 #include <vector>
 

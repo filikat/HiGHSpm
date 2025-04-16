@@ -1,5 +1,5 @@
-#ifndef MY_CBLAS_H
-#define MY_CBLAS_H
+#ifndef FACTORHIGHS_MY_CBLAS_H
+#define FACTORHIGHS_MY_CBLAS_H
 
 // Provide definition for cblas functions
 // Based on Netlib implementation

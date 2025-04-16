@@ -1,5 +1,5 @@
-#ifndef SYMBOLIC_H
-#define SYMBOLIC_H
+#ifndef FACTORHIGHS_SYMBOLIC_H
+#define FACTORHIGHS_SYMBOLIC_H
 
 #include <vector>
 

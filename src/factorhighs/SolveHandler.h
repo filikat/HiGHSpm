@@ -1,5 +1,5 @@
-#ifndef SOLVE_HANDLER_H
-#define SOLVE_HANDLER_H
+#ifndef FACTORHIGHS_SOLVE_HANDLER_H
+#define FACTORHIGHS_SOLVE_HANDLER_H
 
 #include <vector>
 

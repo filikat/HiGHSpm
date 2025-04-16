@@ -1,5 +1,5 @@
-#ifndef RETURN_VALUES_H
-#define RETURN_VALUES_H
+#ifndef FACTORHIGHS_RETURN_VALUES_H
+#define FACTORHIGHS_RETURN_VALUES_H
 
 enum RetValue {
   kRetOk,

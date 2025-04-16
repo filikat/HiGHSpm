@@ -1,5 +1,5 @@
-#ifndef FORMAT_HANDLER_H
-#define FORMAT_HANDLER_H
+#ifndef FACTORHIGHS_FORMAT_HANDLER_H
+#define FACTORHIGHS_FORMAT_HANDLER_H
 
 #include <vector>
 

@@ -1,5 +1,5 @@
-#ifndef FULL_FORMAT_H
-#define FULL_FORMAT_H
+#ifndef FACTORHIGHS_FULL_FORMAT_H
+#define FACTORHIGHS_FULL_FORMAT_H
 
 #include "FormatHandler.h"
 

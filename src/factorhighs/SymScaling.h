@@ -1,5 +1,5 @@
-#ifndef SYM_SCALING_H
-#define SYM_SCALING_H
+#ifndef FACTORHIGHS_SYM_SCALING_H
+#define FACTORHIGHS_SYM_SCALING_H
 
 #include <cmath>
 #include <vector>

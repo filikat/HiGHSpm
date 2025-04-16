@@ -1,5 +1,5 @@
-#ifndef DATA_COLLECTOR_H
-#define DATA_COLLECTOR_H
+#ifndef FACTORHIGHS_DATA_COLLECTOR_H
+#define FACTORHIGHS_DATA_COLLECTOR_H
 
 #include <atomic>
 #include <mutex>

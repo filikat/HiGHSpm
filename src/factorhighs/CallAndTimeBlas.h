@@ -1,5 +1,5 @@
-#ifndef CALL_AND_TIME_BLAS_H
-#define CALL_AND_TIME_BLAS_H
+#ifndef FACTORHIGHS_CALL_AND_TIME_BLAS_H
+#define FACTORHIGHS_CALL_AND_TIME_BLAS_H
 
 // level 1
 void callAndTime_daxpy(int n, double da, const double* dx, int incx, double* dy,

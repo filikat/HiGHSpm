@@ -1,5 +1,5 @@
-#ifndef FACTORIZE_H
-#define FACTORIZE_H
+#ifndef FACTORHIGHS_FACTORISE_H
+#define FACTORHIGHS_FACTORISE_H
 
 #include <cmath>
 

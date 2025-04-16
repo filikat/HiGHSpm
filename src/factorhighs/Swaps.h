@@ -1,5 +1,5 @@
-#ifndef SWAPS_H
-#define SWAPS_H
+#ifndef FACTORHIGHS_SWAPS_H
+#define FACTORHIGHS_SWAPS_H
 
 void permuteWithSwaps(double* x, const int* swaps, int n, bool reverse = false);
 

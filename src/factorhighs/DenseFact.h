@@ -1,5 +1,5 @@
-#ifndef DENSE_FACT_H
-#define DENSE_FACT_H
+#ifndef FACTORHIGHS_DENSE_FACT_H
+#define FACTORHIGHS_DENSE_FACT_H
 
 /*
   Names:

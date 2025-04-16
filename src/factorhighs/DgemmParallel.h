@@ -1,5 +1,5 @@
-#ifndef DGEMM_PARALLEL_H
-#define DGEMM_PARALLEL_H
+#ifndef FACTORHIGHS_DGEMM_PARALLEL_H
+#define FACTORHIGHS_DGEMM_PARALLEL_H
 
 // parallelize dgemm for use within factorization
 // Performs Q <- Q - R P^T in hybrid format.

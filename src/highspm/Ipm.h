@@ -1,5 +1,5 @@
-#ifndef IPM_H
-#define IPM_H
+#ifndef HIGHSPM_IPM_H
+#define HIGHSPM_IPM_H
 
 #include <string>
 

@@ -1,5 +1,5 @@
-#ifndef NUMERIC_H
-#define NUMERIC_H
+#ifndef FACTORHIGHS_NUMERIC_H
+#define FACTORHIGHS_NUMERIC_H
 
 #include <memory>
 #include <vector>

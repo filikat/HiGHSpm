@@ -1,5 +1,5 @@
-#ifndef IPM_CONST_H
-#define IPM_CONST_H
+#ifndef HIGHSPM_IPM_CONST_H
+#define HIGHSPM_IPM_CONST_H
 
 enum OptionNla {
   kOptionNlaMin = 0,
