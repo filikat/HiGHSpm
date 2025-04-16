@@ -1,8 +1,10 @@
 #include "PackedSolveHandler.h"
 
-#include "auxiliary/Auxiliary.h"
 #include "CallAndTimeBlas.h"
 #include "DataCollector.h"
+#include "auxiliary/Auxiliary.h"
+
+namespace highspm {
 
 PackedSolveHandler::PackedSolveHandler(
     const Symbolic& S, const std::vector<std::vector<double>>& sn_columns)
@@ -171,3 +173,5 @@ void PackedSolveHandler::diagSolve(std::vector<double>& x) const {
     }
   }
 }
+
+}  // namespace highspm

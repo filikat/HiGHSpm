@@ -1,21 +1,23 @@
 #include "CallAndTimeBlas.h"
 #include "DataCollector.h"
 
+namespace highspm {
+
 void permuteWithSwaps(double* x, const Int* swaps, Int n, bool reverse) {
-    // Apply swaps to vector x of length n
-  
-    if (!reverse) {
-      // apply the swaps in forward order
-      for (Int i = 0; i < n; ++i) {
-        if (swaps[i] != i) std::swap(x[i], x[swaps[i]]);
-      }
-    } else {
-      // apply the swaps in backward order
-      for (Int i = n - 1; i >= 0; --i) {
-        if (swaps[i] != i) std::swap(x[i], x[swaps[i]]);
-      }
+  // Apply swaps to vector x of length n
+
+  if (!reverse) {
+    // apply the swaps in forward order
+    for (Int i = 0; i < n; ++i) {
+      if (swaps[i] != i) std::swap(x[i], x[swaps[i]]);
+    }
+  } else {
+    // apply the swaps in backward order
+    for (Int i = n - 1; i >= 0; --i) {
+      if (swaps[i] != i) std::swap(x[i], x[swaps[i]]);
     }
   }
+}
 
 void swapCols(char uplo, Int n, double* A, Int lda, Int i, Int j, Int* swaps,
               Int* sign) {
@@ -61,3 +63,5 @@ void applySwaps(const Int* swaps, Int nrow, Int ncol, double* R) {
     }
   }
 }
+
+}  // namespace highspm

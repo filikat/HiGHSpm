@@ -7,6 +7,8 @@
 #include "Swaps.h"
 #include "auxiliary/Auxiliary.h"
 
+namespace highspm {
+
 // Factorization with "hybrid formats".
 
 Int denseFactFH(char format, Int n, Int k, Int nb, double* A, double* B,
@@ -276,3 +278,5 @@ Int denseFactFP2FH(double* A, Int nrow, Int ncol, Int nb) {
 
   return kRetOk;
 }
+
+}  // namespace highspm

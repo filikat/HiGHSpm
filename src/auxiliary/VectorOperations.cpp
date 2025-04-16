@@ -3,6 +3,8 @@
 #include <cassert>
 #include <cmath>
 
+namespace highspm {
+
 void vectorAdd(std::vector<double>& v1, const std::vector<double>& v2,
                double beta, double alpha) {
   for (Int i = 0; i < v1.size(); ++i) {
@@ -111,3 +113,5 @@ bool isInfVector(const std::vector<double>& x) {
   }
   return false;
 }
+
+}  // namespace highspm

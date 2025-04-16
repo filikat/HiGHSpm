@@ -2,7 +2,10 @@
 #define HIGHSPM_KRYLOV_METHODS_H
 
 #include <vector>
+
 #include "auxiliary/IntConfig.h"
+
+namespace highspm {
 
 // Abstract class for matrices inside of a Krylov method
 class AbstractMatrix {
@@ -21,5 +24,7 @@ Int Gmres(const AbstractMatrix* M, const AbstractMatrix* P,
 Int Cg(const AbstractMatrix* M, const AbstractMatrix* P,
        const std::vector<double>& b, std::vector<double>& x, double tol,
        Int maxit);
+
+}  // namespace highspm
 
 #endif

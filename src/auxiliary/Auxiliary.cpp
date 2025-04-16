@@ -2,6 +2,8 @@
 
 #include <stack>
 
+namespace highspm {
+
 void counts2Ptr(std::vector<Int>& ptr, std::vector<Int>& w) {
   // Given the column counts in the vector w (of size n),
   // compute the column pointers in the vector ptr (of size n+1),
@@ -270,3 +272,5 @@ double Clock::stop() const {
   std::chrono::duration<double> d = t1 - t0;
   return d.count();
 }
+
+}  // namespace highspm

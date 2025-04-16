@@ -5,6 +5,8 @@
 
 #include "auxiliary/VectorOperations.h"
 
+namespace highspm {
+
 void product(const std::vector<double>& x, std::vector<double>& y,
              const std::vector<Int>& ptr, const std::vector<Int>& rows,
              const std::vector<double>& N) {
@@ -203,3 +205,5 @@ void JacekScalingSym(const std::vector<Int>& ptr, const std::vector<Int>& rows,
     colscale[i] = std::ldexp(1.0, exp);
   }
 }
+
+}  // namespace highspm

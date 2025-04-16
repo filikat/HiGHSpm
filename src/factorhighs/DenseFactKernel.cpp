@@ -6,6 +6,8 @@
 #include "auxiliary/Auxiliary.h"
 #include "util/HighsRandom.h"
 
+namespace highspm {
+
 // Dense Factorization kernel
 
 std::pair<Int, double> maxInCol(Int j, Int n, Int m, double* A, Int lda) {
@@ -457,3 +459,5 @@ Int denseFactK(char uplo, Int n, double* A, Int lda, Int* pivot_sign,
 
   return kRetOk;
 }
+
+}  // namespace highspm

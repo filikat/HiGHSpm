@@ -3,6 +3,10 @@
 
 #include "util/HighsInt.h"
 
+namespace highspm {
+
 typedef HighsInt Int;
+
+}
 
 #endif

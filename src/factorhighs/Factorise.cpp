@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <fstream>
 
-#include "auxiliary/Auxiliary.h"
 #include "DataCollector.h"
 #include "FactorHiGHSSettings.h"
 #include "FormatHandler.h"
@@ -13,7 +12,10 @@
 #include "PackedPackedFormatHandler.h"
 #include "ReturnValues.h"
 #include "SymScaling.h"
+#include "auxiliary/Auxiliary.h"
 #include "parallel/HighsParallel.h"
+
+namespace highspm {
 
 Factorise::Factorise(const Symbolic& S, const std::vector<Int>& rowsA,
                      const std::vector<Int>& ptrA,
@@ -411,3 +413,5 @@ bool Factorise::run(Numeric& num) {
 
   return false;
 }
+
+}  // namespace highspm

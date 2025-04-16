@@ -1,7 +1,10 @@
 #include "FullSolveHandler.h"
-#include "auxiliary/Auxiliary.h"
+
 #include "CallAndTimeBlas.h"
 #include "DataCollector.h"
+#include "auxiliary/Auxiliary.h"
+
+namespace highspm {
 
 FullSolveHandler::FullSolveHandler(
     const Symbolic& S, const std::vector<std::vector<double>>& sn_columns)
@@ -107,3 +110,5 @@ void FullSolveHandler::diagSolve(std::vector<double>& x) const {
     }
   }
 }
+
+}  // namespace highspm

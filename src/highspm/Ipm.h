@@ -3,17 +3,19 @@
 
 #include <string>
 
-#include "factorhighs/FactorHiGHS.h"
 #include "FactorHiGHSSolver.h"
 #include "IpmIterate.h"
 #include "IpmModel.h"
 #include "Ipm_const.h"
 #include "LinearSolver.h"
-#include "auxiliary/VectorOperations.h"
-#include "ipm/ipx/lp_solver.h"
-#include "util/HighsSparseMatrix.h"
 #include "auxiliary/Auxiliary.h"
 #include "auxiliary/IntConfig.h"
+#include "auxiliary/VectorOperations.h"
+#include "factorhighs/FactorHiGHS.h"
+#include "ipm/ipx/lp_solver.h"
+#include "util/HighsSparseMatrix.h"
+
+namespace highspm {
 
 class Ipm {
   // LP model
@@ -96,7 +98,7 @@ class Ipm {
                    std::vector<double>& zu) const;
   void getSolution(std::vector<double>& x, std::vector<double>& slack,
                    std::vector<double>& y, std::vector<double>& z) const;
-                   Int getIter() const;
+  Int getIter() const;
 
  private:
   // Functions to run the various stages of the ipm
@@ -293,5 +295,7 @@ class Ipm {
 
   void collectData() const;
 };
+
+}  // namespace highspm
 
 #endif

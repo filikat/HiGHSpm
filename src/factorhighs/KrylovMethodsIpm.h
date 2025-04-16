@@ -4,10 +4,11 @@
 #include <vector>
 
 #include "Numeric.h"
+#include "auxiliary/IntConfig.h"
 #include "auxiliary/KrylovMethods.h"
 #include "util/HighsSparseMatrix.h"
-#include "auxiliary/IntConfig.h"
 
+namespace highspm {
 
 // Class to perform matrix-vector products with ipm matrix
 class IpmMatrix : public AbstractMatrix {
@@ -38,5 +39,7 @@ class NeDiagPrec : public AbstractMatrix {
   void reset(const HighsSparseMatrix& A, const std::vector<double>& scaling);
   void apply(std::vector<double>& x) const override;
 };
+
+}  // namespace highspm
 
 #endif

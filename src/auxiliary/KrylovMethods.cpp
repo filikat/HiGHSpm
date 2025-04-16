@@ -2,6 +2,8 @@
 
 #include "VectorOperations.h"
 
+namespace highspm{
+
 void applyRotation(double& x, double& y, double c, double s) {
   double t = c * x + s * y;
   y = -s * x + c * y;
@@ -184,4 +186,6 @@ Int Cg(const AbstractMatrix* M, const AbstractMatrix* P,
   }
 
   return iter;
+}
+
 }

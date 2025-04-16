@@ -3,6 +3,8 @@
 
 #include "FormatHandler.h"
 
+namespace highspm {
+
 class PackedPackedFormatHandler : public FormatHandler {
   std::vector<Int> diag_start_;
 
@@ -20,5 +22,7 @@ class PackedPackedFormatHandler : public FormatHandler {
  public:
   PackedPackedFormatHandler(const Symbolic& S, Int sn);
 };
+
+}  // namespace highspm
 
 #endif

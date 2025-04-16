@@ -20,6 +20,8 @@
 
 #endif
 
+namespace highspm {
+
 enum TimeItems {
   // Analyse timer
   kTimeAnalyse,         // TIMING_1
@@ -62,5 +64,7 @@ enum TimeItems {
   // enum size
   kTimeSize
 };
+
+}
 
 #endif

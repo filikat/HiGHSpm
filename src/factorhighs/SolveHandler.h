@@ -6,6 +6,8 @@
 #include "Symbolic.h"
 #include "auxiliary/IntConfig.h"
 
+namespace highspm {
+
 // Interface class to handle different formats of dense matrices during the
 // solve phase.
 // Any implementation of a specific format needs to define:
@@ -37,5 +39,7 @@ class SolveHandler {
   virtual void backwardSolve(std::vector<double>& x) const = 0;
   virtual void diagSolve(std::vector<double>& x) const = 0;
 };
+
+}  // namespace highspm
 
 #endif

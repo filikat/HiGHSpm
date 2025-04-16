@@ -5,12 +5,14 @@
 #include <random>
 #include <stack>
 
-#include "auxiliary/Auxiliary.h"
 #include "DataCollector.h"
 #include "FactorHiGHSSettings.h"
 #include "GKlib.h"
 #include "ReturnValues.h"
+#include "auxiliary/Auxiliary.h"
 #include "metis.h"
+
+namespace highspm {
 
 Analyse::Analyse(Symbolic& S, const std::vector<Int>& rows,
                  const std::vector<Int>& ptr, Int negative_pivots)
@@ -1426,3 +1428,5 @@ Int Analyse::run() {
 
   return kRetOk;
 }
+
+}  // namespace highspm

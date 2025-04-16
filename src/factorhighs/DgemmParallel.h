@@ -3,6 +3,8 @@
 
 #include "auxiliary/IntConfig.h"
 
+namespace highspm {
+
 // parallelize dgemm for use within factorization
 // Performs Q <- Q - R P^T in hybrid format.
 // Parallelized over the rows of R and Q.
@@ -22,5 +24,7 @@ class dgemmParallelizer {
 
 void dgemmParallel(const double* P, const double* R, double* Q, Int col, Int jb,
                    Int row, Int nb, double beta = 1.0);
+
+}  // namespace highspm
 
 #endif

@@ -3,6 +3,8 @@
 
 #include "auxiliary/IntConfig.h"
 
+namespace highspm {
+
 enum OptionNla {
   kOptionNlaMin = 0,
   kOptionNlaAugmented = kOptionNlaMin,
@@ -69,5 +71,7 @@ const double kLargeProduct = 1e3;
 
 // other parameters
 const double kInteriorScaling = 0.999;
+
+}  // namespace highspm
 
 #endif

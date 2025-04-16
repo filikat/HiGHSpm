@@ -2,7 +2,10 @@
 #define FACTORHIGHS_SYMBOLIC_H
 
 #include <vector>
+
 #include "auxiliary/IntConfig.h"
+
+namespace highspm {
 
 // Frontal and Clique can be stored in Full format, Hybrid format, of Packed
 // format (with full diagonal blocks).
@@ -195,5 +198,7 @@ class Symbolic {
 // consecutive copies can be done. E.g., starting from row 4,
 // consecutive_sums_[i][4] = 3, which means that the next 3 indices need not be
 // summed by hand, but they can be done using daxpy.
+
+}  // namespace highspm
 
 #endif

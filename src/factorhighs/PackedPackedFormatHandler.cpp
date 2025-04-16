@@ -1,9 +1,11 @@
 #include "PackedPackedFormatHandler.h"
 
-#include "auxiliary/Auxiliary.h"
 #include "CallAndTimeBlas.h"
 #include "DataCollector.h"
 #include "DenseFact.h"
+#include "auxiliary/Auxiliary.h"
+
+namespace highspm {
 
 PackedPackedFormatHandler::PackedPackedFormatHandler(const Symbolic& S, Int sn)
     : FormatHandler(S, sn) {
@@ -149,3 +151,5 @@ void PackedPackedFormatHandler::extremeEntries() {
 
   DataCollector::get()->setExtremeEntries(minD, maxD, minoffD, maxoffD);
 }
+
+}  // namespace highspm

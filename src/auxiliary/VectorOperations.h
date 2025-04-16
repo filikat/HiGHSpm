@@ -2,7 +2,10 @@
 #define HIGHSPM_VECTOR_OPERATIONS_H
 
 #include <vector>
+
 #include "auxiliary/IntConfig.h"
+
+namespace highspm {
 
 // =======================================================================
 // COMPONENT-WISE VECTOR OPERATIONS
@@ -50,5 +53,7 @@ bool isNanVector(const std::vector<double>& x);
 
 // check for Inf
 bool isInfVector(const std::vector<double>& x);
+
+}  // namespace highspm
 
 #endif

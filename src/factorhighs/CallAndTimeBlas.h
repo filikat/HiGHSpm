@@ -5,6 +5,8 @@
 
 // TO DO: what happens when Int is 64 bit? Does BLAS behave correctly?
 
+namespace highspm {
+
 // level 1
 void callAndTime_daxpy(Int n, double da, const double* dx, Int incx, double* dy,
                        Int incy);
@@ -33,5 +35,7 @@ void callAndTime_dsyrk(char uplo, char trans, Int n, Int k, double alpha,
 void callAndTime_dtrsm(char side, char uplo, char trans, char diag, Int m,
                        Int n, double alpha, const double* a, Int lda, double* b,
                        Int ldb);
+
+}  // namespace highspm
 
 #endif

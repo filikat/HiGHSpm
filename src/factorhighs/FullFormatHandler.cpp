@@ -4,6 +4,8 @@
 #include "DataCollector.h"
 #include "DenseFact.h"
 
+namespace highspm {
+
 FullFormatHandler::FullFormatHandler(const Symbolic& S, Int sn)
     : FormatHandler(S, sn) {
   // initialize frontal and clique
@@ -97,3 +99,5 @@ void FullFormatHandler::extremeEntries() {
 
   DataCollector::get()->setExtremeEntries(minD, maxD, minoffD, maxoffD);
 }
+
+}  // namespace highspm

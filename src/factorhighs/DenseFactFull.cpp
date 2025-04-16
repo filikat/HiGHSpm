@@ -1,10 +1,12 @@
 #include <cmath>
 
-#include "auxiliary/Auxiliary.h"
 #include "CallAndTimeBlas.h"
 #include "DataCollector.h"
 #include "DenseFact.h"
 #include "ReturnValues.h"
+#include "auxiliary/Auxiliary.h"
+
+namespace highspm {
 
 // Factorization with "full formats".
 // Kept only for reference, "hybrid formats" should be preferred.
@@ -322,3 +324,5 @@ Int denseFactFP(Int n, Int k, Int nb, double* A, double* B,
 
   return kRetOk;
 }
+
+}  // namespace highspm

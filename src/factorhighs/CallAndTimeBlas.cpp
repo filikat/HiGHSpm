@@ -1,11 +1,12 @@
 #include "CallAndTimeBlas.h"
+
 #include "DataCollector.h"
-
-#include "mycblas.h"
-
-#include "auxiliary/Auxiliary.h"
 #include "DenseFact.h"
 #include "Timing.h"
+#include "auxiliary/Auxiliary.h"
+#include "mycblas.h"
+
+namespace highspm {
 
 // macros to interface with CBlas
 #define TRANS(x) (x) == 'N' ? CblasNoTrans : CblasTrans
@@ -147,3 +148,5 @@ void callAndTime_dtrsm(char side, char uplo, char trans, char diag, Int m,
   DataCollector::get()->sumTime(kTimeBlas_trsm, clock.stop());
 #endif
 }
+
+}  // namespace highspm

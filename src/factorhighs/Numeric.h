@@ -8,6 +8,8 @@
 #include "Symbolic.h"
 #include "auxiliary/IntConfig.h"
 
+namespace highspm {
+
 class Numeric {
   // columns of factorization, stored by supernode
   std::vector<std::vector<double>> sn_columns_{};
@@ -51,5 +53,7 @@ class Numeric {
 
   void conditionNumber() const;
 };
+
+}  // namespace highspm
 
 #endif

@@ -1,5 +1,7 @@
 #include "FactorHiGHSSolver.h"
 
+namespace highspm {
+
 Int computeLowerAThetaAT(const HighsSparseMatrix& matrix,
                          const std::vector<double>& scaling,
                          HighsSparseMatrix& AAT,
@@ -400,3 +402,5 @@ Int FactorHiGHSSolver::choose(const HighsSparseMatrix& A, Options& options) {
 
   return status;
 }
+
+}  // namespace highspm

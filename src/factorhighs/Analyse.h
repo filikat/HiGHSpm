@@ -7,6 +7,8 @@
 #include "Symbolic.h"
 #include "auxiliary/IntConfig.h"
 
+namespace highspm {
+
 // Class to perform the analyse phase of the factorization.
 // The final symbolic factorization is stored in an object of type Symbolic.
 class Analyse {
@@ -104,5 +106,7 @@ class Analyse {
   // Run analyse phase and save the result in Symbolic object S_
   Int run();
 };
+
+}  // namespace highspm
 
 #endif

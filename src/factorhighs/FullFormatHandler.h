@@ -3,6 +3,8 @@
 
 #include "FormatHandler.h"
 
+namespace highspm {
+
 class FullFormatHandler : public FormatHandler {
   void initFrontal() override;
   void initClique() override;
@@ -18,5 +20,7 @@ class FullFormatHandler : public FormatHandler {
  public:
   FullFormatHandler(const Symbolic& S, Int sn);
 };
+
+}  // namespace highspm
 
 #endif

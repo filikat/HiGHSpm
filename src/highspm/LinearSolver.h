@@ -8,6 +8,8 @@
 #include "auxiliary/VectorOperations.h"
 #include "util/HighsSparseMatrix.h"
 
+namespace highspm {
+
 // Interface class for solving augmented system or normal equations.
 //
 // Any linear solver needs to define the functions:
@@ -81,5 +83,7 @@ class LinearSolver {
   virtual double spops() const { return 0; }
   virtual double nz() const { return 0; }
 };
+
+}  // namespace highspm
 
 #endif

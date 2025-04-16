@@ -1,7 +1,9 @@
 #include "IpmIterate.h"
 
-#include "factorhighs/DataCollector.h"
 #include "Ipm_const.h"
+#include "factorhighs/DataCollector.h"
+
+namespace highspm {
 
 NewtonDir::NewtonDir(Int m, Int n)
     : x(n, 0.0), y(m, 0.0), xl(n, 0.0), xu(n, 0.0), zl(n, 0.0), zu(n, 0.0) {}
@@ -523,3 +525,5 @@ double IpmIterate::infeasAfterDropping() const {
 
   return std::max(pinf_max, dinf_max);
 }
+
+}  // namespace highspm

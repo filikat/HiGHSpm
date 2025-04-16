@@ -8,6 +8,8 @@
 #include "Timing.h"
 #include "auxiliary/IntConfig.h"
 
+namespace highspm {
+
 struct IterData {
   // data of a given ipm iteration
 
@@ -147,5 +149,7 @@ class DataCollector {
   void printSymbolic(bool verbose = false) const;
   void printIter() const;
 };
+
+}  // namespace highspm
 
 #endif

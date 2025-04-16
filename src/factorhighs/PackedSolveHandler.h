@@ -3,6 +3,8 @@
 
 #include "SolveHandler.h"
 
+namespace highspm {
+
 class PackedSolveHandler : public SolveHandler {
   void forwardSolve(std::vector<double>& x) const override;
   void backwardSolve(std::vector<double>& x) const override;
@@ -12,5 +14,7 @@ class PackedSolveHandler : public SolveHandler {
   PackedSolveHandler(const Symbolic& S,
                      const std::vector<std::vector<double>>& sn_columns);
 };
+
+}  // namespace highspm
 
 #endif

@@ -6,9 +6,11 @@
 #include <vector>
 
 #include "CurtisReidScaling.h"
+#include "auxiliary/IntConfig.h"
 #include "ipm/ipx/lp_solver.h"
 #include "util/HighsSparseMatrix.h"
-#include "auxiliary/IntConfig.h"
+
+namespace highspm {
 
 // Optimization problem:
 // min  c^T * x
@@ -113,5 +115,7 @@ class IpmModel {
 
   Int loadIntoIpx(ipx::LpSolver& lps) const;
 };
+
+}  // namespace highspm
 
 #endif

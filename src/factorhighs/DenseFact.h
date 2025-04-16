@@ -3,6 +3,8 @@
 
 #include "auxiliary/IntConfig.h"
 
+namespace highspm {
+
 /*
   Names:
   denseFact:
@@ -45,5 +47,7 @@ Int denseFactFH(char format, Int n, Int k, Int nb, double* A, double* B,
 
 // function to convert A from lower packed, to lower-blocked-hybrid format
 Int denseFactFP2FH(double* A, Int nrow, Int ncol, Int nb);
+
+}  // namespace highspm
 
 #endif

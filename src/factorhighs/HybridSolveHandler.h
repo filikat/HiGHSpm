@@ -3,6 +3,8 @@
 
 #include "SolveHandler.h"
 
+namespace highspm {
+
 class HybridSolveHandler : public SolveHandler {
   const std::vector<std::vector<Int>>& swaps_;
   const std::vector<std::vector<double>>& pivot_2x2_;
@@ -17,5 +19,7 @@ class HybridSolveHandler : public SolveHandler {
                      const std::vector<std::vector<Int>>& swaps,
                      const std::vector<std::vector<double>>& pivot_2x2);
 };
+
+}  // namespace highspm
 
 #endif

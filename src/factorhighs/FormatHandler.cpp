@@ -1,9 +1,11 @@
 #include "FormatHandler.h"
 
-#include "auxiliary/Auxiliary.h"
 #include "CallAndTimeBlas.h"
 #include "DataCollector.h"
 #include "DenseFact.h"
+#include "auxiliary/Auxiliary.h"
+
+namespace highspm {
 
 FormatHandler::FormatHandler(const Symbolic& S, Int sn)
     : S_{&S},
@@ -39,3 +41,5 @@ void FormatHandler::terminate(std::vector<double>& frontal,
   // This function should not require a lock, since all threads access different
   // locations within total_reg, sn_columns and schur_contribution.
 }
+
+}  // namespace highspm

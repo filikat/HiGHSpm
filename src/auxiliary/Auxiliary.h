@@ -7,8 +7,10 @@
 #include <string>
 #include <vector>
 
-#include "util/HighsCDouble.h"
 #include "auxiliary/IntConfig.h"
+#include "util/HighsCDouble.h"
+
+namespace highspm {
 
 void counts2Ptr(std::vector<Int>& ptr, std::vector<Int>& w);
 void inversePerm(const std::vector<Int>& perm, std::vector<Int>& iperm);
@@ -76,5 +78,7 @@ class Clock {
   void start();
   double stop() const;
 };
+
+}  // namespace highspm
 
 #endif

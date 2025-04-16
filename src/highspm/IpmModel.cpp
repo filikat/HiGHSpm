@@ -1,5 +1,7 @@
 #include "IpmModel.h"
 
+namespace highspm {
+
 void IpmModel::init(const Int num_var, const Int num_con, const double* obj,
                     const double* rhs, const double* lower, const double* upper,
                     const Int* A_ptr, const Int* A_rows, const double* A_vals,
@@ -407,3 +409,5 @@ Int IpmModel::loadIntoIpx(ipx::LpSolver& lps) const {
 
   return load_status;
 }
+
+}  // namespace highspm

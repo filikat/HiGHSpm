@@ -2,6 +2,7 @@
 #define FACTOR_HIGHS_SETTINGS_H
 
 #include <cmath>
+
 #include "auxiliary/IntConfig.h"
 
 // ===========================================================================
@@ -27,6 +28,8 @@
 // PARAMETERS
 // ===========================================================================
 
+namespace highspm {
+
 // supernode amalgamation
 const Int kStartThreshRelax = 256;
 const double kUpperRatioRelax = 0.02;
@@ -48,5 +51,7 @@ const double kDynamicDiagCoeff = 1e-24;
 // refinement
 const Int kMaxRefinementIter = 3;
 const double kRefinementTolerance = 1e-12;
+
+}  // namespace highspm
 
 #endif

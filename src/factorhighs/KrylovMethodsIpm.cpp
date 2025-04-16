@@ -1,5 +1,7 @@
 #include "KrylovMethodsIpm.h"
 
+namespace highspm {
+
 void IpmMatrix::reset(const HighsSparseMatrix& A,
                       const std::vector<double>& scaling, bool use_as) {
   A_ = &A;
@@ -76,3 +78,5 @@ void NeDiagPrec::apply(std::vector<double>& x) const {
   // apply diagonal preconditioner
   for (Int i = 0; i < diag.size(); ++i) x[i] *= diag[i];
 }
+
+}  // namespace highspm

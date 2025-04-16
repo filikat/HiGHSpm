@@ -1,11 +1,13 @@
 #include "HybridSolveHandler.h"
 
-#include "FactorHiGHSSettings.h"
-#include "FormatHandler.h"
-#include "auxiliary/Auxiliary.h"
 #include "CallAndTimeBlas.h"
 #include "DataCollector.h"
+#include "FactorHiGHSSettings.h"
+#include "FormatHandler.h"
 #include "Swaps.h"
+#include "auxiliary/Auxiliary.h"
+
+namespace highspm {
 
 HybridSolveHandler::HybridSolveHandler(
     const Symbolic& S, const std::vector<std::vector<double>>& sn_columns,
@@ -231,3 +233,5 @@ void HybridSolveHandler::diagSolve(std::vector<double>& x) const {
     }
   }
 }
+
+}  // namespace highspm

@@ -4,6 +4,8 @@
 
 #include "FactorHiGHSSettings.h"
 
+namespace highspm {
+
 Symbolic::Symbolic(FormatType format_type)
     : format_type_{format_type}, block_size_{kBlockSize} {}
 
@@ -35,3 +37,5 @@ const std::vector<Int>& Symbolic::iperm() const { return iperm_; }
 const std::vector<Int>& Symbolic::snParent() const { return sn_parent_; }
 const std::vector<Int>& Symbolic::snStart() const { return sn_start_; }
 const std::vector<Int>& Symbolic::pivotSign() const { return pivot_sign_; }
+
+}  // namespace highspm

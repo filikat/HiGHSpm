@@ -7,6 +7,8 @@
 #include "Symbolic.h"
 #include "auxiliary/IntConfig.h"
 
+namespace highspm {
+
 class Factorise {
  public:
   // matrix to factorise
@@ -63,5 +65,7 @@ class Factorise {
 
   bool run(Numeric& num);
 };
+
+}  // namespace highspm
 
 #endif

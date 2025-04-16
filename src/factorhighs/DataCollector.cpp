@@ -1,5 +1,7 @@
 #include "DataCollector.h"
 
+namespace highspm {
+
 // instance of DataCollector
 DataCollector* DataCollector::ptr_ = nullptr;
 
@@ -284,7 +286,7 @@ void DataCollector::printIter() const {
         " %3d %7.2f %6.2f |\n",
         i, iter.M_norm1, iter.M_maxdiag, iter.min_theta, iter.max_theta,
         iter.min_prod, iter.max_prod, iter.num_small_prod, iter.num_large_prod,
-        iter.correctors, iter.sigma_aff,iter.sigma);
+        iter.correctors, iter.sigma_aff, iter.sigma);
   }
 
   return;
@@ -316,3 +318,5 @@ void DataCollector::printIter() const {
   }
 #endif
 }
+
+}  // namespace highspm

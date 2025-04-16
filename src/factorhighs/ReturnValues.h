@@ -1,6 +1,8 @@
 #ifndef FACTORHIGHS_RETURN_VALUES_H
 #define FACTORHIGHS_RETURN_VALUES_H
 
+namespace highspm {
+
 enum RetValue {
   kRetOk,
   kRetInvalidInput,
@@ -9,5 +11,7 @@ enum RetValue {
   kRetMetisError,
   kRetGeneric
 };
+
+}
 
 #endif

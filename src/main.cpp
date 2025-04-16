@@ -13,8 +13,8 @@ enum ArgC {
   kMinArgC = 2,
   kModelFileArg = 1,
   kOptionNlaArg,
-  kOptionFormat,
-  kOptionCrossover,
+  kOptionFormatArg,
+  kOptionCrossoverArg,
   kMaxArgC
 };
 
@@ -29,8 +29,8 @@ int main(int argc, char** argv) {
     return 1;
   }
 
-  Clock clock0;
-  Clock clock;
+  highspm::Clock clock0;
+  highspm::Clock clock;
 
   // ===================================================================================
   // READ PROBLEM
@@ -71,9 +71,9 @@ int main(int argc, char** argv) {
   // ===================================================================================
 
   clock.start();
-  Int n, m;
+  highspm::Int n, m;
   std::vector<double> obj, rhs, lower, upper, Aval;
-  std::vector<Int> Aptr, Aind;
+  std::vector<highspm::Int> Aptr, Aind;
   std::vector<char> constraints;
   double offset;
 
@@ -86,36 +86,40 @@ int main(int argc, char** argv) {
   // IDENTIFY OPTIONS
   // ===================================================================================
 
-  Options options{};
+  highspm::Options options{};
 
   // option to choose normal equations or augmented system
-  options.nla =
-      argc > kOptionNlaArg ? atoi(argv[kOptionNlaArg]) : kOptionNlaDefault;
-  if (options.nla < kOptionNlaMin || options.nla > kOptionNlaMax) {
+  options.nla = argc > kOptionNlaArg ? atoi(argv[kOptionNlaArg])
+                                     : highspm::kOptionNlaDefault;
+  if (options.nla < highspm::kOptionNlaMin ||
+      options.nla > highspm::kOptionNlaMax) {
     std::cerr << "Illegal value of " << options.nla
-              << " for option_nla: must be in [" << kOptionNlaMin << ", "
-              << kOptionNlaMax << "]\n";
+              << " for option_nla: must be in [" << highspm::kOptionNlaMin
+              << ", " << highspm::kOptionNlaMax << "]\n";
     return 1;
   }
 
   // option to choose storage format inside FactorHiGHS
-  options.format =
-      argc > kOptionFormat ? atoi(argv[kOptionFormat]) : kOptionFormatDefault;
-  if (options.format < kOptionFormatMin || options.format > kOptionFormatMax) {
+  options.format = argc > kOptionFormatArg ? atoi(argv[kOptionFormatArg])
+                                           : highspm::kOptionFormatDefault;
+  if (options.format < highspm::kOptionFormatMin ||
+      options.format > highspm::kOptionFormatMax) {
     std::cerr << "Illegal value of " << options.format
-              << " for option_format: must be in [" << kOptionFormatMin << ", "
-              << kOptionFormatMax << "]\n";
+              << " for option_format: must be in [" << highspm::kOptionFormatMin
+              << ", " << highspm::kOptionFormatMax << "]\n";
     return 1;
   }
 
   // option to choose crossover
-  options.crossover = argc > kOptionCrossover ? atoi(argv[kOptionCrossover])
-                                              : kOptionCrossoverDefault;
-  if (options.crossover < kOptionCrossoverMin ||
-      options.crossover > kOptionCrossoverMax) {
+  options.crossover = argc > kOptionCrossoverArg
+                          ? atoi(argv[kOptionCrossoverArg])
+                          : highspm::kOptionCrossoverDefault;
+  if (options.crossover < highspm::kOptionCrossoverMin ||
+      options.crossover > highspm::kOptionCrossoverMax) {
     std::cerr << "Illegal value of " << options.crossover
-              << " for option_crossover: must be in [" << kOptionCrossoverMin
-              << ", " << kOptionCrossoverMax << "]\n";
+              << " for option_crossover: must be in ["
+              << highspm::kOptionCrossoverMin << ", "
+              << highspm::kOptionCrossoverMax << "]\n";
     return 1;
   }
 
@@ -132,7 +136,7 @@ int main(int argc, char** argv) {
   clock.start();
 
   // create instance of IPM
-  Ipm ipm{};
+  highspm::Ipm ipm{};
 
   // scheduler should be already initialized, but no harm in doing it again
   // HighsTaskExecutor::shutdown(true);
@@ -146,7 +150,7 @@ int main(int argc, char** argv) {
 
   // solve LP
   clock.start();
-  IpmStatus ipm_status = ipm.solve();
+  highspm::IpmStatus ipm_status = ipm.solve();
   double optimize_time = clock.stop();
 
   double run_time = clock0.stop();

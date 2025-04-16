@@ -6,6 +6,8 @@
 #include "IpmModel.h"
 #include "auxiliary/IntConfig.h"
 
+namespace highspm {
+
 // Holds the Newton direction Delta(x,y,xl,xu,zl,zu)
 struct NewtonDir {
   std::vector<double> x{};
@@ -157,5 +159,7 @@ struct IpmIterate {
                              std::vector<double>& y_cmp,
                              std::vector<double>& z_cmp) const;
 };
+
+}  // namespace highspm
 
 #endif

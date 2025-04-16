@@ -1,7 +1,5 @@
 #include "Numeric.h"
 
-#include "auxiliary/VectorOperations.h"
-#include "auxiliary/Auxiliary.h"
 #include "CallAndTimeBlas.h"
 #include "DataCollector.h"
 #include "FormatHandler.h"
@@ -9,8 +7,12 @@
 #include "HybridSolveHandler.h"
 #include "PackedSolveHandler.h"
 #include "Timing.h"
+#include "auxiliary/Auxiliary.h"
+#include "auxiliary/VectorOperations.h"
 #include "util/HighsCDouble.h"
 #include "util/HighsRandom.h"
+
+namespace highspm {
 
 Numeric::Numeric(const Symbolic& S) : S_{S} {
   // initialize solve handler
@@ -274,3 +276,5 @@ void Numeric::conditionNumber() const {
   // condition number: lambda_large / lambda_small
   double cond = lambda_large * lambda_small_inv;
 }
+
+}  // namespace highspm

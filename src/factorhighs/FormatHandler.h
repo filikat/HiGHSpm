@@ -6,6 +6,8 @@
 #include "Symbolic.h"
 #include "auxiliary/IntConfig.h"
 
+namespace highspm {
+
 // Interface class to handle different formats of dense matrices during the
 // factorise phase.
 // Any implementation of a specific format needs to define:
@@ -85,5 +87,7 @@ class FormatHandler {
 };
 
 const Int extra_space = 10;
+
+}  // namespace highspm
 
 #endif

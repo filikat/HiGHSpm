@@ -7,6 +7,8 @@
 #include "auxiliary/IntConfig.h"
 #include "factorhighs/FactorHiGHS.h"
 
+namespace highspm {
+
 class FactorHiGHSSolver : public LinearSolver {
   // symbolic factorization
   Symbolic S_;
@@ -39,5 +41,7 @@ class FactorHiGHSSolver : public LinearSolver {
 
   Int choose(const HighsSparseMatrix& A, Options& options);
 };
+
+}  // namespace highspm
 
 #endif

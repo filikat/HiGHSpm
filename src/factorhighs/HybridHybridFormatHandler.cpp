@@ -1,9 +1,11 @@
 #include "HybridHybridFormatHandler.h"
 
-#include "auxiliary/Auxiliary.h"
 #include "CallAndTimeBlas.h"
 #include "DataCollector.h"
 #include "DenseFact.h"
+#include "auxiliary/Auxiliary.h"
+
+namespace highspm {
 
 HybridHybridFormatHandler::HybridHybridFormatHandler(const Symbolic& S, Int sn)
     : FormatHandler(S, sn) {
@@ -110,7 +112,8 @@ void HybridHybridFormatHandler::assembleClique(const std::vector<double>& child,
 
         // sun consecutive entries in a row.
         // consecutive need to be reduced, to account for edge of the block
-        const Int zeros_stored_row = std::max((Int)0, jb_c - (row - row_start) - 1);
+        const Int zeros_stored_row =
+            std::max((Int)0, jb_c - (row - row_start) - 1);
         Int consecutive = S_->consecutiveSums(child_sn, col);
         const Int left_in_child = col_end - col - zeros_stored_row;
         consecutive = std::min(consecutive, left_in_child);
@@ -192,3 +195,5 @@ void HybridHybridFormatHandler::extremeEntries() {
 
   DataCollector::get()->setExtremeEntries(minD, maxD, minoffD, maxoffD);
 }
+
+}  // namespace highspm

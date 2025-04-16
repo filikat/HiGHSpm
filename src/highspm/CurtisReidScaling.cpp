@@ -2,6 +2,8 @@
 
 #include "auxiliary/KrylovMethods.h"
 
+namespace highspm {
+
 void product(const double* x, std::vector<double>& y,
              const std::vector<Int>& ptr, const std::vector<Int>& rows) {
   // Multiply by matrix E, i.e. matrix A with all entries equal to one
@@ -129,3 +131,5 @@ void CurtisReidScaling(const std::vector<Int>& ptr,
   for (Int i = 0; i < m; ++i) rowexp[i] = -std::round(exponents[i]);
   for (Int j = 0; j < n; ++j) colexp[j] = -std::round(exponents[m + j]);
 }
+
+}  // namespace highspm
