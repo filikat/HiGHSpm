@@ -3,6 +3,8 @@
 
 #include "auxiliary/IntConfig.h"
 
+// TO DO: what happens when Int is 64 bit? Does BLAS behave correctly?
+
 // level 1
 void callAndTime_daxpy(Int n, double da, const double* dx, Int incx, double* dy,
                        Int incy);

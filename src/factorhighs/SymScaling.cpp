@@ -1,5 +1,6 @@
 
 #include "SymScaling.h"
+
 #include <limits>
 
 #include "auxiliary/VectorOperations.h"
@@ -149,7 +150,7 @@ void RuizScalingSym(const std::vector<Int>& ptr, const std::vector<Int>& rows,
 
   // round scaling to a power of 2
   for (Int i = 0; i < n; ++i) {
-    Int exp;
+    int exp;  // needs to remain int
     std::frexp(colscale[i], &exp);
     colscale[i] = std::ldexp(1.0, exp);
   }
@@ -197,7 +198,7 @@ void JacekScalingSym(const std::vector<Int>& ptr, const std::vector<Int>& rows,
 
   // round scaling to a power of 2
   for (Int i = 0; i < n; ++i) {
-    Int exp;
+    int exp;  // needs to remain int
     std::frexp(colscale[i], &exp);
     colscale[i] = std::ldexp(1.0, exp);
   }

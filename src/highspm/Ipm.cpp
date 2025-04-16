@@ -1282,7 +1282,7 @@ void Ipm::maxCorrectors() {
     double thresh = ratio / (1.0 + kMaxRefinementIter / 2.0) - 1;
 
     max_correctors_ = std::floor(thresh);
-    max_correctors_ = std::max(max_correctors_, 1);
+    max_correctors_ = std::max(max_correctors_, (Int)1);
     max_correctors_ = std::min(max_correctors_, kMaxCorrectors);
 
     printf("Using %d corrector%s, ratio %.1f, thresh %.1f\n\n", max_correctors_,
