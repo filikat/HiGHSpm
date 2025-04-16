@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "IpmModel.h"
+#include "auxiliary/IntConfig.h"
 
 // Holds the Newton direction Delta(x,y,xl,xu,zl,zu)
 struct NewtonDir {
@@ -14,7 +15,7 @@ struct NewtonDir {
   std::vector<double> zl{};
   std::vector<double> zu{};
 
-  NewtonDir(int m, int n);
+  NewtonDir(Int m, Int n);
 };
 
 struct IpmIterate {

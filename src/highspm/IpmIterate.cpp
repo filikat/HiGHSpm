@@ -3,7 +3,7 @@
 #include "factorhighs/DataCollector.h"
 #include "Ipm_const.h"
 
-NewtonDir::NewtonDir(int m, int n)
+NewtonDir::NewtonDir(Int m, Int n)
     : x(n, 0.0), y(m, 0.0), xl(n, 0.0), xu(n, 0.0), zl(n, 0.0), zu(n, 0.0) {}
 
 IpmIterate::IpmIterate(const IpmModel& model_input)
@@ -51,8 +51,8 @@ bool IpmIterate::isDirInf() const {
 
 void IpmIterate::computeMu() {
   mu = 0.0;
-  int number_finite_bounds{};
-  for (int i = 0; i < model->n(); ++i) {
+  Int number_finite_bounds{};
+  for (Int i = 0; i < model->n(); ++i) {
     if (model->hasLb(i)) {
       mu += xl[i] * zl[i];
       ++number_finite_bounds;
@@ -67,7 +67,7 @@ void IpmIterate::computeMu() {
 void IpmIterate::computeScaling() {
   scaling.assign(model->n(), 0.0);
 
-  for (int i = 0; i < model->n(); ++i) {
+  for (Int i = 0; i < model->n(); ++i) {
     if (model->hasLb(i)) scaling[i] += zl[i] / xl[i];
     if (model->hasUb(i)) scaling[i] += zu[i] / xu[i];
 
@@ -80,7 +80,7 @@ void IpmIterate::computeScaling() {
   double& max_theta = DataCollector::get()->back().max_theta;
   min_theta = kHighsInf;
   max_theta = 0.0;
-  for (int i = 0; i < model->n(); ++i) {
+  for (Int i = 0; i < model->n(); ++i) {
     if (scaling[i] != 0.0) {
       min_theta = std::min(min_theta, 1.0 / scaling[i]);
       max_theta = std::max(max_theta, 1.0 / scaling[i]);
@@ -90,10 +90,10 @@ void IpmIterate::computeScaling() {
 void IpmIterate::products() {
   double min_prod = std::numeric_limits<double>::max();
   double max_prod = 0.0;
-  int num_small = 0;
-  int num_large = 0;
+  Int num_small = 0;
+  Int num_large = 0;
 
-  for (int i = 0; i < model->n(); ++i) {
+  for (Int i = 0; i < model->n(); ++i) {
     if (model->hasLb(i)) {
       double prod = xl[i] * zl[i] / mu;
       min_prod = std::min(min_prod, prod);
@@ -130,7 +130,7 @@ void IpmIterate::primalObj() {
 }
 void IpmIterate::dualObj() {
   dobj = model->offset() + dotProd(y, model->b());
-  for (int i = 0; i < model->n(); ++i) {
+  for (Int i = 0; i < model->n(); ++i) {
     if (model->hasLb(i)) dobj += model->lb(i) * zl[i];
     if (model->hasUb(i)) dobj -= model->ub(i) * zu[i];
   }
@@ -154,12 +154,12 @@ void IpmIterate::dualInfeas() {
 void IpmIterate::primalInfeasUnscaled() {
   // relative infinity norm of unscaled primal residuals
   pinf = 0.0;
-  for (int i = 0; i < model->m(); ++i) {
+  for (Int i = 0; i < model->m(); ++i) {
     double val = std::abs(res1[i]);
     if (model->scaled()) val /= model->rowScale(i);
     pinf = std::max(pinf, val);
   }
-  for (int i = 0; i < model->n(); ++i) {
+  for (Int i = 0; i < model->n(); ++i) {
     double val = std::abs(res2[i]);
     if (model->scaled()) val *= model->colScale(i);
     pinf = std::max(pinf, val);
@@ -173,7 +173,7 @@ void IpmIterate::primalInfeasUnscaled() {
 void IpmIterate::dualInfeasUnscaled() {
   // relative infinity norm of unscaled dual residual
   dinf = 0.0;
-  for (int i = 0; i < model->n(); ++i) {
+  for (Int i = 0; i < model->n(); ++i) {
     double val = std::abs(res4[i]);
     if (model->scaled()) val /= model->colScale(i);
     dinf = std::max(dinf, val);
@@ -187,7 +187,7 @@ void IpmIterate::residual1234() {
   model->A().alphaProductPlusY(-1.0, x, res1);
 
   // res2
-  for (int i = 0; i < model->n(); ++i) {
+  for (Int i = 0; i < model->n(); ++i) {
     if (model->hasLb(i))
       res2[i] = model->lb(i) - x[i] + xl[i];
     else
@@ -195,7 +195,7 @@ void IpmIterate::residual1234() {
   }
 
   // res3
-  for (int i = 0; i < model->n(); ++i) {
+  for (Int i = 0; i < model->n(); ++i) {
     if (model->hasUb(i))
       res3[i] = model->ub(i) - x[i] - xu[i];
     else
@@ -205,13 +205,13 @@ void IpmIterate::residual1234() {
   // res4
   res4 = model->c();
   model->A().alphaProductPlusY(-1.0, y, res4, true);
-  for (int i = 0; i < model->n(); ++i) {
+  for (Int i = 0; i < model->n(); ++i) {
     if (model->hasLb(i)) res4[i] -= zl[i];
     if (model->hasUb(i)) res4[i] += zu[i];
   }
 }
 void IpmIterate::residual56(double sigma) {
-  for (int i = 0; i < model->n(); ++i) {
+  for (Int i = 0; i < model->n(); ++i) {
     // res5
     if (model->hasLb(i))
       res5[i] = sigma * mu - xl[i] * zl[i];
@@ -228,7 +228,7 @@ void IpmIterate::residual56(double sigma) {
 
 std::vector<double> IpmIterate::residual7() const {
   std::vector<double> res7(res4);
-  for (int i = 0; i < model->n(); ++i) {
+  for (Int i = 0; i < model->n(); ++i) {
     if (model->hasLb(i)) res7[i] -= ((res5[i] + zl[i] * res2[i]) / xl[i]);
     if (model->hasUb(i)) res7[i] += ((res6[i] - zu[i] * res3[i]) / xu[i]);
   }
@@ -240,7 +240,7 @@ std::vector<double> IpmIterate::residual8(
   std::vector<double> temp(res7);
 
   // temp = (Theta^-1+Rp)^-1 * res7
-  for (int i = 0; i < model->n(); ++i)
+  for (Int i = 0; i < model->n(); ++i)
     temp[i] /= scaling[i] + kPrimalStaticRegularization;
 
   // res8 += A * temp
@@ -293,8 +293,8 @@ void IpmIterate::extract(std::vector<double>& x_user,
   // For the Lagrange multipliers, use slacks from zl and zu, to get correct
   // sign. NB: there is no explicit slack stored for equality constraints.
   y_user.resize(model->m());
-  int slack_pos = 0;
-  for (int i = 0; i < model->m(); ++i) {
+  Int slack_pos = 0;
+  for (Int i = 0; i < model->m(); ++i) {
     switch (model->constraint(i)) {
       case '=':
         y_user[i] = y[i];
@@ -314,7 +314,7 @@ void IpmIterate::extract(std::vector<double>& x_user,
   // NB: there is no explicit slack stored for equality constraints.
   slack_user.resize(model->m());
   slack_pos = 0;
-  for (int i = 0; i < model->m(); ++i) {
+  for (Int i = 0; i < model->m(); ++i) {
     switch (model->constraint(i)) {
       case '=':
         slack_user[i] = 0.0;
@@ -354,8 +354,8 @@ void IpmIterate::extract(std::vector<double>& x_user,
   // to zero, so build y from z-slacks.
   // NB: there is no explicit slack stored for equality constraints.
   y_user.resize(model->m());
-  int slack_pos = 0;
-  for (int i = 0; i < model->m(); ++i) {
+  Int slack_pos = 0;
+  for (Int i = 0; i < model->m(); ++i) {
     switch (model->constraint(i)) {
       case '=':
         y_user[i] = y_temp[i];
@@ -372,7 +372,7 @@ void IpmIterate::extract(std::vector<double>& x_user,
   // NB: there is no explicit slack stored for equality constraints.
   slack_user.resize(model->m());
   slack_pos = 0;
-  for (int i = 0; i < model->m(); ++i) {
+  for (Int i = 0; i < model->m(); ++i) {
     switch (model->constraint(i)) {
       case '=':
         slack_user[i] = 0.0;
@@ -393,7 +393,7 @@ void IpmIterate::dropToComplementarity(std::vector<double>& x_cmp,
   z_cmp.assign(model->n(), 0.0);
   y_cmp = y;
 
-  for (int j = 0; j < model->n(); ++j) {
+  for (Int j = 0; j < model->n(); ++j) {
     // value of x_[j] within bounds
     double xj = std::max(x[j], model->lb(j));
     xj = std::min(xj, model->ub(j));
@@ -474,7 +474,7 @@ double IpmIterate::infeasAfterDropping() const {
   double pinf_max = 0.0;
   double dinf_max = 0.0;
 
-  for (int j = 0; j < model->n(); ++j) {
+  for (Int j = 0; j < model->n(); ++j) {
     double xdrop = 0.0;
     double zdrop = 0.0;
 
@@ -511,7 +511,7 @@ double IpmIterate::infeasAfterDropping() const {
 
     // largest entry in column j of A
     double Amax = 0.0;
-    for (int el = model->A().start_[j]; el < model->A().start_[j + 1]; ++el)
+    for (Int el = model->A().start_[j]; el < model->A().start_[j + 1]; ++el)
       Amax = std::max(Amax, std::abs(model->A().value_[el]));
 
     pinf_max = std::max(pinf_max, std::abs(xdrop) * Amax);

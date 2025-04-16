@@ -21,23 +21,23 @@ void getRotation(double x, double y, double& c, double& s) {
     s = t * c;
   }
 }
-void update(std::vector<double>& x, int k, std::vector<double>& H, int ldh,
+void update(std::vector<double>& x, Int k, std::vector<double>& H, Int ldh,
             std::vector<double>& s, std::vector<std::vector<double>>& V) {
   // Solve H * y = s
   std::vector<double> y = s;
-  for (int i = k; i >= 0; --i) {
+  for (Int i = k; i >= 0; --i) {
     y[i] /= H[i + ldh * i];
-    for (int j = i - 1; j >= 0; --j) {
+    for (Int j = i - 1; j >= 0; --j) {
       y[j] -= H[j + ldh * i] * y[i];
     }
   }
   // x += V * y
-  for (int j = 0; j <= k; ++j) vectorAdd(x, V[j], y[j]);
+  for (Int j = 0; j <= k; ++j) vectorAdd(x, V[j], y[j]);
 }
 
-int Gmres(const AbstractMatrix* M, const AbstractMatrix* P,
+Int Gmres(const AbstractMatrix* M, const AbstractMatrix* P,
           const std::vector<double>& b, std::vector<double>& x, double tol,
-          int maxit) {
+          Int maxit) {
   // Attempt to solve M * x = b using GMRES, with the preconditioner P.
   // Return the number of iterations taken.
   //
@@ -48,15 +48,15 @@ int Gmres(const AbstractMatrix* M, const AbstractMatrix* P,
   // https://en.wikipedia.org/wiki/Generalized_minimal_residual_method#Example_code
 
   // sizes
-  const int n = x.size();
-  const int m = maxit;
+  const Int n = x.size();
+  const Int m = maxit;
 
   // vectors
   std::vector<std::vector<double>> V;
 
   // Hessenberg matrix
   std::vector<double> H((m + 1) * m);
-  const int ldh = m + 1;
+  const Int ldh = m + 1;
 
   // Givens rotations
   std::vector<double> sn(m + 1);
@@ -88,14 +88,14 @@ int Gmres(const AbstractMatrix* M, const AbstractMatrix* P,
   s[0] = beta;
 
   // main loop
-  int i;
+  Int i;
   for (i = 0; i < maxit; ++i) {
     // Arnoldi
     w = V[i];
     M->apply(w);
     if (P) P->apply(w);
     V.push_back(w);
-    for (int k = 0; k <= i; ++k) {
+    for (Int k = 0; k <= i; ++k) {
       H[k + ldh * i] = dotProd(V.back(), V[k]);
       vectorAdd(V.back(), V[k], -H[k + ldh * i]);
     }
@@ -104,7 +104,7 @@ int Gmres(const AbstractMatrix* M, const AbstractMatrix* P,
     // re-orthogonalize
     // if (norm2(V.back()) / norm2(w) < 1e-6) {
     // printf("Re-orthogonalize============\n");
-    for (int k = 0; k <= i; ++k) {
+    for (Int k = 0; k <= i; ++k) {
       double temp = dotProd(V.back(), V[k]);
       H[k + ldh * i] += temp;
       vectorAdd(V.back(), V[k], -temp);
@@ -116,7 +116,7 @@ int Gmres(const AbstractMatrix* M, const AbstractMatrix* P,
     vectorScale(V.back(), 1.0 / H[i + 1 + ldh * i]);
 
     // apply Givens rotations
-    for (int k = 0; k < i; ++k)
+    for (Int k = 0; k < i; ++k)
       applyRotation(H[k + ldh * i], H[k + 1 + ldh * i], cs[k], sn[k]);
 
     // get latest rotation and apply it also to s
@@ -136,13 +136,13 @@ int Gmres(const AbstractMatrix* M, const AbstractMatrix* P,
   return i + 1;
 }
 
-int Cg(const AbstractMatrix* M, const AbstractMatrix* P,
+Int Cg(const AbstractMatrix* M, const AbstractMatrix* P,
        const std::vector<double>& b, std::vector<double>& x, double tol,
-       int maxit) {
+       Int maxit) {
   // Attempt to solve M * x = b using CG, with the preconditioner P.
   // Return the number of iterations taken.
 
-  int n = b.size();
+  Int n = b.size();
 
   std::vector<double> w(n);
 
@@ -159,7 +159,7 @@ int Cg(const AbstractMatrix* M, const AbstractMatrix* P,
   double rho_new;
   double norm_b = norm2(b);
 
-  int iter = 0;
+  Int iter = 0;
   while (iter < maxit) {
     w = p;
     M->apply(w);

@@ -1,6 +1,8 @@
 #ifndef HIGHSPM_IPM_CONST_H
 #define HIGHSPM_IPM_CONST_H
 
+#include "auxiliary/IntConfig.h"
+
 enum OptionNla {
   kOptionNlaMin = 0,
   kOptionNlaAugmented = kOptionNlaMin,
@@ -29,9 +31,9 @@ enum kOptionCrossover {
 };
 
 struct Options {
-  int nla = kOptionNlaDefault;
-  int format = kOptionFormatDefault;
-  int crossover = kOptionCrossoverOff;
+  Int nla = kOptionNlaDefault;
+  Int format = kOptionFormatDefault;
+  Int crossover = kOptionCrossoverOff;
 };
 
 enum IpmStatus {
@@ -52,14 +54,14 @@ enum LinearSolverStatus {
 };
 
 // parameters for termination
-const int kMaxIterations = 100;
+const Int kMaxIterations = 100;
 const double kIpmTolerance = 1e-8;
-const int kMaxBadIter = 5;
+const Int kMaxBadIter = 5;
 
 // parameters for correctors
 const double kGammaCorrector = 0.1;
 const double kSigmaAffine = 0.01;
-const int kMaxCorrectors = 5;
+const Int kMaxCorrectors = 5;
 const double kMccIncreaseAlpha = 0.1;
 const double kMccIncreaseMin = 0.1;
 const double kSmallProduct = 1e-3;

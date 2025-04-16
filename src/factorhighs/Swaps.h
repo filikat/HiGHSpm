@@ -1,11 +1,13 @@
 #ifndef FACTORHIGHS_SWAPS_H
 #define FACTORHIGHS_SWAPS_H
 
-void permuteWithSwaps(double* x, const int* swaps, int n, bool reverse = false);
+#include "auxiliary/IntConfig.h"
 
-void swapCols(char uplo, int n, double* A, int lda, int i, int j, int* swaps,
-              int* sign);
+void permuteWithSwaps(double* x, const Int* swaps, Int n, bool reverse = false);
 
-void applySwaps(const int* swaps, int nrow, int ncol, double* R);
+void swapCols(char uplo, Int n, double* A, Int lda, Int i, Int j, Int* swaps,
+              Int* sign);
+
+void applySwaps(const Int* swaps, Int nrow, Int ncol, double* R);
 
 #endif

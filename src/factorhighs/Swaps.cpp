@@ -1,24 +1,24 @@
 #include "CallAndTimeBlas.h"
 #include "DataCollector.h"
 
-void permuteWithSwaps(double* x, const int* swaps, int n, bool reverse) {
+void permuteWithSwaps(double* x, const Int* swaps, Int n, bool reverse) {
     // Apply swaps to vector x of length n
   
     if (!reverse) {
       // apply the swaps in forward order
-      for (int i = 0; i < n; ++i) {
+      for (Int i = 0; i < n; ++i) {
         if (swaps[i] != i) std::swap(x[i], x[swaps[i]]);
       }
     } else {
       // apply the swaps in backward order
-      for (int i = n - 1; i >= 0; --i) {
+      for (Int i = n - 1; i >= 0; --i) {
         if (swaps[i] != i) std::swap(x[i], x[swaps[i]]);
       }
     }
   }
 
-void swapCols(char uplo, int n, double* A, int lda, int i, int j, int* swaps,
-              int* sign) {
+void swapCols(char uplo, Int n, double* A, Int lda, Int i, Int j, Int* swaps,
+              Int* sign) {
   // Exchange rows/cols i and j of symmetric matrix A
 
   // make sure that i < j
@@ -52,9 +52,9 @@ void swapCols(char uplo, int n, double* A, int lda, int i, int j, int* swaps,
   DataCollector::get()->countSwap();
 }
 
-void applySwaps(const int* swaps, int nrow, int ncol, double* R) {
+void applySwaps(const Int* swaps, Int nrow, Int ncol, double* R) {
   // apply the column swaps to block R
-  for (int i = 0; i < ncol; ++i) {
+  for (Int i = 0; i < ncol; ++i) {
     if (swaps[i] != i) {
       // swap col i and col swaps[i]
       callAndTime_dswap(nrow, &R[i], ncol, &R[swaps[i]], ncol);

@@ -1,6 +1,8 @@
 #ifndef FACTORHIGHS_DGEMM_PARALLEL_H
 #define FACTORHIGHS_DGEMM_PARALLEL_H
 
+#include "auxiliary/IntConfig.h"
+
 // parallelize dgemm for use within factorization
 // Performs Q <- Q - R P^T in hybrid format.
 // Parallelized over the rows of R and Q.
@@ -8,17 +10,17 @@ class dgemmParallelizer {
   const double* P_;
   const double* R_;
   double* Q_;
-  const int col_;
-  const int jb_;
+  const Int col_;
+  const Int jb_;
 
  public:
-  dgemmParallelizer(const double* P, const double* R, double* Q, int col,
-                    int jb);
+  dgemmParallelizer(const double* P, const double* R, double* Q, Int col,
+                    Int jb);
 
-  void run(int start, int end, double beta) const;
+  void run(Int start, Int end, double beta) const;
 };
 
-void dgemmParallel(const double* P, const double* R, double* Q, int col, int jb,
-                   int row, int nb, double beta = 1.0);
+void dgemmParallel(const double* P, const double* R, double* Q, Int col, Int jb,
+                   Int row, Int nb, double beta = 1.0);
 
 #endif

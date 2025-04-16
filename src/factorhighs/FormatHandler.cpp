@@ -5,7 +5,7 @@
 #include "DataCollector.h"
 #include "DenseFact.h"
 
-FormatHandler::FormatHandler(const Symbolic& S, int sn)
+FormatHandler::FormatHandler(const Symbolic& S, Int sn)
     : S_{&S},
       sn_{sn},
       nb_{S_->blockSize()},
@@ -20,7 +20,7 @@ FormatHandler::FormatHandler(const Symbolic& S, int sn)
 void FormatHandler::terminate(std::vector<double>& frontal,
                               std::vector<double>& clique,
                               std::vector<double>& total_reg,
-                              std::vector<int>& swaps,
+                              std::vector<Int>& swaps,
                               std::vector<double>& pivot_2x2) {
   // Move local copies of data into their final position.
   // In this way, the shared objects sn_columns_ and schur_contribution_ are
@@ -33,7 +33,7 @@ void FormatHandler::terminate(std::vector<double>& frontal,
   pivot_2x2 = std::move(pivot_2x2_);
 
   // Move local regularization into total regularization.
-  for (int i = 0; i < sn_size_; ++i)
+  for (Int i = 0; i < sn_size_; ++i)
     total_reg[S_->snStart(sn_) + i] = local_reg_[i];
 
   // This function should not require a lock, since all threads access different

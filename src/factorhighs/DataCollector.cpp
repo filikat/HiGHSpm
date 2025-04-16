@@ -253,7 +253,7 @@ void DataCollector::printIter() const {
       "\niter |    min D     max D     min L     max L  |"
       "    reg   swap    2x2     ws | "
       "  max_reg  solv   omega     back_err nw/cw      max_ws |\n");
-  for (int i = 0; i < iter_data_record_.size(); ++i) {
+  for (Int i = 0; i < iter_data_record_.size(); ++i) {
     const IterData& iter = iter_data_record_[i];
     printf(
         "%3d  |"
@@ -275,7 +275,7 @@ void DataCollector::printIter() const {
       "    min T     max T  |"
       "     x_j * z_j / mu    small/large |"
       " corr   sigma af/co |\n");
-  for (int i = 0; i < iter_data_record_.size(); ++i) {
+  for (Int i = 0; i < iter_data_record_.size(); ++i) {
     const IterData& iter = iter_data_record_[i];
     printf(
         "%3d  | %9.1e %9.1e |"
@@ -298,7 +298,7 @@ void DataCollector::printIter() const {
       "     alpha p     |     alpha d     |"
       "\n");
 
-  for (int i = 0; i < iter_data_record_.size(); ++i) {
+  for (Int i = 0; i < iter_data_record_.size(); ++i) {
     const IterData& iter = iter_data_record_[i];
     printf(
         "%3d  |"

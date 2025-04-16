@@ -2,6 +2,7 @@
 #define FACTOR_HIGHS_SETTINGS_H
 
 #include <cmath>
+#include "auxiliary/IntConfig.h"
 
 // ===========================================================================
 // SWITCHES
@@ -27,17 +28,17 @@
 // ===========================================================================
 
 // supernode amalgamation
-const int kStartThreshRelax = 256;
+const Int kStartThreshRelax = 256;
 const double kUpperRatioRelax = 0.02;
 const double kLowerRatioRelax = 0.01;
-const int kMaxIterRelax = 10;
-const int kSnSizeRelax = 16;
+const Int kMaxIterRelax = 10;
+const Int kSnSizeRelax = 16;
 
 // dense factorization
-const int kBlockSize = 128;
+const Int kBlockSize = 128;
 const double kAlphaBK = 0.01;  //(sqrt(17.0) + 1.0) / 8.0;
-const int kBlockGrainSize = 1;
-const int kBlockParallelThreshold = 5;
+const Int kBlockGrainSize = 1;
+const Int kBlockParallelThreshold = 5;
 
 // regularization
 const double kPrimalStaticRegularization = 1e-12;
@@ -45,7 +46,7 @@ const double kDualStaticRegularization = 1e-10;
 const double kDynamicDiagCoeff = 1e-24;
 
 // refinement
-const int kMaxRefinementIter = 3;
+const Int kMaxRefinementIter = 3;
 const double kRefinementTolerance = 1e-12;
 
 #endif

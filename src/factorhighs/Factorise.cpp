@@ -15,8 +15,8 @@
 #include "SymScaling.h"
 #include "parallel/HighsParallel.h"
 
-Factorise::Factorise(const Symbolic& S, const std::vector<int>& rowsA,
-                     const std::vector<int>& ptrA,
+Factorise::Factorise(const Symbolic& S, const std::vector<Int>& rowsA,
+                     const std::vector<Int>& ptrA,
                      const std::vector<double>& valA)
     : S_{S} {
   // Input the symmetric matrix to be factorised in CSC format and the symbolic
@@ -46,8 +46,8 @@ Factorise::Factorise(const Symbolic& S, const std::vector<int>& rowsA,
   nzA_ = ptrA_.back();
 
   // Double transpose to sort columns
-  std::vector<int> temp_ptr(n_ + 1);
-  std::vector<int> temp_rows(nzA_);
+  std::vector<Int> temp_ptr(n_ + 1);
+  std::vector<Int> temp_rows(nzA_);
   std::vector<double> temp_val(nzA_);
   transpose(ptrA_, rowsA_, valA_, temp_ptr, temp_rows, temp_val);
   transpose(temp_ptr, temp_rows, temp_val, ptrA_, rowsA_, valA_);
@@ -65,7 +65,7 @@ Factorise::Factorise(const Symbolic& S, const std::vector<int>& rowsA,
   // compute largest diagonal entry in absolute value
   max_diag_ = 0.0;
   min_diag_ = std::numeric_limits<double>::max();
-  for (int col = 0; col < n_; ++col) {
+  for (Int col = 0; col < n_; ++col) {
     double val = std::abs(valA_[ptrA_[col]]);
     max_diag_ = std::max(max_diag_, val);
     min_diag_ = std::min(min_diag_, val);
@@ -73,9 +73,9 @@ Factorise::Factorise(const Symbolic& S, const std::vector<int>& rowsA,
 
   // compute norm 1 of matrix
   std::vector<double> col_norm1(n_);
-  for (int col = 0; col < n_; ++col) {
-    for (int el = ptrA_[col]; el < ptrA_[col + 1]; ++el) {
-      int row = rowsA_[el];
+  for (Int col = 0; col < n_; ++col) {
+    for (Int el = ptrA_[col]; el < ptrA_[col + 1]; ++el) {
+      Int row = rowsA_[el];
       double val = valA_[el];
       col_norm1[col] += std::abs(val);
       if (row != col) col_norm1[row] += std::abs(val);
@@ -93,63 +93,63 @@ Factorise::Factorise(const Symbolic& S, const std::vector<int>& rowsA,
   print(valA_, "Mval");*/
 }
 
-void Factorise::permute(const std::vector<int>& iperm) {
+void Factorise::permute(const std::vector<Int>& iperm) {
   // Symmetric permutation of the lower triangular matrix A based on inverse
   // permutation iperm.
   // The resulting matrix is lower triangular, regardless of the input matrix.
 
-  std::vector<int> work(n_, 0);
+  std::vector<Int> work(n_, 0);
 
   // go through the columns to count the nonzeros
-  for (int j = 0; j < n_; ++j) {
+  for (Int j = 0; j < n_; ++j) {
     // get new index of column
-    const int col = iperm[j];
+    const Int col = iperm[j];
 
     // go through elements of column
-    for (int el = ptrA_[j]; el < ptrA_[j + 1]; ++el) {
-      const int i = rowsA_[el];
+    for (Int el = ptrA_[j]; el < ptrA_[j + 1]; ++el) {
+      const Int i = rowsA_[el];
 
       // ignore potential entries in upper triangular part
       if (i < j) continue;
 
       // get new index of row
-      const int row = iperm[i];
+      const Int row = iperm[i];
 
       // since only lower triangular part is used, col is smaller than row
-      int actual_col = std::min(row, col);
+      Int actual_col = std::min(row, col);
       ++work[actual_col];
     }
   }
 
-  std::vector<int> new_ptr(n_ + 1);
+  std::vector<Int> new_ptr(n_ + 1);
 
   // get column pointers by summing the count of nonzeros in each column.
   // copy column pointers into work
   counts2Ptr(new_ptr, work);
 
-  std::vector<int> new_rows(new_ptr.back());
+  std::vector<Int> new_rows(new_ptr.back());
   std::vector<double> new_val(new_ptr.back());
 
   // go through the columns to assign row indices
-  for (int j = 0; j < n_; ++j) {
+  for (Int j = 0; j < n_; ++j) {
     // get new index of column
-    const int col = iperm[j];
+    const Int col = iperm[j];
 
     // go through elements of column
-    for (int el = ptrA_[j]; el < ptrA_[j + 1]; ++el) {
-      const int i = rowsA_[el];
+    for (Int el = ptrA_[j]; el < ptrA_[j + 1]; ++el) {
+      const Int i = rowsA_[el];
 
       // ignore potential entries in upper triangular part
       if (i < j) continue;
 
       // get new index of row
-      const int row = iperm[i];
+      const Int row = iperm[i];
 
       // since only lower triangular part is used, col is smaller than row
-      const int actual_col = std::min(row, col);
-      const int actual_row = std::max(row, col);
+      const Int actual_col = std::min(row, col);
+      const Int actual_row = std::max(row, col);
 
-      int pos = work[actual_col]++;
+      Int pos = work[actual_col]++;
       new_rows[pos] = actual_row;
       new_val[pos] = valA_[el];
     }
@@ -160,7 +160,7 @@ void Factorise::permute(const std::vector<int>& iperm) {
   valA_ = std::move(new_val);
 }
 
-std::unique_ptr<FormatHandler> getFormatHandler(const Symbolic& S, int sn) {
+std::unique_ptr<FormatHandler> getFormatHandler(const Symbolic& S, Int sn) {
   std::unique_ptr<FormatHandler> ptr;
   switch (S.formatType()) {
     case FormatType::Full:
@@ -179,7 +179,7 @@ std::unique_ptr<FormatHandler> getFormatHandler(const Symbolic& S, int sn) {
   return ptr;
 }
 
-void Factorise::processSupernode(int sn) {
+void Factorise::processSupernode(Int sn) {
   // Assemble frontal matrix for supernode sn, perform partial factorisation and
   // store the result.
 
@@ -189,7 +189,7 @@ void Factorise::processSupernode(int sn) {
   // thr_per_sn[sn] = highs::parallel::thread_num();
 
   // spawn children of this supernode in reverse order
-  int child_to_spawn = first_child_reverse_[sn];
+  Int child_to_spawn = first_child_reverse_[sn];
   while (child_to_spawn != -1) {
     highs::parallel::spawn([=]() { processSupernode(child_to_spawn); });
     child_to_spawn = next_child_reverse_[child_to_spawn];
@@ -207,9 +207,9 @@ void Factorise::processSupernode(int sn) {
   // Supernode information
   // ===================================================
   // first and last+1 column of the supernodes
-  const int sn_begin = S_.snStart(sn);
-  const int sn_end = S_.snStart(sn + 1);
-  const int sn_size = sn_end - sn_begin;
+  const Int sn_begin = S_.snStart(sn);
+  const Int sn_end = S_.snStart(sn + 1);
+  const Int sn_size = sn_end - sn_begin;
 
   // initialize the format handler
   // this also allocates space for the frontal matrix and schur complement
@@ -226,14 +226,14 @@ void Factorise::processSupernode(int sn) {
   // Assemble original matrix A into frontal
   // ===================================================
   // j is relative column index in the frontal matrix
-  for (int j = 0; j < sn_size; ++j) {
+  for (Int j = 0; j < sn_size; ++j) {
     // column index in the original matrix
-    const int col = sn_begin + j;
+    const Int col = sn_begin + j;
 
     // go through the column
-    for (int el = ptrA_[col]; el < ptrA_[col + 1]; ++el) {
+    for (Int el = ptrA_[col]; el < ptrA_[col + 1]; ++el) {
       // relative row index in the frontal matrix
-      const int i = S_.relindCols(el);
+      const Int i = S_.relindCols(el);
 
       FH->assembleFrontal(i, j, valA_[el]);
     }
@@ -245,7 +245,7 @@ void Factorise::processSupernode(int sn) {
   // ===================================================
   // Assemble frontal matrices of children
   // ===================================================
-  int child_sn = first_child_[sn];
+  Int child_sn = first_child_[sn];
   while (child_sn != -1) {
     // Schur contribution of the current child
     std::vector<double>& child_clique = schur_contribution_[child_sn];
@@ -264,35 +264,35 @@ void Factorise::processSupernode(int sn) {
 #endif
 
     // determine size of clique of child
-    const int child_begin = S_.snStart(child_sn);
-    const int child_end = S_.snStart(child_sn + 1);
+    const Int child_begin = S_.snStart(child_sn);
+    const Int child_end = S_.snStart(child_sn + 1);
 
     // number of nodes in child sn
-    const int child_size = child_end - child_begin;
+    const Int child_size = child_end - child_begin;
 
     // size of clique of child sn
-    const int nc = S_.ptr(child_sn + 1) - S_.ptr(child_sn) - child_size;
+    const Int nc = S_.ptr(child_sn + 1) - S_.ptr(child_sn) - child_size;
 
 // ASSEMBLE INTO FRONTAL
 #ifdef FINE_TIMING
     clock.start();
 #endif
     // go through the columns of the contribution of the child
-    for (int col = 0; col < nc; ++col) {
+    for (Int col = 0; col < nc; ++col) {
       // relative index of column in the frontal matrix
-      int j = S_.relindClique(child_sn, col);
+      Int j = S_.relindClique(child_sn, col);
 
       if (j < sn_size) {
         // assemble into frontal
 
         // go through the rows of the contribution of the child
-        int row = col;
+        Int row = col;
         while (row < nc) {
           // relative index of the entry in the matrix frontal
-          const int i = S_.relindClique(child_sn, row);
+          const Int i = S_.relindClique(child_sn, row);
 
           // how many entries to sum
-          const int consecutive = S_.consecutiveSums(child_sn, row);
+          const Int consecutive = S_.consecutiveSums(child_sn, row);
 
           FH->assembleFrontalMultiple(consecutive, child_clique, nc, child_sn,
                                       row, col, i, j);
@@ -373,9 +373,9 @@ bool Factorise::run(Numeric& num) {
   pivot_2x2_.resize(S_.sn());
 
 #ifdef PARALLEL_TREE
-  int spawned_roots{};
+  Int spawned_roots{};
   // spawn tasks for root supernodes
-  for (int sn = 0; sn < S_.sn(); ++sn) {
+  for (Int sn = 0; sn < S_.sn(); ++sn) {
     if (S_.snParent(sn) == -1) {
       highs::parallel::spawn([=]() { processSupernode(sn); });
       ++spawned_roots;
@@ -383,13 +383,13 @@ bool Factorise::run(Numeric& num) {
   }
 
   // sync tasks for root supernodes
-  for (int root = 0; root < spawned_roots; ++root) {
+  for (Int root = 0; root < spawned_roots; ++root) {
     highs::parallel::sync();
   }
 
 #else
   // go through each supernode serially
-  for (int sn = 0; sn < S_.sn(); ++sn) {
+  for (Int sn = 0; sn < S_.sn(); ++sn) {
     processSupernode(sn);
   }
 #endif

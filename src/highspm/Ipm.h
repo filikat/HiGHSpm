@@ -13,6 +13,7 @@
 #include "ipm/ipx/lp_solver.h"
 #include "util/HighsSparseMatrix.h"
 #include "auxiliary/Auxiliary.h"
+#include "auxiliary/IntConfig.h"
 
 class Ipm {
   // LP model
@@ -25,10 +26,10 @@ class Ipm {
   std::unique_ptr<IpmIterate> it_;
 
   // Size of the problem
-  int m_{}, n_{};
+  Int m_{}, n_{};
 
   // Iterations counters
-  int iter_{}, bad_iter_{};
+  Int iter_{}, bad_iter_{};
 
   // Other statistics
   double min_prod_{}, max_prod_{};
@@ -52,7 +53,7 @@ class Ipm {
   ipx::LpSolver ipx_lps_;
   bool ipx_used_ = false;
 
-  int max_correctors_{};
+  Int max_correctors_{};
 
  public:
   // ===================================================================================
@@ -66,14 +67,14 @@ class Ipm {
   //  <= : add slack    0 <= s_i <= +inf
   //  >= : add slack -inf <= s_i <=    0
   // ===================================================================================
-  void load(const int num_var,           // number of variables
-            const int num_con,           // number of constraints
+  void load(const Int num_var,           // number of variables
+            const Int num_con,           // number of constraints
             const double* obj,           // objective function c
             const double* rhs,           // rhs vector b
             const double* lower,         // lower bound vector
             const double* upper,         // upper bound vector
-            const int* A_ptr,            // column pointers of A
-            const int* A_rows,           // row indices of A
+            const Int* A_ptr,            // column pointers of A
+            const Int* A_rows,           // row indices of A
             const double* A_vals,        // values of A
             const char* constraints,     // type of constraints
             double offset,               // offset from presolve
@@ -95,7 +96,7 @@ class Ipm {
                    std::vector<double>& zu) const;
   void getSolution(std::vector<double>& x, std::vector<double>& slack,
                    std::vector<double>& y, std::vector<double>& z) const;
-  int getIter() const;
+                   Int getIter() const;
 
  private:
   // Functions to run the various stages of the ipm
@@ -186,7 +187,7 @@ class Ipm {
   double stepToBoundary(const std::vector<double>& x,
                         const std::vector<double>& dx,
                         const std::vector<double>* cor, double weight, bool lo,
-                        int* block = nullptr) const;
+                        Int* block = nullptr) const;
 
   // primal and dual steps to boundary
   void stepsToBoundary(double& alpha_primal, double& alpha_dual,

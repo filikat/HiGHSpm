@@ -4,11 +4,12 @@
 #include <cmath>
 #include <vector>
 
+#include "auxiliary/IntConfig.h"
 #include "auxiliary/VectorOperations.h"
 
-void CurtisReidScaling(const std::vector<int>& ptr,
-                       const std::vector<int>& rows,
-                       const std::vector<double>& val, std::vector<int>& rowexp,
-                       std::vector<int>& colexp);
+void CurtisReidScaling(const std::vector<Int>& ptr,
+                       const std::vector<Int>& rows,
+                       const std::vector<double>& val, std::vector<Int>& rowexp,
+                       std::vector<Int>& colexp);
 
 #endif

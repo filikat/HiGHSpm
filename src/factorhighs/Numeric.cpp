@@ -61,7 +61,7 @@ std::vector<double> Numeric::residual(const std::vector<double>& rhs,
   // Compute the residual rhs - A * x - Reg * x
   std::vector<double> res(rhs);
   symProduct(ptrA_, rowsA_, valA_, x, res, -1.0);
-  for (int i = 0; i < x.size(); ++i) res[i] -= total_reg_[i] * x[i];
+  for (Int i = 0; i < x.size(); ++i) res[i] -= total_reg_[i] * x[i];
 
   return res;
 }
@@ -69,15 +69,15 @@ std::vector<double> Numeric::residual(const std::vector<double>& rhs,
 std::vector<double> Numeric::residualQuad(const std::vector<double>& rhs,
                                           const std::vector<double>& x) const {
   std::vector<HighsCDouble> res(rhs.size());
-  for (int i = 0; i < rhs.size(); ++i) res[i] = rhs[i];
+  for (Int i = 0; i < rhs.size(); ++i) res[i] = rhs[i];
 
   symProductQuad(ptrA_, rowsA_, valA_, x, res, -1.0);
 
-  for (int i = 0; i < x.size(); ++i)
+  for (Int i = 0; i < x.size(); ++i)
     res[i] -= (HighsCDouble)total_reg_[i] * (HighsCDouble)x[i];
 
   std::vector<double> result(res.size());
-  for (int i = 0; i < res.size(); ++i) {
+  for (Int i = 0; i < res.size(); ++i) {
     result[i] = (double)res[i];
   }
 
@@ -92,7 +92,7 @@ void Numeric::refine(const std::vector<double>& rhs,
   std::vector<double> res = residualQuad(rhs, x);
   double omega = computeOmega(rhs, x);
 
-  int iter = 0;
+  Int iter = 0;
   for (; iter < kMaxRefinementIter; ++iter) {
     // termination criterion
     if (omega < kRefinementTolerance) break;
@@ -141,7 +141,7 @@ double Numeric::computeOmega(const std::vector<double>& b,
   // Termination of iterative refinement based on "Solving sparse linear systems
   // with sparse backward error", Arioli, Demmel, Duff.
 
-  const int n = x.size();
+  const Int n = x.size();
 
   // residual b-Ax
   const std::vector<double> res = residualQuad(b, x);
@@ -151,9 +151,9 @@ double Numeric::computeOmega(const std::vector<double>& b,
 
   // infinity norm of columns of A
   std::vector<double> inf_norm_cols(n);
-  for (int col = 0; col < n; ++col) {
-    for (int el = ptrA_[col]; el < ptrA_[col + 1]; ++el) {
-      int row = rowsA_[el];
+  for (Int col = 0; col < n; ++col) {
+    for (Int el = ptrA_[col]; el < ptrA_[col + 1]; ++el) {
+      Int row = rowsA_[el];
       double val = valA_[el];
       inf_norm_cols[col] = std::max(inf_norm_cols[col], std::abs(val));
       if (row != col)
@@ -163,9 +163,9 @@ double Numeric::computeOmega(const std::vector<double>& b,
 
   // one norm of columns of A
   std::vector<double> one_norm_cols(n);
-  for (int col = 0; col < n; ++col) {
-    for (int el = ptrA_[col]; el < ptrA_[col + 1]; ++el) {
-      int row = rowsA_[el];
+  for (Int col = 0; col < n; ++col) {
+    for (Int el = ptrA_[col]; el < ptrA_[col + 1]; ++el) {
+      Int row = rowsA_[el];
       double val = valA_[el];
       one_norm_cols[col] += std::abs(val);
       if (row != col) one_norm_cols[row] += std::abs(val);
@@ -174,9 +174,9 @@ double Numeric::computeOmega(const std::vector<double>& b,
 
   // |A|*|x|
   std::vector<double> abs_prod(n);
-  for (int col = 0; col < n; ++col) {
-    for (int el = ptrA_[col]; el < ptrA_[col + 1]; ++el) {
-      int row = rowsA_[el];
+  for (Int col = 0; col < n; ++col) {
+    for (Int el = ptrA_[col]; el < ptrA_[col + 1]; ++el) {
+      Int row = rowsA_[el];
       double val = valA_[el];
       abs_prod[row] += std::abs(val) * std::abs(x[col]);
       if (row != col) abs_prod[col] += std::abs(val) * std::abs(x[row]);
@@ -186,7 +186,7 @@ double Numeric::computeOmega(const std::vector<double>& b,
   double omega_1{};
   double omega_2{};
 
-  for (int i = 0; i < n; ++i) {
+  for (Int i = 0; i < n; ++i) {
     // threshold 1000 * n * eps * (||Ai|| * ||x|| + |bi|)
     double tau =
         1000 * n * 1e-16 * (inf_norm_cols[i] * inf_norm_x + std::abs(b[i]));
@@ -209,7 +209,7 @@ double Numeric::computeOmega(const std::vector<double>& b,
 void Numeric::conditionNumber() const {
   HighsRandom random;
 
-  const int n = S_.size();
+  const Int n = S_.size();
 
   // estimate largest eigenvalue with power iteration:
   // x <- x / ||x||
@@ -218,9 +218,9 @@ void Numeric::conditionNumber() const {
 
   double lambda_large{};
   std::vector<double> x(n);
-  for (int i = 0; i < n; ++i) x[i] = random.fraction();
+  for (Int i = 0; i < n; ++i) x[i] = random.fraction();
 
-  for (int iter = 0; iter < 10; ++iter) {
+  for (Int iter = 0; iter < 10; ++iter) {
     // normalize x
     double x_norm = norm2(x);
     vectorScale(x, 1.0 / x_norm);
@@ -246,9 +246,9 @@ void Numeric::conditionNumber() const {
   // lambda_inv = ||y||
 
   double lambda_small_inv{};
-  for (int i = 0; i < n; ++i) x[i] = random.fraction();
+  for (Int i = 0; i < n; ++i) x[i] = random.fraction();
 
-  for (int iter = 0; iter < 10; ++iter) {
+  for (Int iter = 0; iter < 10; ++iter) {
     // normalize x
     double x_norm = norm2(x);
     vectorScale(x, 1.0 / x_norm);

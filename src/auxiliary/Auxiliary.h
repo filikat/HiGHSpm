@@ -8,48 +8,49 @@
 #include <vector>
 
 #include "util/HighsCDouble.h"
+#include "auxiliary/IntConfig.h"
 
-void counts2Ptr(std::vector<int>& ptr, std::vector<int>& w);
-void inversePerm(const std::vector<int>& perm, std::vector<int>& iperm);
-void subtreeSize(const std::vector<int>& parent, std::vector<int>& sizes);
-void transpose(const std::vector<int>& ptr, const std::vector<int>& rows,
-               std::vector<int>& ptrT, std::vector<int>& rowsT);
-void transpose(const std::vector<int>& ptr, const std::vector<int>& rows,
-               const std::vector<double>& val, std::vector<int>& ptrT,
-               std::vector<int>& rowsT, std::vector<double>& valT);
-void symProduct(const std::vector<int>& ptr, const std::vector<int>& rows,
+void counts2Ptr(std::vector<Int>& ptr, std::vector<Int>& w);
+void inversePerm(const std::vector<Int>& perm, std::vector<Int>& iperm);
+void subtreeSize(const std::vector<Int>& parent, std::vector<Int>& sizes);
+void transpose(const std::vector<Int>& ptr, const std::vector<Int>& rows,
+               std::vector<Int>& ptrT, std::vector<Int>& rowsT);
+void transpose(const std::vector<Int>& ptr, const std::vector<Int>& rows,
+               const std::vector<double>& val, std::vector<Int>& ptrT,
+               std::vector<Int>& rowsT, std::vector<double>& valT);
+void symProduct(const std::vector<Int>& ptr, const std::vector<Int>& rows,
                 const std::vector<double>& vals, const std::vector<double>& x,
                 std::vector<double>& y, double alpha = 1.0);
-void symProductQuad(const std::vector<int>& ptr, const std::vector<int>& rows,
+void symProductQuad(const std::vector<Int>& ptr, const std::vector<Int>& rows,
                     const std::vector<double>& vals,
                     const std::vector<double>& x, std::vector<HighsCDouble>& y,
                     double alpha);
-void childrenLinkedList(const std::vector<int>& parent, std::vector<int>& head,
-                        std::vector<int>& next);
-void reverseLinkedList(std::vector<int>& head, std::vector<int>& next);
-void dfsPostorder(int node, int& start, std::vector<int>& head,
-                  const std::vector<int>& next, std::vector<int>& order);
-void processEdge(int j, int i, const std::vector<int>& first,
-                 std::vector<int>& maxfirst, std::vector<int>& delta,
-                 std::vector<int>& prevleaf, std::vector<int>& ancestor);
-double getDiagStart(int n, int k, int nb, int n_blocks, std::vector<int>& start,
+void childrenLinkedList(const std::vector<Int>& parent, std::vector<Int>& head,
+                        std::vector<Int>& next);
+void reverseLinkedList(std::vector<Int>& head, std::vector<Int>& next);
+void dfsPostorder(Int node, Int& start, std::vector<Int>& head,
+                  const std::vector<Int>& next, std::vector<Int>& order);
+void processEdge(Int j, Int i, const std::vector<Int>& first,
+                 std::vector<Int>& maxfirst, std::vector<Int>& delta,
+                 std::vector<Int>& prevleaf, std::vector<Int>& ancestor);
+double getDiagStart(Int n, Int k, Int nb, Int n_blocks, std::vector<Int>& start,
                     bool triang = false);
 
 template <typename T>
-void permuteVector(std::vector<T>& v, const std::vector<int>& perm) {
+void permuteVector(std::vector<T>& v, const std::vector<Int>& perm) {
   // Permute vector v according to permutation perm.
   std::vector<T> new_v(v.size());
-  for (int i = 0; i < v.size(); ++i) {
+  for (Int i = 0; i < v.size(); ++i) {
     new_v[i] = v[perm[i]];
   }
   v = std::move(new_v);
 }
 
 template <typename T>
-void permuteVectorInverse(std::vector<T>& v, const std::vector<int>& iperm) {
+void permuteVectorInverse(std::vector<T>& v, const std::vector<Int>& iperm) {
   // Permute vector v according to inverse permutation iperm.
   std::vector<T> new_v(v.size());
-  for (int i = 0; i < v.size(); ++i) {
+  for (Int i = 0; i < v.size(); ++i) {
     new_v[iperm[i]] = v[i];
   }
   v = std::move(new_v);

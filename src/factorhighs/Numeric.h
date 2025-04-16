@@ -6,13 +6,14 @@
 
 #include "SolveHandler.h"
 #include "Symbolic.h"
+#include "auxiliary/IntConfig.h"
 
 class Numeric {
   // columns of factorization, stored by supernode
   std::vector<std::vector<double>> sn_columns_{};
 
   // swaps of columns for each supernode, ordered locally within a block
-  std::vector<std::vector<int>> swaps_{};
+  std::vector<std::vector<Int>> swaps_{};
 
   // information about 2x2 pivots
   std::vector<std::vector<double>> pivot_2x2_{};
@@ -24,8 +25,8 @@ class Numeric {
   std::unique_ptr<SolveHandler> SH_;
 
   // lower triangle of original matrix, permuted
-  std::vector<int> rowsA_{};
-  std::vector<int> ptrA_{};
+  std::vector<Int> rowsA_{};
+  std::vector<Int> ptrA_{};
   std::vector<double> valA_{};
 
   friend class Factorise;

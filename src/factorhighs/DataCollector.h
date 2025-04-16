@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "Timing.h"
+#include "auxiliary/IntConfig.h"
 
 struct IterData {
   // data of a given ipm iteration
@@ -17,10 +18,10 @@ struct IterData {
   double minL = std::numeric_limits<double>::max();
   double maxL = 0.0;
   double max_reg = 0.0;
-  int n_reg_piv = 0;
-  int n_swap = 0;
-  int n_2x2 = 0;
-  int n_wrong_sign = 0;
+  Int n_reg_piv = 0;
+  Int n_swap = 0;
+  Int n_2x2 = 0;
+  Int n_wrong_sign = 0;
   double max_wrong_sign = 0.0;
 #endif
 
@@ -39,17 +40,17 @@ struct IterData {
   double max_theta;
   double min_prod;
   double max_prod;
-  int num_small_prod;
-  int num_large_prod;
+  Int num_small_prod;
+  Int num_large_prod;
   double sigma_aff;
   double sigma;
-  int correctors;
+  Int correctors;
   double omega{};
   double nw_back_err{};
   double cw_back_err{};
   double M_norm1;
   double M_maxdiag;
-  int num_solves = 0;
+  Int num_solves = 0;
 
   // extremes
   double min_xl = std::numeric_limits<double>::max();
@@ -84,13 +85,13 @@ struct IterData {
 class DataCollector {
   // Record of times and BLAS calls
   std::vector<double> times_{};
-  std::vector<int> blas_calls_{};
-  int total_solves_{};
+  std::vector<Int> blas_calls_{};
+  Int total_solves_{};
 
   // Symbolic factorization statistics
-  int n_{};
+  Int n_{};
   double nz_{};
-  int sn_{};
+  Int sn_{};
   double fillin_{};
   double dense_ops_{};
   double sparse_ops_{};
@@ -98,11 +99,11 @@ class DataCollector {
   double artificial_nz_{};
   double artificial_ops_{};
   double serial_storage_{};
-  int largest_front_{};
-  int largest_sn_{};
-  int sn_size_1_{};
-  int sn_size_10_{};
-  int sn_size_100_{};
+  Int largest_front_{};
+  Int largest_sn_{};
+  Int sn_size_1_{};
+  Int sn_size_10_{};
+  Int sn_size_100_{};
 
   // record of data of ipm iterations
   std::vector<IterData> iter_data_record_{};

@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "Symbolic.h"
+#include "auxiliary/IntConfig.h"
 
 // Interface class to handle different formats of dense matrices during the
 // solve phase.

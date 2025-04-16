@@ -1,8 +1,8 @@
 #include "IpmModel.h"
 
-void IpmModel::init(const int num_var, const int num_con, const double* obj,
+void IpmModel::init(const Int num_var, const Int num_con, const double* obj,
                     const double* rhs, const double* lower, const double* upper,
-                    const int* A_ptr, const int* A_rows, const double* A_vals,
+                    const Int* A_ptr, const Int* A_rows, const double* A_vals,
                     const char* constraints, double offset,
                     const std::string& pb_name) {
   // copy the input into the model
@@ -26,11 +26,11 @@ void IpmModel::init(const int num_var, const int num_con, const double* obj,
   lower_ = std::vector<double>(lower, lower + n_);
   upper_ = std::vector<double>(upper, upper + n_);
 
-  int Annz = A_ptr[n_];
+  Int Annz = A_ptr[n_];
   A_.num_col_ = n_;
   A_.num_row_ = m_;
-  A_.start_ = std::vector<int>(A_ptr, A_ptr + n_ + 1);
-  A_.index_ = std::vector<int>(A_rows, A_rows + Annz);
+  A_.start_ = std::vector<Int>(A_ptr, A_ptr + n_ + 1);
+  A_.index_ = std::vector<Int>(A_rows, A_rows + Annz);
   A_.value_ = std::vector<double>(A_vals, A_vals + Annz);
 
   constraints_ = std::vector<char>(constraints, constraints + m_);
@@ -53,23 +53,23 @@ void IpmModel::preprocess() {
   // ==========================================
 
   // find empty rows
-  std::vector<int> entries_per_row(m_, 0);
-  for (int col = 0; col < n_; ++col) {
-    for (int el = A_.start_[col]; el < A_.start_[col + 1]; ++el) {
-      const int row = A_.index_[el];
+  std::vector<Int> entries_per_row(m_, 0);
+  for (Int col = 0; col < n_; ++col) {
+    for (Int el = A_.start_[col]; el < A_.start_[col + 1]; ++el) {
+      const Int row = A_.index_[el];
       ++entries_per_row[row];
     }
   }
 
   rows_shift_.assign(m_, 0);
-  int empty_rows{};
-  for (int i = 0; i < m_; ++i) {
+  Int empty_rows{};
+  for (Int i = 0; i < m_; ++i) {
     if (entries_per_row[i] == 0) {
       // count number of empty rows
       ++empty_rows;
 
       // count how many empty rows there are before a given row
-      for (int j = i + 1; j < m_; ++j) ++rows_shift_[j];
+      for (Int j = i + 1; j < m_; ++j) ++rows_shift_[j];
 
       rows_shift_[i] = -1;
     }
@@ -77,20 +77,20 @@ void IpmModel::preprocess() {
 
   if (empty_rows > 0) {
     // shift each row index by the number of empty rows before it
-    for (int col = 0; col < n_; ++col) {
-      for (int el = A_.start_[col]; el < A_.start_[col + 1]; ++el) {
-        const int row = A_.index_[el];
+    for (Int col = 0; col < n_; ++col) {
+      for (Int el = A_.start_[col]; el < A_.start_[col + 1]; ++el) {
+        const Int row = A_.index_[el];
         A_.index_[el] -= rows_shift_[row];
       }
     }
     A_.num_row_ -= empty_rows;
 
     // shift entries in b and constraints
-    for (int i = 0; i < m_; ++i) {
+    for (Int i = 0; i < m_; ++i) {
       // ignore entries to be removed
       if (rows_shift_[i] == -1) continue;
 
-      int shifted_pos = i - rows_shift_[i];
+      Int shifted_pos = i - rows_shift_[i];
       b_[shifted_pos] = b_[i];
       constraints_[shifted_pos] = constraints_[i];
     }
@@ -112,9 +112,9 @@ void IpmModel::postprocess(std::vector<double>& slack,
   std::vector<double> new_slack(rows_shift_.size(), 0.0);
 
   // position to read from y and slack
-  int pos{};
+  Int pos{};
 
-  for (int i = 0; i < rows_shift_.size(); ++i) {
+  for (Int i = 0; i < rows_shift_.size(); ++i) {
     // ignore shift of empty rows, they will receive a value of 0
     if (rows_shift_[i] == -1) continue;
 
@@ -131,9 +131,9 @@ void IpmModel::postprocess(std::vector<double>& slack,
 void IpmModel::reformulate() {
   // put the model into correct formulation
 
-  int Annz = A_.numNz();
+  Int Annz = A_.numNz();
 
-  for (int i = 0; i < m_; ++i) {
+  for (Int i = 0; i < m_; ++i) {
     if (constraints_[i] != '=') {
       // inequality constraint, add slack variable
 
@@ -152,7 +152,7 @@ void IpmModel::reformulate() {
       c_.push_back(0.0);
 
       // add column of identity to A_
-      std::vector<int> temp_ind{i};
+      std::vector<Int> temp_ind{i};
       std::vector<double> temp_val{1.0};
       A_.addVec(1, temp_ind.data(), temp_val.data());
 
@@ -166,8 +166,8 @@ void IpmModel::checkCoefficients() const {
   // compute max and min entry of A in absolute value
   double Amin = kHighsInf;
   double Amax = 0.0;
-  for (int col = 0; col < A_.num_col_; ++col) {
-    for (int el = A_.start_[col]; el < A_.start_[col + 1]; ++el) {
+  for (Int col = 0; col < A_.num_col_; ++col) {
+    for (Int el = A_.start_[col]; el < A_.start_[col + 1]; ++el) {
       double val = std::abs(A_.value_[el]);
       if (val != 0.0) {
         Amin = std::min(Amin, val);
@@ -180,7 +180,7 @@ void IpmModel::checkCoefficients() const {
   // compute max and min entry of c
   double cmin = kHighsInf;
   double cmax = 0.0;
-  for (int i = 0; i < n_; ++i) {
+  for (Int i = 0; i < n_; ++i) {
     if (c_[i] != 0.0) {
       cmin = std::min(cmin, std::abs(c_[i]));
       cmax = std::max(cmax, std::abs(c_[i]));
@@ -191,7 +191,7 @@ void IpmModel::checkCoefficients() const {
   // compute max and min entry of b
   double bmin = kHighsInf;
   double bmax = 0.0;
-  for (int i = 0; i < m_; ++i) {
+  for (Int i = 0; i < m_; ++i) {
     if (b_[i] != 0.0) {
       bmin = std::min(bmin, std::abs(b_[i]));
       bmax = std::max(bmax, std::abs(b_[i]));
@@ -202,7 +202,7 @@ void IpmModel::checkCoefficients() const {
   // compute max and min for bounds
   double boundmin = kHighsInf;
   double boundmax = 0.0;
-  for (int i = 0; i < n_; ++i) {
+  for (Int i = 0; i < n_; ++i) {
     if (lower_[i] != 0.0 && std::isfinite(lower_[i])) {
       boundmin = std::min(boundmin, std::abs(lower_[i]));
       boundmax = std::max(boundmax, std::abs(lower_[i]));
@@ -218,11 +218,11 @@ void IpmModel::checkCoefficients() const {
   double scalemin = kHighsInf;
   double scalemax = 0.0;
   if (scaled()) {
-    for (int i = 0; i < n_; ++i) {
+    for (Int i = 0; i < n_; ++i) {
       scalemin = std::min(scalemin, colscale_[i]);
       scalemax = std::max(scalemax, colscale_[i]);
     }
-    for (int i = 0; i < m_; ++i) {
+    for (Int i = 0; i < m_; ++i) {
       scalemin = std::min(scalemin, rowscale_[i]);
       scalemax = std::max(scalemax, rowscale_[i]);
     }
@@ -249,8 +249,8 @@ void IpmModel::scale() {
 
   // check if scaling is needed
   bool need_scaling = false;
-  for (int col = 0; col < n_; ++col) {
-    for (int el = A_.start_[col]; el < A_.start_[col + 1]; ++el) {
+  for (Int col = 0; col < n_; ++col) {
+    for (Int el = A_.start_[col]; el < A_.start_[col + 1]; ++el) {
       if (std::abs(A_.value_[el]) != 1.0) {
         need_scaling = true;
         break;
@@ -273,15 +273,15 @@ void IpmModel::scale() {
   // where R is row scaling, C is col scaling.
 
   // Compute exponents for CR scaling of matrix A
-  std::vector<int> colexp(n_);
-  std::vector<int> rowexp(m_);
+  std::vector<Int> colexp(n_);
+  std::vector<Int> rowexp(m_);
   CurtisReidScaling(A_.start_, A_.index_, A_.value_, rowexp, colexp);
 
   // Compute scaling from exponents
   colscale_.resize(n_);
   rowscale_.resize(m_);
-  for (int i = 0; i < n_; ++i) colscale_[i] = std::ldexp(1.0, colexp[i]);
-  for (int i = 0; i < m_; ++i) rowscale_[i] = std::ldexp(1.0, rowexp[i]);
+  for (Int i = 0; i < n_; ++i) colscale_[i] = std::ldexp(1.0, colexp[i]);
+  for (Int i = 0; i < m_; ++i) rowscale_[i] = std::ldexp(1.0, rowexp[i]);
 
   // *********************************************************************
   // Apply scaling
@@ -289,19 +289,19 @@ void IpmModel::scale() {
 
   // Column has been scaled up by colscale_[col], so cost is scaled up and
   // bounds are scaled down
-  for (int col = 0; col < n_; ++col) {
+  for (Int col = 0; col < n_; ++col) {
     c_[col] *= colscale_[col];
     lower_[col] /= colscale_[col];
     upper_[col] /= colscale_[col];
   }
 
   // Row has been scaled up by rowscale_[row], so b is scaled up
-  for (int row = 0; row < m_; ++row) b_[row] *= rowscale_[row];
+  for (Int row = 0; row < m_; ++row) b_[row] *= rowscale_[row];
 
   // Each entry of the matrix is scaled by the corresponding row and col factor
-  for (int col = 0; col < n_; ++col) {
-    for (int el = A_.start_[col]; el < A_.start_[col + 1]; ++el) {
-      int row = A_.index_[el];
+  for (Int col = 0; col < n_; ++col) {
+    for (Int el = A_.start_[col]; el < A_.start_[col + 1]; ++el) {
+      Int row = A_.index_[el];
       A_.value_[el] *= rowscale_[row];
       A_.value_[el] *= colscale_[col];
     }
@@ -315,21 +315,21 @@ void IpmModel::unscale(std::vector<double>& x, std::vector<double>& xl,
   // Undo the scaling with internal format
 
   if (scaled()) {
-    for (int i = 0; i < n_orig_; ++i) {
+    for (Int i = 0; i < n_orig_; ++i) {
       x[i] *= colscale_[i];
       xl[i] *= colscale_[i];
       xu[i] *= colscale_[i];
       zl[i] /= colscale_[i];
       zu[i] /= colscale_[i];
     }
-    for (int i = 0; i < m_; ++i) {
+    for (Int i = 0; i < m_; ++i) {
       y[i] *= rowscale_[i];
       slack[i] /= rowscale_[i];
     }
   }
 
   // set variables that were ignored
-  for (int i = 0; i < n_orig_; ++i) {
+  for (Int i = 0; i < n_orig_; ++i) {
     if (!hasLb(i)) {
       xl[i] = kHighsInf;
       zl[i] = 0.0;
@@ -346,11 +346,11 @@ void IpmModel::unscale(std::vector<double>& x, std::vector<double>& slack,
   // Undo the scaling with format for crossover
 
   if (scaled()) {
-    for (int i = 0; i < n_orig_; ++i) {
+    for (Int i = 0; i < n_orig_; ++i) {
       x[i] *= colscale_[i];
       z[i] /= colscale_[i];
     }
-    for (int i = 0; i < m_; ++i) {
+    for (Int i = 0; i < m_; ++i) {
       y[i] *= rowscale_[i];
       slack[i] /= rowscale_[i];
     }
@@ -370,7 +370,7 @@ double IpmModel::normScaledObj() const { return infNorm(c_); }
 
 double IpmModel::normUnscaledObj() const {
   double norm_obj = 0.0;
-  for (int i = 0; i < n_; ++i) {
+  for (Int i = 0; i < n_; ++i) {
     double val = std::abs(c_[i]);
     if (scaled()) val /= colscale_[i];
     norm_obj = std::max(norm_obj, val);
@@ -380,12 +380,12 @@ double IpmModel::normUnscaledObj() const {
 
 double IpmModel::normUnscaledRhs() const {
   double norm_rhs = 0.0;
-  for (int i = 0; i < m_; ++i) {
+  for (Int i = 0; i < m_; ++i) {
     double val = std::abs(b_[i]);
     if (scaled()) val /= rowscale_[i];
     norm_rhs = std::max(norm_rhs, val);
   }
-  for (int i = 0; i < n_; ++i) {
+  for (Int i = 0; i < n_; ++i) {
     if (std::isfinite(lower_[i])) {
       double val = std::abs(lower_[i]);
       if (scaled()) val *= colscale_[i];
@@ -400,8 +400,8 @@ double IpmModel::normUnscaledRhs() const {
   return norm_rhs;
 }
 
-int IpmModel::loadIntoIpx(ipx::LpSolver& lps) const {
-  int load_status = lps.LoadModel(
+Int IpmModel::loadIntoIpx(ipx::LpSolver& lps) const {
+  Int load_status = lps.LoadModel(
       n_orig_, offset_, c_orig_, lower_orig_, upper_orig_, m_orig_, A_ptr_orig_,
       A_rows_orig_, A_vals_orig_, b_orig_, constraints_orig_);
 

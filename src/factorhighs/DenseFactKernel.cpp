@@ -8,15 +8,15 @@
 
 // Dense Factorization kernel
 
-std::pair<int, double> maxInCol(int j, int n, int m, double* A, int lda) {
+std::pair<Int, double> maxInCol(Int j, Int n, Int m, double* A, Int lda) {
   // Given the symemtric matrix A, of size nxn, accessed with leading dimension
   // lda, in upper triangular format, ignoring rows 0:j-1, find the maximum in
   // row/col m.
 
   double maxval = -1.0;
-  int r = -1;
+  Int r = -1;
   // scan column m, rows j:m-1
-  for (int row = j; row < m; ++row) {
+  for (Int row = j; row < m; ++row) {
     double val = std::abs(A[row + lda * m]);
     if (val > maxval) {
       maxval = val;
@@ -24,7 +24,7 @@ std::pair<int, double> maxInCol(int j, int n, int m, double* A, int lda) {
     }
   }
   // scan row m, columns m+1:n
-  for (int col = m + 1; col < n; ++col) {
+  for (Int col = m + 1; col < n; ++col) {
     double val = std::abs(A[m + lda * col]);
     if (val > maxval) {
       maxval = val;
@@ -34,7 +34,7 @@ std::pair<int, double> maxInCol(int j, int n, int m, double* A, int lda) {
   return {r, maxval};
 }
 
-void staticReg(double& pivot, int sign, double& regul) {
+void staticReg(double& pivot, Int sign, double& regul) {
   // apply static regularization
 
   double old_pivot = pivot;
@@ -45,8 +45,8 @@ void staticReg(double& pivot, int sign, double& regul) {
   regul = pivot - old_pivot;
 }
 
-bool blockBunchKaufman(int j, int n, double* A, int lda, int* swaps, int* sign,
-                       double thresh, double* regul, int sn, int bl,
+bool blockBunchKaufman(Int j, Int n, double* A, Int lda, Int* swaps, Int* sign,
+                       double thresh, double* regul, Int sn, Int bl,
                        double max_in_R) {
   // Perform Bunch-Kaufman pivoting within a block of the supernode (see Schenk,
   // Gartner, ETNA 2006).
@@ -79,9 +79,9 @@ bool blockBunchKaufman(int j, int n, double* A, int lda, int* swaps, int* sign,
 
 #if 1
   // Find largest diagonal entry in the residual part of the block
-  int ind_max_diag = -1;
+  Int ind_max_diag = -1;
   double max_diag = -1.0;
-  for (int i = j; i < n; ++i) {
+  for (Int i = j; i < n; ++i) {
     double val = std::abs(A[i + lda * i]);
     if (val > max_diag) {
       max_diag = val;
@@ -97,7 +97,7 @@ bool blockBunchKaufman(int j, int n, double* A, int lda, int* swaps, int* sign,
   // Max in column j of diagonal block
   auto res = maxInCol(j, n, j, A, lda);
   double gamma_j = res.second;
-  int r = res.first;
+  Int r = res.first;
   double Ajj = sign[j] > 0 ? A[j + lda * j] + kDualStaticRegularization
                            : A[j + lda * j] - kPrimalStaticRegularization;
 
@@ -168,9 +168,9 @@ bool blockBunchKaufman(int j, int n, double* A, int lda, int* swaps, int* sign,
   return flag_2x2;
 }
 
-double regularizePivot(double pivot, double thresh, const int* sign,
-                       const double* A, int lda, int j, int n, char uplo,
-                       int sn, int bl) {
+double regularizePivot(double pivot, double thresh, const Int* sign,
+                       const double* A, Int lda, Int j, Int n, char uplo,
+                       Int sn, Int bl) {
   // add static regularization
   if (sign[j] == 1)
     pivot += kDualStaticRegularization;
@@ -225,7 +225,7 @@ double regularizePivot(double pivot, double thresh, const int* sign,
     // p \ge b_k^2 / (d_k - thresh)
     //
     double required_pivot = pivot;
-    for (int k = j + 1; k < n; ++k) {
+    for (Int k = j + 1; k < n; ++k) {
       double bk = uplo == 'L' ? A[k + j * lda] : A[j + k * lda];
       double dk = A[k + k * lda];
 
@@ -264,9 +264,9 @@ double regularizePivot(double pivot, double thresh, const int* sign,
   return pivot;
 }
 
-int denseFactK(char uplo, int n, double* A, int lda, int* pivot_sign,
-               double thresh, double* regul, int* swaps, double* pivot_2x2,
-               int sn, int bl, double max_in_R) {
+Int denseFactK(char uplo, Int n, double* A, Int lda, Int* pivot_sign,
+               double thresh, double* regul, Int* swaps, double* pivot_2x2,
+               Int sn, Int bl, double max_in_R) {
   // ===========================================================================
   // Factorization kernel
   // Matrix A is in format F
@@ -295,7 +295,7 @@ int denseFactK(char uplo, int n, double* A, int lda, int* pivot_sign,
     // allocate space for copy of col
     std::vector<double> temp(n - 1);
 
-    for (int j = 0; j < n; ++j) {
+    for (Int j = 0; j < n; ++j) {
       // diagonal element
       double Ajj = A[j + lda * j];
 
@@ -314,7 +314,7 @@ int denseFactK(char uplo, int n, double* A, int lda, int* pivot_sign,
       // save diagonal element
       A[j + lda * j] = Ajj;
 
-      const int M = n - j - 1;
+      const Int M = n - j - 1;
       if (M > 0) {
         // make copy of column
         callAndTime_dcopy(M, &A[j + 1 + j * lda], 1, temp.data(), 1);
@@ -339,15 +339,15 @@ int denseFactK(char uplo, int n, double* A, int lda, int* pivot_sign,
     }
 
     // initialize order of pivots
-    for (int i = 0; i < n; ++i) swaps[i] = i;
+    for (Int i = 0; i < n; ++i) swaps[i] = i;
 
     // allocate space for copy of col(s)
     std::vector<double> temp(n - 1);
     std::vector<double> temp2(n - 1);
 
-    int step = 1;
+    Int step = 1;
 
-    for (int j = 0; j < n; j += step) {
+    for (Int j = 0; j < n; j += step) {
       bool flag_2x2 = false;
 
 #ifdef PIVOTING
@@ -382,7 +382,7 @@ int denseFactK(char uplo, int n, double* A, int lda, int* pivot_sign,
         // save reciprocal of pivot
         A[j + lda * j] = 1.0 / Ajj;
 
-        const int M = n - j - 1;
+        const Int M = n - j - 1;
         if (M > 0) {
           // make copy of row
           callAndTime_dcopy(M, &A[j + (j + 1) * lda], lda, temp.data(), 1);
@@ -422,7 +422,7 @@ int denseFactK(char uplo, int n, double* A, int lda, int* pivot_sign,
         A[j + 1 + lda * (j + 1)] = i_d2;
         pivot_2x2[j] = i_off;
 
-        const int M = n - j - 2;
+        const Int M = n - j - 2;
         if (M > 0) {
           double* r1 = &A[j + (j + 2) * lda];
           double* r2 = &A[j + 1 + (j + 2) * lda];

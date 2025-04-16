@@ -71,9 +71,9 @@ int main(int argc, char** argv) {
   // ===================================================================================
 
   clock.start();
-  int n, m;
+  Int n, m;
   std::vector<double> obj, rhs, lower, upper, Aval;
-  std::vector<int> Aptr, Aind;
+  std::vector<Int> Aptr, Aind;
   std::vector<char> constraints;
   double offset;
 

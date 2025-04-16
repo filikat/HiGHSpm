@@ -6,6 +6,7 @@
 #include "Numeric.h"
 #include "auxiliary/KrylovMethods.h"
 #include "util/HighsSparseMatrix.h"
+#include "auxiliary/IntConfig.h"
 
 
 // Class to perform matrix-vector products with ipm matrix

@@ -2,6 +2,7 @@
 #define HIGHSPM_KRYLOV_METHODS_H
 
 #include <vector>
+#include "auxiliary/IntConfig.h"
 
 // Abstract class for matrices inside of a Krylov method
 class AbstractMatrix {
@@ -13,12 +14,12 @@ class AbstractMatrix {
 // Krylov solvers
 // =================
 
-int Gmres(const AbstractMatrix* M, const AbstractMatrix* P,
+Int Gmres(const AbstractMatrix* M, const AbstractMatrix* P,
           const std::vector<double>& b, std::vector<double>& x, double tol,
-          int maxit);
+          Int maxit);
 
-int Cg(const AbstractMatrix* M, const AbstractMatrix* P,
+Int Cg(const AbstractMatrix* M, const AbstractMatrix* P,
        const std::vector<double>& b, std::vector<double>& x, double tol,
-       int maxit);
+       Int maxit);
 
 #endif

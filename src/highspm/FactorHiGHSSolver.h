@@ -4,6 +4,7 @@
 #include <algorithm>
 
 #include "LinearSolver.h"
+#include "auxiliary/IntConfig.h"
 #include "factorhighs/FactorHiGHS.h"
 
 class FactorHiGHSSolver : public LinearSolver {
@@ -20,23 +21,23 @@ class FactorHiGHSSolver : public LinearSolver {
   FactorHiGHSSolver(const Options& options);
 
   // Override functions
-  int factorAS(const HighsSparseMatrix& A,
+  Int factorAS(const HighsSparseMatrix& A,
                const std::vector<double>& scaling) override;
-  int factorNE(const HighsSparseMatrix& A,
+  Int factorNE(const HighsSparseMatrix& A,
                const std::vector<double>& scaling) override;
-  int solveNE(const std::vector<double>& rhs,
+  Int solveNE(const std::vector<double>& rhs,
               std::vector<double>& lhs) override;
-  int solveAS(const std::vector<double>& rhs_x,
+  Int solveAS(const std::vector<double>& rhs_x,
               const std::vector<double>& rhs_y, std::vector<double>& lhs_x,
               std::vector<double>& lhs_y) override;
-  int setup(const HighsSparseMatrix& A, Options& options) override;
+  Int setup(const HighsSparseMatrix& A, Options& options) override;
   void clear() override;
   void finalise() override;
   double flops() const override;
   double spops() const override;
   double nz() const override;
 
-  int choose(const HighsSparseMatrix& A, Options& options);
+  Int choose(const HighsSparseMatrix& A, Options& options);
 };
 
 #endif

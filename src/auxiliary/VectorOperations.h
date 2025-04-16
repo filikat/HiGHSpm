@@ -2,6 +2,7 @@
 #define HIGHSPM_VECTOR_OPERATIONS_H
 
 #include <vector>
+#include "auxiliary/IntConfig.h"
 
 // =======================================================================
 // COMPONENT-WISE VECTOR OPERATIONS

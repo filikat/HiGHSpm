@@ -9,8 +9,8 @@
 // Factorization with "full formats".
 // Kept only for reference, "hybrid formats" should be preferred.
 
-int denseFactF(int n, int k, int nb, double* A, int lda, double* B, int ldb,
-               const int* pivot_sign, double thresh, double* regul, int sn) {
+Int denseFactF(Int n, Int k, Int nb, double* A, Int lda, double* B, Int ldb,
+               const Int* pivot_sign, double thresh, double* regul, Int sn) {
   // ===========================================================================
   // Partial blocked factorization
   // Matrix A is in format F
@@ -35,14 +35,14 @@ int denseFactF(int n, int k, int nb, double* A, int lda, double* B, int ldb,
   std::vector<double> T(k * nb);
 
   // j is the starting col of the block of columns
-  for (int j = 0; j < k; j += nb) {
+  for (Int j = 0; j < k; j += nb) {
     // jb is the size of the block
-    const int jb = std::min(nb, k - j);
+    const Int jb = std::min(nb, k - j);
 
     // sizes for blas calls
-    const int N = jb;
-    const int K = j;
-    const int M = n - j - jb;
+    const Int N = jb;
+    const Int K = j;
+    const Int M = n - j - jb;
 
     // starting position of matrices for BLAS calls
     double* D = &A[j + lda * j];
@@ -50,8 +50,8 @@ int denseFactF(int n, int k, int nb, double* A, int lda, double* B, int ldb,
     const double* Q = &A[j + N];
     double* R = &A[j + N + lda * j];
 
-    int ldt = jb;
-    for (int i = 0; i < j; ++i) {
+    Int ldt = jb;
+    for (Int i = 0; i < j; ++i) {
       callAndTime_dcopy(N, &P[i * lda], 1, &T[i * ldt], 1);
       callAndTime_dscal(N, A[i + i * lda], &T[i * ldt], 1);
     }
@@ -61,10 +61,10 @@ int denseFactF(int n, int k, int nb, double* A, int lda, double* B, int ldb,
                       lda);
 
     // factorize diagonal block
-    std::vector<int> pivot_sign_current(&pivot_sign[j], &pivot_sign[j] + jb);
+    std::vector<Int> pivot_sign_current(&pivot_sign[j], &pivot_sign[j] + jb);
     double* regul_current = &regul[j];
-    int bl = j / nb;
-    int info = denseFactK('L', N, D, lda, pivot_sign_current.data(), thresh,
+    Int bl = j / nb;
+    Int info = denseFactK('L', N, D, lda, pivot_sign_current.data(), thresh,
                           regul_current, nullptr, nullptr, sn, bl);
     if (info != 0) return info;
 
@@ -77,7 +77,7 @@ int denseFactF(int n, int k, int nb, double* A, int lda, double* B, int ldb,
       callAndTime_dtrsm('R', 'L', 'T', 'U', M, N, 1.0, D, lda, R, lda);
 
       // solve block of columns with D
-      for (int i = 0; i < jb; ++i) {
+      for (Int i = 0; i < jb; ++i) {
         const double coeff = 1.0 / D[i + i * lda];
         callAndTime_dscal(M, coeff, &R[lda * i], 1);
       }
@@ -91,12 +91,12 @@ int denseFactF(int n, int k, int nb, double* A, int lda, double* B, int ldb,
 
   // update Schur complement
   if (k < n) {
-    const int N = n - k;
+    const Int N = n - k;
 
     // count number of positive and negative pivots
-    int pos_pivot = 0;
-    int neg_pivot = 0;
-    for (int i = 0; i < k; ++i) {
+    Int pos_pivot = 0;
+    Int neg_pivot = 0;
+    for (Int i = 0; i < k; ++i) {
       if (A[i + lda * i] >= 0.0) {
         ++pos_pivot;
       } else {
@@ -108,12 +108,12 @@ int denseFactF(int n, int k, int nb, double* A, int lda, double* B, int ldb,
     std::vector<double> temp_pos((n - k) * pos_pivot);
     std::vector<double> temp_neg((n - k) * neg_pivot);
 
-    const int ldt = n - k;
+    const Int ldt = n - k;
 
     // the copies of the columns are multiplied by sqrt(|Ajj|)
-    int start_pos = 0;
-    int start_neg = 0;
-    for (int j = 0; j < k; ++j) {
+    Int start_pos = 0;
+    Int start_neg = 0;
+    for (Int j = 0; j < k; ++j) {
       double Ajj = A[j + lda * j];
       if (Ajj >= 0.0) {
         Ajj = sqrt(Ajj);
@@ -146,8 +146,8 @@ int denseFactF(int n, int k, int nb, double* A, int lda, double* B, int ldb,
   return kRetOk;
 }
 
-int denseFactFP(int n, int k, int nb, double* A, double* B,
-                const int* pivot_sign, double thresh, double* regul, int sn) {
+Int denseFactFP(Int n, Int k, Int nb, double* A, double* B,
+                const Int* pivot_sign, double thresh, double* regul, Int sn) {
   // ===========================================================================
   // Partial blocked factorization
   // Matrix A is in format FP
@@ -169,22 +169,22 @@ int denseFactFP(int n, int k, int nb, double* A, double* B,
   if (n == 0) return kRetOk;
 
   // number of blocks of columns
-  const int n_blocks = (k - 1) / nb + 1;
+  const Int n_blocks = (k - 1) / nb + 1;
 
   // start of diagonal blocks
-  std::vector<int> diag_start(n_blocks);
+  std::vector<Int> diag_start(n_blocks);
   getDiagStart(n, k, nb, n_blocks, diag_start);
 
   // buffer for copy of block scaled by pivots
   std::vector<double> T(nb * nb);
 
   // j is the index of the block column
-  for (int j = 0; j < n_blocks; ++j) {
+  for (Int j = 0; j < n_blocks; ++j) {
     // jb is the number of columns
-    const int jb = std::min(nb, k - nb * j);
+    const Int jb = std::min(nb, k - nb * j);
 
     // number of rows left below block j
-    const int M = n - nb * j - jb;
+    const Int M = n - nb * j - jb;
 
     // diagonal block
     double* D = &A[diag_start[j]];
@@ -193,23 +193,23 @@ int denseFactFP(int n, int k, int nb, double* A, double* B,
     double* R = &A[diag_start[j] + jb];
 
     // leading dimensions to access arrays
-    const int ldD = n - j * nb;
-    const int ldR = ldD;
+    const Int ldD = n - j * nb;
+    const Int ldR = ldD;
 
     // update diagonal block and block of columns
-    for (int k = 0; k < j; ++k) {
+    for (Int k = 0; k < j; ++k) {
       // starting position of block P
-      int Pk_pos = diag_start[k] + nb * (j - k);
+      Int Pk_pos = diag_start[k] + nb * (j - k);
       const double* Pk = &A[Pk_pos];
 
       // leading dimensions
-      const int ldP = n - k * nb;
-      const int ldQ = ldP;
-      const int ldT = jb;
+      const Int ldP = n - k * nb;
+      const Int ldQ = ldP;
+      const Int ldT = jb;
 
       // copy block Pk into temp and scale by pivots
       const double* Dk = &A[diag_start[k]];
-      for (int col = 0; col < nb; ++col) {
+      for (Int col = 0; col < nb; ++col) {
         callAndTime_dcopy(jb, &Pk[col * ldP], 1, &T[col * ldT], 1);
         callAndTime_dscal(jb, Dk[col + col * ldP], &T[col * ldT], 1);
       }
@@ -220,7 +220,7 @@ int denseFactFP(int n, int k, int nb, double* A, double* B,
 
       // update rectangular block
       if (M > 0) {
-        const int Qk_pos = Pk_pos + jb;
+        const Int Qk_pos = Pk_pos + jb;
         const double* Qk = &A[Qk_pos];
         callAndTime_dgemm('N', 'T', M, jb, nb, -1.0, Qk, ldQ, T.data(), ldT,
                           1.0, R, ldR);
@@ -229,9 +229,9 @@ int denseFactFP(int n, int k, int nb, double* A, double* B,
 
     // factorize diagonal block
     double* regul_current = &regul[j * nb];
-    std::vector<int> pivot_sign_current(&pivot_sign[j * nb],
+    std::vector<Int> pivot_sign_current(&pivot_sign[j * nb],
                                         &pivot_sign[j * nb] + jb);
-    int info = denseFactK('L', jb, D, ldD, pivot_sign_current.data(), thresh,
+    Int info = denseFactK('L', jb, D, ldD, pivot_sign_current.data(), thresh,
                           regul_current, nullptr, nullptr, sn, j);
     if (info != 0) return info;
 
@@ -240,7 +240,7 @@ int denseFactFP(int n, int k, int nb, double* A, double* B,
       callAndTime_dtrsm('R', 'L', 'T', 'U', M, jb, 1.0, D, ldD, R, ldR);
 
       // scale columns by pivots
-      for (int col = 0; col < jb; ++col) {
+      for (Int col = 0; col < jb; ++col) {
         const double coeff = 1.0 / D[col + col * ldD];
         callAndTime_dscal(M, coeff, &R[col * ldR], 1);
       }
@@ -255,57 +255,57 @@ int denseFactFP(int n, int k, int nb, double* A, double* B,
   // compute Schur complement if partial factorization is required
   if (k < n) {
     // number of rows/columns in the Schur complement
-    const int ns = n - k;
+    const Int ns = n - k;
 
     // size of last full block
-    const int ncol_last = (k % nb == 0 ? nb : k % nb);
+    const Int ncol_last = (k % nb == 0 ? nb : k % nb);
 
     // number of blocks in Schur complement
-    const int s_blocks = (ns - 1) / nb + 1;
+    const Int s_blocks = (ns - 1) / nb + 1;
 
-    int B_start = 0;
+    Int B_start = 0;
 
     // Go through block of columns of Schur complement
-    for (int sb = 0; sb < s_blocks; ++sb) {
+    for (Int sb = 0; sb < s_blocks; ++sb) {
       // number of rows of the block
-      const int nrow = ns - nb * sb;
+      const Int nrow = ns - nb * sb;
 
       // number of columns of the block
-      const int ncol = std::min(nb, nrow);
+      const Int ncol = std::min(nb, nrow);
 
       double* D = &B[B_start];
       double* R = &B[B_start + ncol];
-      const int ldD = nrow;
-      const int ldR = ldD;
+      const Int ldD = nrow;
+      const Int ldR = ldD;
 
       // each block receives contributions from the blocks of the leading part
       // of A
-      for (int j = 0; j < n_blocks; ++j) {
-        const int jb = std::min(nb, k - nb * j);
+      for (Int j = 0; j < n_blocks; ++j) {
+        const Int jb = std::min(nb, k - nb * j);
 
         // compute index to access block Pj
-        const int Pj_pos =
+        const Int Pj_pos =
             diag_start[j] + (n_blocks - j - 1) * jb + ncol_last + sb * nb;
         const double* Pj = &A[Pj_pos];
-        const int ldP = n - j * nb;
-        const int ldT = ncol;
+        const Int ldP = n - j * nb;
+        const Int ldT = ncol;
 
         // copy block Pj into temp and scale by pivots
         const double* Dj = &A[diag_start[j]];
-        for (int col = 0; col < jb; ++col) {
+        for (Int col = 0; col < jb; ++col) {
           callAndTime_dcopy(ncol, &Pj[col * ldP], 1, &T[col * ldT], 1);
           callAndTime_dscal(ncol, Dj[col + col * ldP], &T[col * ldT], 1);
         }
 
         const double* Qj = &A[Pj_pos + ncol];
-        const int ldQ = ldP;
+        const Int ldQ = ldP;
 
         // update diagonal block
         callAndTime_dgemm('N', 'T', ncol, ncol, jb, -1.0, Pj, ldP, T.data(),
                           ldT, 1.0, D, ldD);
 
         // update subdiagonal part
-        const int M = nrow - ncol;
+        const Int M = nrow - ncol;
         if (M > 0) {
           callAndTime_dgemm('N', 'T', M, ncol, jb, -1.0, Qj, ldQ, T.data(), ldT,
                             1.0, R, ldR);

@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "Symbolic.h"
+#include "auxiliary/IntConfig.h"
 
 // Interface class to handle different formats of dense matrices during the
 // factorise phase.
@@ -27,31 +28,31 @@ class FormatHandler {
   const Symbolic* S_;
 
   // supernode being processed
-  const int sn_{};
+  const Int sn_{};
 
   // block size
-  const int nb_{};
+  const Int nb_{};
 
   // size of the supernode
-  const int sn_size_{};
+  const Int sn_size_{};
 
   // size of the front
-  const int ldf_{};
+  const Int ldf_{};
 
   // size of the clique
-  const int ldc_{};
+  const Int ldc_{};
 
   // local copies to be moved at the end
   std::vector<double> frontal_{};
   std::vector<double> clique_{};
   std::vector<double> local_reg_{};
-  std::vector<int> swaps_{};
+  std::vector<Int> swaps_{};
   std::vector<double> pivot_2x2_{};
 
  public:
-  FormatHandler(const Symbolic& S, int sn);
+  FormatHandler(const Symbolic& S, Int sn);
   void terminate(std::vector<double>& frontal, std::vector<double>& clique,
-                 std::vector<double>& total_reg, std::vector<int>& swaps,
+                 std::vector<double>& total_reg, std::vector<Int>& swaps,
                  std::vector<double>& pivot_2x2);
 
   // avoid copies
@@ -67,14 +68,14 @@ class FormatHandler {
   // =================================================================
   virtual void initFrontal() = 0;
   virtual void initClique() = 0;
-  virtual void assembleFrontal(int i, int j, double val) = 0;
-  virtual void assembleFrontalMultiple(int num,
-                                       const std::vector<double>& child, int nc,
-                                       int child_sn, int row, int col, int i,
-                                       int j) = 0;
-  virtual void assembleClique(const std::vector<double>& child, int nc,
-                              int child_sn) = 0;
-  virtual int denseFactorise(double reg_thresh) = 0;
+  virtual void assembleFrontal(Int i, Int j, double val) = 0;
+  virtual void assembleFrontalMultiple(Int num,
+                                       const std::vector<double>& child, Int nc,
+                                       Int child_sn, Int row, Int col, Int i,
+                                       Int j) = 0;
+  virtual void assembleClique(const std::vector<double>& child, Int nc,
+                              Int child_sn) = 0;
+  virtual Int denseFactorise(double reg_thresh) = 0;
 
   // =================================================================
   // Virtual functions.
@@ -83,6 +84,6 @@ class FormatHandler {
   virtual void extremeEntries() {}
 };
 
-const int extra_space = 10;
+const Int extra_space = 10;
 
 #endif

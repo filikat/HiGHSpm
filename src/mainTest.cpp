@@ -43,8 +43,8 @@ int main(int argc, char** argv) {
   std::string problems_path = directory_path + "data/";
 
   Clock clock;
-  int converged{};
-  int total_problems{};
+  Int converged{};
+  Int total_problems{};
 
   std::stringstream ss{};
   ss << std::setw(30) << "Pb name";
@@ -98,9 +98,9 @@ int main(int argc, char** argv) {
     // ===================================================================================
 
     clock1.start();
-    int n, m;
+    Int n, m;
     std::vector<double> obj, rhs, lower, upper, Aval;
-    std::vector<int> Aptr, Aind;
+    std::vector<Int> Aptr, Aind;
     std::vector<char> constraints;
     double offset;
 

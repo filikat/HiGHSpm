@@ -6,9 +6,9 @@
 
 #include "parallel/HighsParallel.h"
 
-void Ipm::load(const int num_var, const int num_con, const double* obj,
+void Ipm::load(const Int num_var, const Int num_con, const double* obj,
                const double* rhs, const double* lower, const double* upper,
-               const int* A_ptr, const int* A_rows, const double* A_vals,
+               const Int* A_ptr, const Int* A_rows, const double* A_vals,
                const char* constraints, double offset,
                const std::string& pb_name, const Options& options) {
   if (!obj || !rhs || !lower || !upper || !A_ptr || !A_rows || !A_vals ||
@@ -142,7 +142,7 @@ bool Ipm::prepareIpx() {
   ipx_param.ipm_optimality_tol = kIpmTolerance;
   ipx_lps_.SetParameters(ipx_param);
 
-  int load_status = model_.loadIntoIpx(ipx_lps_);
+  Int load_status = model_.loadIntoIpx(ipx_lps_);
 
   if (load_status) {
     printf("Error loading model into IPX\n");
@@ -152,7 +152,7 @@ bool Ipm::prepareIpx() {
   std::vector<double> x, xl, xu, slack, y, zl, zu;
   getSolution(x, xl, xu, slack, y, zl, zu);
 
-  int start_point_status = ipx_lps_.LoadIPMStartingPoint(
+  Int start_point_status = ipx_lps_.LoadIPMStartingPoint(
       x.data(), xl.data(), xu.data(), slack.data(), y.data(), zl.data(),
       zu.data());
 
@@ -222,7 +222,7 @@ bool Ipm::solveNewtonSystem(NewtonDir& delta) {
     vectorScale(delta.x, -1.0);
 
     // Deltax = (Theta^-1+Rp)^-1 * Deltax
-    for (int i = 0; i < n_; ++i)
+    for (Int i= 0; i < n_; ++i)
       delta.x[i] /= theta_inv[i] + kPrimalStaticRegularization;
 
   }
@@ -257,7 +257,7 @@ bool Ipm::recoverDirection(NewtonDir& delta) {
   std::vector<double>& res5 = it_->res5;
   std::vector<double>& res6 = it_->res6;
 
-  for (int i = 0; i < n_; ++i) {
+  for (Int i= 0; i < n_; ++i) {
     if (model_.hasLb(i) || model_.hasUb(i)) {
       delta.xl[i] = delta.x[i] - res2[i];
       delta.zl[i] = (res5[i] - zl[i] * delta.xl[i]) / xl[i];
@@ -266,7 +266,7 @@ bool Ipm::recoverDirection(NewtonDir& delta) {
       delta.zl[i] = 0.0;
     }
   }
-  for (int i = 0; i < n_; ++i) {
+  for (Int i= 0; i < n_; ++i) {
     if (model_.hasLb(i) || model_.hasUb(i)) {
       delta.xu[i] = res3[i] - delta.x[i];
       delta.zu[i] = (res6[i] - zu[i] * delta.xu[i]) / xu[i];
@@ -279,7 +279,7 @@ bool Ipm::recoverDirection(NewtonDir& delta) {
   // not sure if this has any effect, but IPX uses it
   std::vector<double> Atdy(n_);
   model_.A().alphaProductPlusY(1.0, delta.y, Atdy, true);
-  for (int i = 0; i < n_; ++i) {
+  for (Int i= 0; i < n_; ++i) {
     if (model_.hasLb(i) || model_.hasUb(i)) {
       if (std::isfinite(xl[i]) && std::isfinite(xu[i])) {
         if (zl[i] * xu[i] >= zu[i] * xl[i])
@@ -312,7 +312,7 @@ bool Ipm::recoverDirection(NewtonDir& delta) {
 double Ipm::stepToBoundary(const std::vector<double>& x,
                            const std::vector<double>& dx,
                            const std::vector<double>* cor, double weight,
-                           bool lo, int* block) const {
+                           bool lo, Int* block) const {
   // Compute the largest alpha s.t. x + alpha * dx >= 0.
   // If cor is valid, consider x + alpha * (dx + w * cor) instead.
   // Use lo=1 for xl and zl, lo=0 for xu and zu.
@@ -321,9 +321,9 @@ double Ipm::stepToBoundary(const std::vector<double>& x,
   const double damp = 1.0 - std::numeric_limits<double>::epsilon();
 
   double alpha = 1.0;
-  int bl = -1;
+  Int bl = -1;
 
-  for (int i = 0; i < x.size(); ++i) {
+  for (Int i= 0; i < x.size(); ++i) {
     if ((lo && model_.hasLb(i)) || (!lo && model_.hasUb(i))) {
       double c = (cor ? (*cor)[i] * weight : 0.0);
       if (x[i] + alpha * (dx[i] + c) < 0.0) {
@@ -342,7 +342,7 @@ void Ipm::stepsToBoundary(double& alpha_primal, double& alpha_dual,
   // compute primal and dual steps to boundary, given direction, corrector and
   // weight.
 
-  int block;
+  Int block;
   double axl = stepToBoundary(it_->xl, delta.xl, cor ? &(cor->xl) : nullptr,
                               weight, true);
   double axu = stepToBoundary(it_->xu, delta.xu, cor ? &(cor->xu) : nullptr,
@@ -374,7 +374,7 @@ void Ipm::stepSizes() {
   const double gamma_a = 1.0 / (1.0 - gamma_f);
 
   // compute stepsizes and blocking components
-  int block_xl, block_xu, block_zl, block_zu;
+  Int block_xl, block_xu, block_zl, block_zu;
   double alpha_xl = stepToBoundary(xl, dxl, nullptr, 0, true, &block_xl);
   double alpha_xu = stepToBoundary(xu, dxu, nullptr, 0, false, &block_xu);
   double alpha_zl = stepToBoundary(zl, dzl, nullptr, 0, true, &block_zl);
@@ -385,8 +385,8 @@ void Ipm::stepSizes() {
 
   // compute mu with current stepsizes
   double mu_full = 0.0;
-  int num_finite = 0;
-  for (int i = 0; i < n_; ++i) {
+  Int num_finite = 0;
+  for (Int i= 0; i < n_; ++i) {
     if (model_.hasLb(i)) {
       mu_full += (xl[i] + max_p * dxl[i]) * (zl[i] + max_d * dzl[i]);
       ++num_finite;
@@ -403,7 +403,7 @@ void Ipm::stepSizes() {
 
   // primal
   double alpha_p = 1.0;
-  int block_p = -1;
+  Int block_p = -1;
   if (max_p < 1.0) {
     if (alpha_xl <= alpha_xu) {
       block_p = block_xl;
@@ -421,7 +421,7 @@ void Ipm::stepSizes() {
 
   // dual
   double alpha_d = 1.0;
-  int block_d = -1;
+  Int block_d = -1;
   if (max_d < 1.0) {
     if (alpha_zl <= alpha_zu) {
       block_d = block_zl;
@@ -482,7 +482,7 @@ void Ipm::startingPoint() {
   // x starting point
   // *********************************************************************
   // compute feasible x
-  for (int i = 0; i < n_; ++i) {
+  for (Int i= 0; i < n_; ++i) {
     x[i] = 0.0;
     x[i] = std::max(x[i], model_.lb(i));
     x[i] = std::min(x[i], model_.ub(i));
@@ -512,7 +512,7 @@ void Ipm::startingPoint() {
     if (LS_->factorAS(model_.A(), temp_scaling)) goto failure;
 
     std::vector<double> rhs_x(n_);
-    for (int i = 0; i < n_; ++i) rhs_x[i] = -x[i];
+    for (Int i= 0; i < n_; ++i) rhs_x[i] = -x[i];
     std::vector<double> lhs_x(n_);
     if (LS_->solveAS(rhs_x, model_.b(), lhs_x, temp_m)) goto failure;
   }
@@ -531,7 +531,7 @@ void Ipm::startingPoint() {
   // compute xl, xu that satisfy linear constraints
   {
     double violation{};
-    for (int i = 0; i < n_; ++i) {
+    for (Int i= 0; i < n_; ++i) {
       if (model_.hasLb(i)) {
         xl[i] = x[i] - model_.lb(i);
         violation = std::min(violation, xl[i]);
@@ -586,7 +586,7 @@ void Ipm::startingPoint() {
   // split result between zl and zu
   {
     double violation = 0.0;
-    for (int i = 0; i < n_; ++i) {
+    for (Int i= 0; i < n_; ++i) {
       double val = zl[i];
       zl[i] = 0.0;
       zu[i] = 0.0;
@@ -607,7 +607,7 @@ void Ipm::startingPoint() {
     // shift to be positive
 
     violation = 1.0 + std::max(0.0, -1.5 * violation);
-    for (int i = 0; i < n_; ++i) {
+    for (Int i= 0; i < n_; ++i) {
       if (model_.hasLb(i)) {
         zl[i] += violation;
       }
@@ -626,7 +626,7 @@ void Ipm::startingPoint() {
     double zsum{1.0};
     double mu{1.0};
 
-    for (int i = 0; i < n_; ++i) {
+    for (Int i= 0; i < n_; ++i) {
       if (model_.hasLb(i)) {
         xsum += xl[i];
         zsum += zl[i];
@@ -644,7 +644,7 @@ void Ipm::startingPoint() {
 
     vectorAdd(xl, dx);
     vectorAdd(xu, dx);
-    for (int i = 0; i < n_; ++i) {
+    for (Int i= 0; i < n_; ++i) {
       if (model_.hasLb(i)) {
         zl[i] += dz;
       }
@@ -716,7 +716,7 @@ void Ipm::residualsMcc() {
   vectorAdd(zut, it_->delta.zu, alpha_d);
 
   // compute right-hand side for mcc
-  for (int i = 0; i < n_; ++i) {
+  for (Int i= 0; i < n_; ++i) {
     // res5
     if (model_.hasLb(i)) {
       double prod = xlt[i] * zlt[i];
@@ -770,7 +770,7 @@ bool Ipm::centralityCorrectors() {
   printf("(%.2f,%.2f) -> ", alpha_p_old, alpha_d_old);
 #endif
 
-  int cor;
+  Int cor;
   for (cor = 0; cor < max_correctors_; ++cor) {
     // compute rhs for corrector
     residualsMcc();
@@ -878,7 +878,7 @@ bool Ipm::checkIterate() {
   }
 
   // check that no component is negative
-  for (int i = 0; i < n_; ++i) {
+  for (Int i= 0; i < n_; ++i) {
     if ((model_.hasLb(i) && it_->xl[i] < 0) ||
         (model_.hasLb(i) && it_->zl[i] < 0) ||
         (model_.hasUb(i) && it_->xu[i] < 0) ||
@@ -951,27 +951,27 @@ void Ipm::backwardError(const NewtonDir& delta) const {
 
   // res2 - dx + dxl
   std::vector<double> r2(n_);
-  for (int i = 0; i < n_; ++i) r2[i] = res2[i] - delta.x[i] + delta.xl[i];
+  for (Int i= 0; i < n_; ++i) r2[i] = res2[i] - delta.x[i] + delta.xl[i];
 
   // res3 - dx - dxu
   std::vector<double> r3(n_);
-  for (int i = 0; i < n_; ++i) r3[i] = res3[i] - delta.x[i] - delta.xu[i];
+  for (Int i= 0; i < n_; ++i) r3[i] = res3[i] - delta.x[i] - delta.xu[i];
 
   // res4 - A^T * dy - dzl + dzu
   std::vector<double> r4(n_);
-  for (int i = 0; i < n_; ++i) r4[i] = res4[i] - delta.zl[i] + delta.zu[i];
+  for (Int i= 0; i < n_; ++i) r4[i] = res4[i] - delta.zl[i] + delta.zu[i];
   model_.A().alphaProductPlusY(-1.0, delta.y, r4, true);
 
   // res5 - Zl * Dxl - Xl * Dzl
   std::vector<double> r5(n_);
-  for (int i = 0; i < n_; ++i) {
+  for (Int i= 0; i < n_; ++i) {
     if (model_.hasLb(i))
       r5[i] = res5[i] - zl[i] * delta.xl[i] - xl[i] * delta.zl[i];
   }
 
   // res6 - Zu * Dxu - Xu * Dzu
   std::vector<double> r6(n_);
-  for (int i = 0; i < n_; ++i) {
+  for (Int i= 0; i < n_; ++i) {
     if (model_.hasUb(i))
       r6[i] = res6[i] - zu[i] * delta.xu[i] - xu[i] * delta.zu[i];
   }
@@ -1008,10 +1008,10 @@ void Ipm::backwardError(const NewtonDir& delta) const {
 
   std::vector<double> norm_cols_A(n_);
   std::vector<double> norm_rows_A(m_);
-  for (int col = 0; col < n_; ++col) {
-    for (int el = model_.A().start_[col]; el < model_.A().start_[col + 1];
+  for (Int col = 0; col < n_; ++col) {
+    for (Int el = model_.A().start_[col]; el < model_.A().start_[col + 1];
          ++el) {
-      int row = model_.A().index_[el];
+      Int row = model_.A().index_[el];
       double val = model_.A().value_[el];
       norm_cols_A[col] += std::abs(val);
       norm_rows_A[row] += std::abs(val);
@@ -1022,7 +1022,7 @@ void Ipm::backwardError(const NewtonDir& delta) const {
 
   double inf_norm_matrix = inf_norm_A;
   inf_norm_matrix = std::max(inf_norm_matrix, one_norm_A + 2);
-  for (int i = 0; i < n_; ++i) {
+  for (Int i= 0; i < n_; ++i) {
     if (model_.hasLb(i))
       inf_norm_matrix = std::max(inf_norm_matrix, zl[i] + xl[i]);
     if (model_.hasUb(i))
@@ -1044,10 +1044,10 @@ void Ipm::backwardError(const NewtonDir& delta) const {
   // Compute |A| * |dx| and |A^T| * |dy|
   std::vector<double> abs_prod_A(m_);
   std::vector<double> abs_prod_At(n_);
-  for (int col = 0; col < n_; ++col) {
-    for (int el = model_.A().start_[col]; el < model_.A().start_[col + 1];
+  for (Int col = 0; col < n_; ++col) {
+    for (Int el = model_.A().start_[col]; el < model_.A().start_[col + 1];
          ++el) {
-      int row = model_.A().index_[el];
+      Int row = model_.A().index_[el];
       double val = model_.A().value_[el];
       abs_prod_A[row] += std::abs(val) * std::abs(delta.x[col]);
       abs_prod_At[col] += std::abs(val) * std::abs(delta.y[row]);
@@ -1059,7 +1059,7 @@ void Ipm::backwardError(const NewtonDir& delta) const {
   double cw_back_err{};
 
   // first block
-  for (int i = 0; i < m_; ++i) {
+  for (Int i= 0; i < m_; ++i) {
     double denom = abs_prod_A[i] + std::abs(res1[i]);
     double num = std::abs(r1[i]);
     if (denom == 0.0) {
@@ -1068,7 +1068,7 @@ void Ipm::backwardError(const NewtonDir& delta) const {
       cw_back_err = std::max(cw_back_err, num / denom);
   }
   // second and third block
-  for (int i = 0; i < n_; ++i) {
+  for (Int i= 0; i < n_; ++i) {
     if (model_.hasLb(i)) {
       double denom =
           std::abs(delta.x[i]) + std::abs(delta.xl[i]) + std::abs(res2[i]);
@@ -1089,7 +1089,7 @@ void Ipm::backwardError(const NewtonDir& delta) const {
     }
   }
   // fourth block
-  for (int i = 0; i < n_; ++i) {
+  for (Int i= 0; i < n_; ++i) {
     double denom = abs_prod_At[i] + std::abs(res4[i]);
     if (model_.hasLb(i)) denom += std::abs(delta.zl[i]);
     if (model_.hasUb(i)) denom += std::abs(delta.zu[i]);
@@ -1100,7 +1100,7 @@ void Ipm::backwardError(const NewtonDir& delta) const {
       cw_back_err = std::max(cw_back_err, num / denom);
   }
   // fifth and sixth block
-  for (int i = 0; i < n_; ++i) {
+  for (Int i= 0; i < n_; ++i) {
     if (model_.hasLb(i)) {
       double denom = zl[i] * std::abs(delta.xl[i]) +
                      xl[i] * std::abs(delta.zl[i]) + std::abs(res5[i]);
@@ -1189,7 +1189,7 @@ void Ipm::collectData() const {
   double& maxdzl = DataCollector::get()->back().max_dzl;
   double& maxdzu = DataCollector::get()->back().max_dzu;
 
-  for (int i = 0; i < n_; ++i) {
+  for (Int i= 0; i < n_; ++i) {
     if (model_.hasLb(i)) {
       minxl = std::min(minxl, std::abs(it_->xl[i]));
       maxxl = std::max(maxxl, std::abs(it_->xl[i]));
@@ -1222,7 +1222,7 @@ void Ipm::collectData() const {
   if (mindzu == std::numeric_limits<double>::max()) mindzu = 0.0;
 }
 
-int Ipm::getIter() const { return iter_; }
+Int Ipm::getIter() const { return iter_; }
 void Ipm::getSolution(std::vector<double>& x, std::vector<double>& xl,
                       std::vector<double>& xu, std::vector<double>& slack,
                       std::vector<double>& y, std::vector<double>& zl,

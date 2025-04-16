@@ -2,6 +2,7 @@
 #define FACTORHIGHS_SYMBOLIC_H
 
 #include <vector>
+#include "auxiliary/IntConfig.h"
 
 // Frontal and Clique can be stored in Full format, Hybrid format, of Packed
 // format (with full diagonal blocks).
@@ -14,13 +15,13 @@ class Symbolic {
   FormatType format_type_;
 
   // Size of blocks for dense factorization
-  int block_size_;
+  Int block_size_;
 
   // Size of the matrix L
-  int n_{};
+  Int n_{};
 
   // Number of supernodes
-  int sn_{};
+  Int sn_{};
 
   // Number of nonzeros and flops in the factor
   double nz_{};
@@ -28,21 +29,21 @@ class Symbolic {
   double spops_{};
 
   // Inverse permutation
-  std::vector<int> iperm_{};
+  std::vector<Int> iperm_{};
 
   // Sparsity pattern of each supernode of L
-  std::vector<int> rows_{};
-  std::vector<int> ptr_{};
+  std::vector<Int> rows_{};
+  std::vector<Int> ptr_{};
 
   // Supernodal elimination tree:
   // - sn_parent_[i] gives the parent of supernode i in the supernodal
   //   elimination tree
-  std::vector<int> sn_parent_{};
+  std::vector<Int> sn_parent_{};
 
   // Supernode initial node:
   // - sn_start_[i] gives the first node in supernode i.
   //   Supernode i is made of nodes from sn_start_[i] to sn_start_[i+1]-1
-  std::vector<int> sn_start_{};
+  std::vector<Int> sn_start_{};
 
   // Relative indices of original columns wrt columns of L.
   // - relind_cols_[i] contains the relative indices of entry i, with respect to
@@ -54,7 +55,7 @@ class Symbolic {
   //   column to which the i-th entry belongs.
   //   This is useful when assemblying the entries of the original matrix into
   //   the frontal matrix.
-  std::vector<int> relind_cols_{};
+  std::vector<Int> relind_cols_{};
 
   // Relative indices of clique wrt parent supernode.
   // - relind_clique_[i] contains the local indices of the nonzero rows of the
@@ -65,7 +66,7 @@ class Symbolic {
   //   of supernode sn_parent_[i].
   //   This is useful when summing the generated elements from supernode i into
   //   supernode sn_parent_[i].
-  std::vector<std::vector<int>> relind_clique_{};
+  std::vector<std::vector<Int>> relind_clique_{};
 
   // Number of consecutive sums that can be done with one BLAS call.
   // - consecutive_sums_[i] contains information about the assembly of supernode
@@ -75,17 +76,17 @@ class Symbolic {
   //   parent, k consecutive indices are found. This means that instead of doing
   //   k individual sums, we can use one single call to daxpy, with k entries
   //   and increment equal to one.
-  std::vector<std::vector<int>> consecutive_sums_{};
+  std::vector<std::vector<Int>> consecutive_sums_{};
 
   // Sign of each pivot (for indefinite factorization)
   // - pivot_sign_[i] = 1  if pivot i is supposed to be positive.
   // - pivot_sign_[i] = -1 is pivot i is supposed to be negative.
   // This is used when regularizing the pivots, to know the sign that the pivot
   // should have.
-  std::vector<int> pivot_sign_{};
+  std::vector<Int> pivot_sign_{};
 
   // Starting position of diagonal blocks for hybrid formats
-  std::vector<std::vector<int>> clique_block_start_{};
+  std::vector<std::vector<Int>> clique_block_start_{};
 
   friend class Analyse;
 
@@ -97,23 +98,23 @@ class Symbolic {
   double nz() const;
   double flops() const;
   double spops() const;
-  int blockSize() const;
-  int size() const;
-  int sn() const;
-  int rows(int i) const;
-  int ptr(int i) const;
-  int snStart(int i) const;
-  int snParent(int i) const;
-  int relindCols(int i) const;
-  int relindClique(int i, int j) const;
-  int consecutiveSums(int i, int j) const;
-  int cliqueBlockStart(int sn, int bl) const;
-  int cliqueSize(int sn) const;
-  const std::vector<int>& ptr() const;
-  const std::vector<int>& iperm() const;
-  const std::vector<int>& snParent() const;
-  const std::vector<int>& snStart() const;
-  const std::vector<int>& pivotSign() const;
+  Int blockSize() const;
+  Int size() const;
+  Int sn() const;
+  Int rows(Int i) const;
+  Int ptr(Int i) const;
+  Int snStart(Int i) const;
+  Int snParent(Int i) const;
+  Int relindCols(Int i) const;
+  Int relindClique(Int i, Int j) const;
+  Int consecutiveSums(Int i, Int j) const;
+  Int cliqueBlockStart(Int sn, Int bl) const;
+  Int cliqueSize(Int sn) const;
+  const std::vector<Int>& ptr() const;
+  const std::vector<Int>& iperm() const;
+  const std::vector<Int>& snParent() const;
+  const std::vector<Int>& snStart() const;
+  const std::vector<Int>& pivotSign() const;
 };
 
 // Explanation of relative indices:

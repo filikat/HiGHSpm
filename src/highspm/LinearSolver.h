@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "Ipm_const.h"
+#include "auxiliary/IntConfig.h"
 #include "auxiliary/VectorOperations.h"
 #include "util/HighsSparseMatrix.h"
 
@@ -46,18 +47,18 @@ class LinearSolver {
   // Pure virtual functions.
   // These need to be defined by any derived class.
   // =================================================================
-  virtual int factorAS(const HighsSparseMatrix& A,
+  virtual Int factorAS(const HighsSparseMatrix& A,
                        const std::vector<double>& scaling) = 0;
 
-  virtual int solveAS(const std::vector<double>& rhs_x,
+  virtual Int solveAS(const std::vector<double>& rhs_x,
                       const std::vector<double>& rhs_y,
                       std::vector<double>& lhs_x,
                       std::vector<double>& lhs_y) = 0;
 
-  virtual int factorNE(const HighsSparseMatrix& A,
+  virtual Int factorNE(const HighsSparseMatrix& A,
                        const std::vector<double>& scaling) = 0;
 
-  virtual int solveNE(const std::vector<double>& rhs,
+  virtual Int solveNE(const std::vector<double>& rhs,
                       std::vector<double>& lhs) = 0;
 
   virtual void clear() = 0;
@@ -66,9 +67,7 @@ class LinearSolver {
   // Virtual functions.
   // These may be overridden by derived classes, if needed.
   // =================================================================
-  virtual int setup(const HighsSparseMatrix& A, Options& options) {
-    return 0;
-  }
+  virtual Int setup(const HighsSparseMatrix& A, Options& options) { return 0; }
 
   virtual void refine(const HighsSparseMatrix& A,
                       const std::vector<double>& scaling,
