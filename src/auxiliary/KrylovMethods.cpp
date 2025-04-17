@@ -1,8 +1,11 @@
 #include "KrylovMethods.h"
 
+#include <cmath>
+#include <iostream>
+
 #include "VectorOperations.h"
 
-namespace highspm{
+namespace highspm {
 
 void applyRotation(double& x, double& y, double c, double s) {
   double t = c * x + s * y;
@@ -188,4 +191,4 @@ Int Cg(const AbstractMatrix* M, const AbstractMatrix* P,
   return iter;
 }
 
-}
+}  // namespace highspm

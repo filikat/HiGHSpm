@@ -1,5 +1,7 @@
 #include "CurtisReidScaling.h"
 
+#include <iostream>
+
 #include "auxiliary/KrylovMethods.h"
 
 namespace highspm {
