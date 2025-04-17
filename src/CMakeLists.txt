@@ -12,11 +12,17 @@ target_compile_options(highspm PRIVATE -O3)
 target_include_directories(highspm PUBLIC ${PROJECT_SOURCE_DIR}/src)
 
 # BLAS
-if(BLAS_LIB)
-    target_link_libraries(highspm PRIVATE "${BLAS_LIB}")
-else(BLAS_LIB)
-    target_link_libraries(highspm PRIVATE "${OPENBLAS_LIB}")
-endif(BLAS_LIB)
+if(APPLE)
+    target_link_libraries(highspm PRIVATE "-framework Accelerate")
+else(APPLE)
+    if(BLAS_LIB)
+        target_link_libraries(highspm PRIVATE "${BLAS_LIB}")
+    elseif(OPENBLAS_LIB)
+        target_link_libraries(highspm PRIVATE "${OPENBLAS_LIB}")
+    else()
+        message(FATAL_ERROR "No BLAS library available")
+    endif(BLAS_LIB)
+endif(APPLE)
 
 # Metis
 target_include_directories(highspm PRIVATE "${METIS_PATH}")
