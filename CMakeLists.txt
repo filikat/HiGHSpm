@@ -8,6 +8,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 # include cmake directory in search path
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+include("find_stuff")
 
 # create main executable
 add_executable(ipm src/main.cpp)
@@ -18,6 +19,7 @@ target_compile_options(ipm PRIVATE -O3 -Wno-deprecated)
 add_subdirectory(src)
 
 target_link_libraries(ipm highspm)
+target_include_directories(ipm PRIVATE "${HIGHS_PATH}/src" "${HIGHS_PATH}/build")
 
 # flags for address sanitizer
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer -fsanitize=address")
@@ -27,6 +29,7 @@ target_link_libraries(ipm highspm)
 add_executable(run_test src/mainTest.cpp)
 target_compile_options(run_test PRIVATE -O3 -Wno-deprecated)
 target_link_libraries(run_test highspm)
+target_include_directories(run_test PRIVATE "${HIGHS_PATH}/src" "${HIGHS_PATH}/build")
 
 # tests
 enable_testing()
