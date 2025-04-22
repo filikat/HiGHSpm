@@ -48,8 +48,8 @@ void FactorData::clear() {
   sn_size_100 = 0.0;
 }
 void CounterData::clear() {
-  times.clear();
-  blas_calls.clear();
+  times.assign(times.size(), 0.0);
+  blas_calls.assign(blas_calls.size(), 0);
   solves = 0;
 }
 
