@@ -77,6 +77,36 @@ struct IterData {
   double d_limit_dz;
 };
 
+struct FactorData {
+  // Symbolic factorization statistics
+  Int n{};
+  double nz{};
+  Int sn{};
+  double fillin{};
+  double dense_ops{};
+  double sparse_ops{};
+  double critical_ops{};
+  double artificial_nz{};
+  double artificial_ops{};
+  double serial_storage{};
+  Int largest_front{};
+  Int largest_sn{};
+  Int sn_size_1{};
+  Int sn_size_10{};
+  Int sn_size_100{};
+
+  void clear();
+};
+
+struct CounterData {
+  // Record of times and BLAS calls
+  std::vector<double> times{};
+  std::vector<Int> blas_calls{};
+  Int solves{};
+
+  void clear();
+};
+
 // DataCollector is a singleton object.
 // Only one copy of it can exist and it does not have a public constructor or
 // destructor.
@@ -85,27 +115,11 @@ struct IterData {
 // Use DataCollector::get()->... to access any non-static member function.
 
 class DataCollector {
-  // Record of times and BLAS calls
-  std::vector<double> times_{};
-  std::vector<Int> blas_calls_{};
-  Int total_solves_{};
+  // Symbolic factorization data
+  FactorData factor_data_;
 
-  // Symbolic factorization statistics
-  Int n_{};
-  double nz_{};
-  Int sn_{};
-  double fillin_{};
-  double dense_ops_{};
-  double sparse_ops_{};
-  double critical_ops_{};
-  double artificial_nz_{};
-  double artificial_ops_{};
-  double serial_storage_{};
-  Int largest_front_{};
-  Int largest_sn_{};
-  Int sn_size_1_{};
-  Int sn_size_10_{};
-  Int sn_size_100_{};
+  // Record of times and BLAS calls
+  CounterData counter_data_;
 
   // record of data of ipm iterations
   std::vector<IterData> iter_data_record_{};
@@ -117,7 +131,9 @@ class DataCollector {
   // Instance of DataCollector
   static DataCollector* ptr_;
 
-  friend class Analyse;
+  // Data that was set aside
+  FactorData saved_factor_data_;
+  CounterData saved_counter_data_;
 
   // Private ctor and dtor
   DataCollector();
@@ -132,6 +148,12 @@ class DataCollector {
   // Manage record of data of iterations
   void append();
   IterData& back();
+
+  // Manage factorization data
+  void saveAndClear();
+  void loadSaved();
+  void clearSaved();
+  FactorData& factorData() { return factor_data_; }
 
   // Functions with lock, they can be accessed simultaneously
   void sumTime(TimeItems i, double t);

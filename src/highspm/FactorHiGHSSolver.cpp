@@ -75,8 +75,6 @@ Int getAS(const HighsSparseMatrix& A, std::vector<Int>& ptr,
 Int FactorHiGHSSolver::setup(const HighsSparseMatrix& A, Options& options) {
   std::vector<Int> ptrLower, rowsLower;
 
-  Int status = kLinearSolverStatusOk;
-
   printf("\n");
 
   // Build the matrix
@@ -84,7 +82,7 @@ Int FactorHiGHSSolver::setup(const HighsSparseMatrix& A, Options& options) {
     case kOptionNlaAugmented: {
       getAS(A, ptrLower, rowsLower);
       Analyse analyse(S_, rowsLower, ptrLower, A.num_col_);
-      if (analyse.run()) status = kLinearSolverStatusErrorAnalyse;
+      if (analyse.run()) return kLinearSolverStatusErrorAnalyse;
       printf("Using augmented system as requested\n");
       break;
     }
@@ -96,13 +94,13 @@ Int FactorHiGHSSolver::setup(const HighsSparseMatrix& A, Options& options) {
         return kLinearSolverStatusErrorOom;
       }
       Analyse analyse(S_, rowsLower, ptrLower, 0);
-      if (analyse.run()) status = kLinearSolverStatusErrorAnalyse;
+      if (analyse.run()) return kLinearSolverStatusErrorAnalyse;
       printf("Using normal equations as requested\n");
       break;
     }
 
     case kOptionNlaChoose: {
-      if (choose(A, options)) status = kLinearSolverStatusErrorAnalyse;
+      if (choose(A, options)) return kLinearSolverStatusErrorAnalyse;
       break;
     }
   }
@@ -338,6 +336,9 @@ Int FactorHiGHSSolver::choose(const HighsSparseMatrix& A, Options& options) {
       Analyse analyse_NE(symb_NE, rowsLower, ptrLower, 0);
       NE_status = analyse_NE.run();
       if (NE_status) failure_NE = true;
+
+      // save data collected for NE and clear record for AS
+      DataCollector::get()->saveAndClear();
     }
   }
 
@@ -355,11 +356,9 @@ Int FactorHiGHSSolver::choose(const HighsSparseMatrix& A, Options& options) {
   // Decision may be forces by failures
   if (failure_NE && !failure_AS) {
     options.nla = kOptionNlaAugmented;
-    S_ = std::move(symb_AS);
     printf("Using augmented system because normal equations failed\n");
   } else if (failure_AS && !failure_NE) {
     options.nla = kOptionNlaNormEq;
-    S_ = std::move(symb_NE);
     printf("Using normal equations because augmented system failed\n");
   } else if (failure_AS && failure_NE) {
     status = kLinearSolverStatusErrorAnalyse;
@@ -389,14 +388,23 @@ Int FactorHiGHSSolver::choose(const HighsSparseMatrix& A, Options& options) {
     if (NE_much_more_expensive ||
         (sn_AS_larger_than_NE && AS_not_too_expensive)) {
       options.nla = kOptionNlaAugmented;
-      S_ = std::move(symb_AS);
-      printf("Using augmented system because it is preferrable: %f %f\n",
-             ratio_ops, ratio_sn);
+      printf("Using augmented system because it is preferrable\n");
     } else {
       options.nla = kOptionNlaNormEq;
+      printf("Using normal equations because it is preferrable\n");
+    }
+  }
+
+  if (status != kLinearSolverStatusErrorAnalyse) {
+    // DataCollector now contains data of AS in main storage and data of NE in
+    // saved storage.
+
+    if (options.nla == kOptionNlaAugmented) {
+      S_ = std::move(symb_AS);
+      DataCollector::get()->clearSaved();
+    } else {
       S_ = std::move(symb_NE);
-      printf("Using normal equations because it is preferrable: %f %f\n",
-             ratio_ops, ratio_sn);
+      DataCollector::get()->loadSaved();
     }
   }
 

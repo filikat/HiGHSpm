@@ -7,8 +7,8 @@ DataCollector* DataCollector::ptr_ = nullptr;
 
 DataCollector::DataCollector() {
 #ifdef DATA_COLLECTION
-  times_.resize(kTimeSize);
-  blas_calls_.resize(kTimeBlasEnd - kTimeBlasStart + 1);
+  counter_data_.times.resize(kTimeSize);
+  counter_data_.blas_calls.resize(kTimeBlasEnd - kTimeBlasStart + 1);
 #endif
 }
 
@@ -30,14 +30,60 @@ IterData& DataCollector::back() {
   return iter_data_record_.back();
 }
 
+void FactorData::clear() {
+  n = 0;
+  nz = 0.0;
+  sn = 0;
+  fillin = 0.0;
+  sparse_ops = 0.0;
+  dense_ops = 0.0;
+  critical_ops = 0.0;
+  artificial_nz = 0.0;
+  artificial_ops = 0.0;
+  serial_storage = 0.0;
+  largest_front = 0.0;
+  largest_sn = 0.0;
+  sn_size_1 = 0.0;
+  sn_size_10 = 0.0;
+  sn_size_100 = 0.0;
+}
+void CounterData::clear() {
+  times.clear();
+  blas_calls.clear();
+  solves = 0;
+}
+
+void DataCollector::saveAndClear() {
+  // Save current factorization and counter data in temporary storage and clear
+  // main data. This is useful if analyse phase of both NE and AS is attempted,
+  // otherwise the data would get corrupted.
+
+  saved_factor_data_ = factor_data_;
+  saved_counter_data_ = counter_data_;
+
+  factor_data_.clear();
+  counter_data_.clear();
+}
+
+void DataCollector::loadSaved() {
+  // Sets the factorization data equal to the one stored in temporary storage.
+  factor_data_ = std::move(saved_factor_data_);
+  counter_data_ = std::move(saved_counter_data_);
+}
+
+void DataCollector::clearSaved() {
+  saved_factor_data_.clear();
+  saved_counter_data_.clear();
+}
+
 void DataCollector::sumTime(TimeItems i, double t) {
 #ifdef DATA_COLLECTION
   // Keep track of times and blas calls.
   std::lock_guard<std::mutex> lock(times_mutex_);
-  times_[i] += t;
+  counter_data_.times[i] += t;
 #ifdef BLAS_TIMING
   if (i >= kTimeBlasStart && i <= kTimeBlasEnd)
-    ++blas_calls_[i - kTimeBlasStart];
+    ++counter_data_.blas_calls[i - kTimeBlasStart];
 #endif
 #endif
 }
@@ -45,7 +91,7 @@ void DataCollector::sumTime(TimeItems i, double t) {
 void DataCollector::countSolves() {
 #ifdef DATA_COLLECTION
   std::lock_guard<std::mutex> lock(times_mutex_);
-  ++total_solves_;
+  ++counter_data_.solves;
   ++back().num_solves;
 #endif
 }
@@ -102,110 +148,114 @@ void DataCollector::setMaxReg(double new_reg) {
 
 void DataCollector::printTimes() const {
 #ifdef COARSE_TIMING
+
+  const std::vector<double>& times = counter_data_.times;
+
   printf("----------------------------------------------------\n");
-  printf("Analyse time            \t%8.4f\n", times_[kTimeAnalyse]);
+  printf("Analyse time            \t%8.4f\n", times[kTimeAnalyse]);
 
 #ifdef FINE_TIMING
   printf("\tMetis:                  %8.4f (%4.1f%%)\n",
-         times_[kTimeAnalyseMetis],
-         times_[kTimeAnalyseMetis] / times_[kTimeAnalyse] * 100);
-  printf("\tTree:                   %8.4f (%4.1f%%)\n",
-         times_[kTimeAnalyseTree],
-         times_[kTimeAnalyseTree] / times_[kTimeAnalyse] * 100);
+         times[kTimeAnalyseMetis],
+         times[kTimeAnalyseMetis] / times[kTimeAnalyse] * 100);
+  printf("\tTree:                   %8.4f (%4.1f%%)\n", times[kTimeAnalyseTree],
+         times[kTimeAnalyseTree] / times[kTimeAnalyse] * 100);
   printf("\tCounts:                 %8.4f (%4.1f%%)\n",
-         times_[kTimeAnalyseCount],
-         times_[kTimeAnalyseCount] / times_[kTimeAnalyse] * 100);
-  printf("\tSupernodes:             %8.4f (%4.1f%%)\n", times_[kTimeAnalyseSn],
-         times_[kTimeAnalyseSn] / times_[kTimeAnalyse] * 100);
+         times[kTimeAnalyseCount],
+         times[kTimeAnalyseCount] / times[kTimeAnalyse] * 100);
+  printf("\tSupernodes:             %8.4f (%4.1f%%)\n", times[kTimeAnalyseSn],
+         times[kTimeAnalyseSn] / times[kTimeAnalyse] * 100);
   printf("\tReorder:                %8.4f (%4.1f%%)\n",
-         times_[kTimeAnalyseReorder],
-         times_[kTimeAnalyseReorder] / times_[kTimeAnalyse] * 100);
+         times[kTimeAnalyseReorder],
+         times[kTimeAnalyseReorder] / times[kTimeAnalyse] * 100);
   printf("\tSn sparsity pattern:    %8.4f (%4.1f%%)\n",
-         times_[kTimeAnalysePattern],
-         times_[kTimeAnalysePattern] / times_[kTimeAnalyse] * 100);
+         times[kTimeAnalysePattern],
+         times[kTimeAnalysePattern] / times[kTimeAnalyse] * 100);
   printf("\tRelative indices:       %8.4f (%4.1f%%)\n",
-         times_[kTimeAnalyseRelInd],
-         times_[kTimeAnalyseRelInd] / times_[kTimeAnalyse] * 100);
+         times[kTimeAnalyseRelInd],
+         times[kTimeAnalyseRelInd] / times[kTimeAnalyse] * 100);
 #endif
 
   printf("----------------------------------------------------\n");
-  printf("Factorise time          \t%8.4f\n", times_[kTimeFactorise]);
+  printf("Factorise time          \t%8.4f\n", times[kTimeFactorise]);
 
 #ifdef FINE_TIMING
   printf("\tPrepare:                %8.4f (%4.1f%%)\n",
-         times_[kTimeFactorisePrepare],
-         times_[kTimeFactorisePrepare] / times_[kTimeFactorise] * 100);
+         times[kTimeFactorisePrepare],
+         times[kTimeFactorisePrepare] / times[kTimeFactorise] * 100);
   printf("\tAssembly original:      %8.4f (%4.1f%%)\n",
-         times_[kTimeFactoriseAssembleOriginal],
-         times_[kTimeFactoriseAssembleOriginal] / times_[kTimeFactorise] * 100);
+         times[kTimeFactoriseAssembleOriginal],
+         times[kTimeFactoriseAssembleOriginal] / times[kTimeFactorise] * 100);
   printf("\tAssemble children in F: %8.4f (%4.1f%%)\n",
-         times_[kTimeFactoriseAssembleChildrenFrontal],
-         times_[kTimeFactoriseAssembleChildrenFrontal] /
-             times_[kTimeFactorise] * 100);
+         times[kTimeFactoriseAssembleChildrenFrontal],
+         times[kTimeFactoriseAssembleChildrenFrontal] / times[kTimeFactorise] *
+             100);
   printf("\tAssemble children in C: %8.4f (%4.1f%%)\n",
-         times_[kTimeFactoriseAssembleChildrenClique],
-         times_[kTimeFactoriseAssembleChildrenClique] / times_[kTimeFactorise] *
+         times[kTimeFactoriseAssembleChildrenClique],
+         times[kTimeFactoriseAssembleChildrenClique] / times[kTimeFactorise] *
              100);
   printf("\tDense factorisation:    %8.4f (%4.1f%%)\n",
-         times_[kTimeFactoriseDenseFact],
-         times_[kTimeFactoriseDenseFact] / times_[kTimeFactorise] * 100);
-  printf("\t\tmain:           %8.4f\n", times_[kTimeDenseFact_main]);
-  printf("\t\tSchur:          %8.4f\n", times_[kTimeDenseFact_schur]);
-  printf("\t\tkernel:         %8.4f\n", times_[kTimeDenseFact_kernel]);
-  printf("\t\tconvert:        %8.4f\n", times_[kTimeDenseFact_convert]);
-  printf("\t\tpivoting:       %8.4f\n", times_[kTimeDenseFact_pivoting]);
+         times[kTimeFactoriseDenseFact],
+         times[kTimeFactoriseDenseFact] / times[kTimeFactorise] * 100);
+  printf("\t\tmain:           %8.4f\n", times[kTimeDenseFact_main]);
+  printf("\t\tSchur:          %8.4f\n", times[kTimeDenseFact_schur]);
+  printf("\t\tkernel:         %8.4f\n", times[kTimeDenseFact_kernel]);
+  printf("\t\tconvert:        %8.4f\n", times[kTimeDenseFact_convert]);
+  printf("\t\tpivoting:       %8.4f\n", times[kTimeDenseFact_pivoting]);
   printf("\tTerminate:              %8.4f (%4.1f%%)\n",
-         times_[kTimeFactoriseTerminate],
-         times_[kTimeFactoriseTerminate] / times_[kTimeFactorise] * 100);
+         times[kTimeFactoriseTerminate],
+         times[kTimeFactoriseTerminate] / times[kTimeFactorise] * 100);
 #endif
 
   printf("----------------------------------------------------\n");
-  printf("Solve time              \t%8.4f (%d calls)\n", times_[kTimeSolve],
-         total_solves_);
+  printf("Solve time              \t%8.4f (%d calls)\n", times[kTimeSolve],
+         counter_data_.solves);
   printf("----------------------------------------------------\n");
 
 #ifdef BLAS_TIMING
 
+  const std::vector<Int>& blas_calls = counter_data_.blas_calls;
+
   double total_blas_time =
-      times_[kTimeBlas_copy] + times_[kTimeBlas_axpy] + times_[kTimeBlas_scal] +
-      times_[kTimeBlas_swap] + times_[kTimeBlas_gemv] + times_[kTimeBlas_trsv] +
-      times_[kTimeBlas_tpsv] + times_[kTimeBlas_ger] + times_[kTimeBlas_trsm] +
-      times_[kTimeBlas_syrk] + times_[kTimeBlas_gemm];
+      times[kTimeBlas_copy] + times[kTimeBlas_axpy] + times[kTimeBlas_scal] +
+      times[kTimeBlas_swap] + times[kTimeBlas_gemv] + times[kTimeBlas_trsv] +
+      times[kTimeBlas_tpsv] + times[kTimeBlas_ger] + times[kTimeBlas_trsm] +
+      times[kTimeBlas_syrk] + times[kTimeBlas_gemm];
 
   printf("BLAS time               \t%8.4f\n", total_blas_time);
   printf("\tcopy:           \t%8.4f (%4.1f%%) in %10d calls\n",
-         times_[kTimeBlas_copy], times_[kTimeBlas_copy] / total_blas_time * 100,
-         blas_calls_[kTimeBlas_copy - kTimeBlasStart]);
+         times[kTimeBlas_copy], times[kTimeBlas_copy] / total_blas_time * 100,
+         blas_calls[kTimeBlas_copy - kTimeBlasStart]);
   printf("\taxpy:           \t%8.4f (%4.1f%%) in %10d calls\n",
-         times_[kTimeBlas_axpy], times_[kTimeBlas_axpy] / total_blas_time * 100,
-         blas_calls_[kTimeBlas_axpy - kTimeBlasStart]);
+         times[kTimeBlas_axpy], times[kTimeBlas_axpy] / total_blas_time * 100,
+         blas_calls[kTimeBlas_axpy - kTimeBlasStart]);
   printf("\tscal:           \t%8.4f (%4.1f%%) in %10d calls\n",
-         times_[kTimeBlas_scal], times_[kTimeBlas_scal] / total_blas_time * 100,
-         blas_calls_[kTimeBlas_scal - kTimeBlasStart]);
+         times[kTimeBlas_scal], times[kTimeBlas_scal] / total_blas_time * 100,
+         blas_calls[kTimeBlas_scal - kTimeBlasStart]);
   printf("\tswap:           \t%8.4f (%4.1f%%) in %10d calls\n",
-         times_[kTimeBlas_swap], times_[kTimeBlas_swap] / total_blas_time * 100,
-         blas_calls_[kTimeBlas_swap - kTimeBlasStart]);
+         times[kTimeBlas_swap], times[kTimeBlas_swap] / total_blas_time * 100,
+         blas_calls[kTimeBlas_swap - kTimeBlasStart]);
   printf("\tgemv:           \t%8.4f (%4.1f%%) in %10d calls\n",
-         times_[kTimeBlas_gemv], times_[kTimeBlas_gemv] / total_blas_time * 100,
-         blas_calls_[kTimeBlas_gemv - kTimeBlasStart]);
+         times[kTimeBlas_gemv], times[kTimeBlas_gemv] / total_blas_time * 100,
+         blas_calls[kTimeBlas_gemv - kTimeBlasStart]);
   printf("\ttrsv:           \t%8.4f (%4.1f%%) in %10d calls\n",
-         times_[kTimeBlas_trsv], times_[kTimeBlas_trsv] / total_blas_time * 100,
-         blas_calls_[kTimeBlas_trsv - kTimeBlasStart]);
+         times[kTimeBlas_trsv], times[kTimeBlas_trsv] / total_blas_time * 100,
+         blas_calls[kTimeBlas_trsv - kTimeBlasStart]);
   printf("\ttpsv:           \t%8.4f (%4.1f%%) in %10d calls\n",
-         times_[kTimeBlas_tpsv], times_[kTimeBlas_tpsv] / total_blas_time * 100,
-         blas_calls_[kTimeBlas_tpsv - kTimeBlasStart]);
+         times[kTimeBlas_tpsv], times[kTimeBlas_tpsv] / total_blas_time * 100,
+         blas_calls[kTimeBlas_tpsv - kTimeBlasStart]);
   printf("\tger:            \t%8.4f (%4.1f%%) in %10d calls\n",
-         times_[kTimeBlas_ger], times_[kTimeBlas_ger] / total_blas_time * 100,
-         blas_calls_[kTimeBlas_ger - kTimeBlasStart]);
+         times[kTimeBlas_ger], times[kTimeBlas_ger] / total_blas_time * 100,
+         blas_calls[kTimeBlas_ger - kTimeBlasStart]);
   printf("\ttrsm:           \t%8.4f (%4.1f%%) in %10d calls\n",
-         times_[kTimeBlas_trsm], times_[kTimeBlas_trsm] / total_blas_time * 100,
-         blas_calls_[kTimeBlas_trsm - kTimeBlasStart]);
+         times[kTimeBlas_trsm], times[kTimeBlas_trsm] / total_blas_time * 100,
+         blas_calls[kTimeBlas_trsm - kTimeBlasStart]);
   printf("\tsyrk:           \t%8.4f (%4.1f%%) in %10d calls\n",
-         times_[kTimeBlas_syrk], times_[kTimeBlas_syrk] / total_blas_time * 100,
-         blas_calls_[kTimeBlas_syrk - kTimeBlasStart]);
+         times[kTimeBlas_syrk], times[kTimeBlas_syrk] / total_blas_time * 100,
+         blas_calls[kTimeBlas_syrk - kTimeBlasStart]);
   printf("\tgemm:           \t%8.4f (%4.1f%%) in %10d calls\n",
-         times_[kTimeBlas_gemm], times_[kTimeBlas_gemm] / total_blas_time * 100,
-         blas_calls_[kTimeBlas_gemm - kTimeBlasStart]);
+         times[kTimeBlas_gemm], times[kTimeBlas_gemm] / total_blas_time * 100,
+         blas_calls[kTimeBlas_gemm - kTimeBlasStart]);
   printf("----------------------------------------------------\n");
 #endif
 #endif
@@ -221,30 +271,32 @@ void printMemory(double mem) {
     printf("%.1f GB\n", mem / 1024 / 1024 / 1024);
 }
 void DataCollector::printSymbolic(bool verbose) const {
-  printf("\nStatistic of Factor L\n");
-  printf("size            : %.2e\n", (double)n_);
-  printf("nnz             : %.2e\n", nz_);
-  printf("fill-in         : %.2f\n", fillin_);
-  printf("serial memory   : ");
-  printMemory(serial_storage_);
+  const FactorData& fd = factor_data_;
 
-  printf("dense  ops      : %.1e\n", dense_ops_);
-  printf("sparse ops      : %.1e\n", sparse_ops_);
-  printf("critical ops    : %.1e\n", critical_ops_);
-  printf("max tree speedup: %.2f\n", dense_ops_ / critical_ops_);
+  printf("\nStatistic of Factor L\n");
+  printf("size            : %.2e\n", (double)fd.n);
+  printf("nnz             : %.2e\n", fd.nz);
+  printf("fill-in         : %.2f\n", fd.fillin);
+  printf("serial memory   : ");
+  printMemory(fd.serial_storage);
+
+  printf("dense  ops      : %.1e\n", fd.dense_ops);
+  printf("sparse ops      : %.1e\n", fd.sparse_ops);
+  printf("critical ops    : %.1e\n", fd.critical_ops);
+  printf("max tree speedup: %.2f\n", fd.dense_ops / fd.critical_ops);
 
   if (verbose) {
-    printf("artificial nz   : %.1e (%.1f%%)\n", artificial_nz_,
-           artificial_nz_ / nz_ * 100);
-    printf("artificial ops  : %.1e (%.1f%%)\n", artificial_ops_,
-           artificial_ops_ / dense_ops_ * 100);
-    printf("largest front   : %5d\n", largest_front_);
-    printf("largest sn      : %5d\n", largest_sn_);
-    printf("supernodes      : %5d\n", sn_);
-    printf("sn size <=   1  : %5d\n", sn_size_1_);
-    printf("sn size <=  10  : %5d\n", sn_size_10_);
-    printf("sn size <= 100  : %5d\n", sn_size_100_);
-    printf("sn avg size     : %5.1f\n", (double)n_ / sn_);
+    printf("artificial nz   : %.1e (%.1f%%)\n", fd.artificial_nz,
+           fd.artificial_nz / fd.nz * 100);
+    printf("artificial ops  : %.1e (%.1f%%)\n", fd.artificial_ops,
+           fd.artificial_ops / fd.dense_ops * 100);
+    printf("largest front   : %5d\n", fd.largest_front);
+    printf("largest sn      : %5d\n", fd.largest_sn);
+    printf("supernodes      : %5d\n", fd.sn);
+    printf("sn size <=   1  : %5d\n", fd.sn_size_1);
+    printf("sn size <=  10  : %5d\n", fd.sn_size_10);
+    printf("sn size <= 100  : %5d\n", fd.sn_size_100);
+    printf("sn avg size     : %5.1f\n", (double)fd.n / fd.sn);
   }
   printf("\n");
 }
