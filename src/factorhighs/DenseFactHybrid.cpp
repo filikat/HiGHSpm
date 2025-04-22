@@ -13,7 +13,7 @@ namespace highspm {
 
 Int denseFactFH(char format, Int n, Int k, Int nb, double* A, double* B,
                 const Int* pivot_sign, double thresh, double* regul, Int* swaps,
-                double* pivot_2x2, Int sn) {
+                double* pivot_2x2, Int sn, bool parnode) {
   // ===========================================================================
   // Partial blocked factorization
   // Matrix A is in format FH
@@ -176,7 +176,11 @@ Int denseFactFH(char format, Int n, Int k, Int nb, double* A, double* B,
         const double* Rjj = &R[offset];
 
         // perform gemm (potentially) in parallel
-        dgemmParallel(P, Rjj, Q, col_jj, jb, row_jj, nb);
+        if (parnode)
+          dgemmParallel(P, Rjj, Q, col_jj, jb, row_jj, nb);
+        else
+          callAndTime_dgemm('T', 'N', col_jj, row_jj, jb, -1.0, P, jb, Rjj, jb,
+                            1.0, Q, col_jj);
 
         offset += jb * col_jj;
       }

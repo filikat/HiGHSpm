@@ -105,6 +105,19 @@ Int FactorHiGHSSolver::setup(const HighsSparseMatrix& A, Options& options) {
     }
   }
 
+  // Set parallel options
+  bool parallel_tree = false;
+  if (options.parallel == kOptionParallelOn ||
+      options.parallel == kOptionParallelTreeOnly)
+    parallel_tree = true;
+
+  bool parallel_node = false;
+  if (options.parallel == kOptionParallelOn ||
+      options.parallel == kOptionParallelNodeOnly)
+    parallel_node = true;
+
+  S_.setParallel(parallel_tree, parallel_node);
+
   DataCollector::get()->printSymbolic(1);
   return kLinearSolverStatusOk;
 }
@@ -322,7 +335,8 @@ Int FactorHiGHSSolver::choose(const HighsSparseMatrix& A, Options& options) {
 
   assert(options.nla == kOptionNlaChoose);
 
-  Symbolic symb_NE, symb_AS;
+  Symbolic symb_NE((FormatType)options.format);
+  Symbolic symb_AS((FormatType)options.format);
   bool failure_NE = false;
   bool failure_AS = false;
 

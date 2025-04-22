@@ -9,8 +9,6 @@
 // SWITCHES
 // ===========================================================================
 
-// #define PARALLEL_TREE
-// #define PARALLEL_NODE
 #define PIVOTING
 #define DATA_COLLECTION
 // #define PRINT_ITER_REF

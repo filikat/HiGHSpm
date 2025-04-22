@@ -1150,13 +1150,10 @@ void Ipm::printInfo() const {
   printf("%.2e rows, %.2e cols, %.2e nnz\n", (double)m_, (double)n_,
          (double)model_.A().numNz());
 
-#if (defined(PARALLEL_TREE) || defined(PARALLEL_NODE))
-  printf("Running on %d threads\n", highs::parallel::num_threads());
-#else
-  printf("Running on 1 thread\n");
-#endif
-
-  printf("\n");
+  if (options_.parallel == kOptionParallelOff)
+    printf("Running on 1 thread\n\n");
+  else
+    printf("Running on %d threads\n\n", highs::parallel::num_threads());
 
   // print range of coefficients
   model_.checkCoefficients();

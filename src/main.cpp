@@ -15,17 +15,20 @@ enum ArgC {
   kOptionNlaArg,
   kOptionFormatArg,
   kOptionCrossoverArg,
+  kOptionParallelArg,
   kMaxArgC
 };
 
 int main(int argc, char** argv) {
   if (argc < kMinArgC || argc > kMaxArgC) {
     std::cerr << "======= How to use: ./ipm LP_name.mps(.gz) nla_option "
-                 "format_option crossover_option =======\n";
-    std::cerr << "nla_option       : 0 aug sys, 1 norm eq\n";
+                 "format_option crossover_option parallel_option =======\n";
+    std::cerr << "nla_option       : 0 aug sys, 1 norm eq, 2 choose\n";
     std::cerr << "format_option    : 0 full, 1 hybrid packed, 2 hybrid hybrid, "
                  "3 packed packed\n";
     std::cerr << "crossover_option : 0 off, 1 on\n";
+    std::cerr << "parallel_option : 0 off, 1 on, 2 choose, 3 tree only, 4 node "
+                 "only\n";
     return 1;
   }
 
@@ -120,6 +123,19 @@ int main(int argc, char** argv) {
               << " for option_crossover: must be in ["
               << highspm::kOptionCrossoverMin << ", "
               << highspm::kOptionCrossoverMax << "]\n";
+    return 1;
+  }
+
+  // option to choose parallel
+  options.parallel = argc > kOptionParallelArg
+                         ? atoi(argv[kOptionParallelArg])
+                         : highspm::kOptionParallelDefault;
+  if (options.parallel < highspm::kOptionParallelMin ||
+      options.parallel > highspm::kOptionParallelMax) {
+    std::cerr << "Illegal value of " << options.parallel
+              << " for option_parallel: must be in ["
+              << highspm::kOptionParallelMin << ", "
+              << highspm::kOptionParallelMax << "]\n";
     return 1;
   }
 

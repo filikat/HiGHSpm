@@ -9,6 +9,11 @@ namespace highspm {
 Symbolic::Symbolic(FormatType format_type)
     : format_type_{format_type}, block_size_{kBlockSize} {}
 
+void Symbolic::setParallel(bool par_tree, bool par_node) {
+  parallel_tree_ = par_tree;
+  parallel_node_ = par_node;
+}
+
 FormatType Symbolic::formatType() const { return format_type_; }
 double Symbolic::nz() const { return nz_; }
 double Symbolic::flops() const { return flops_; }
@@ -31,6 +36,8 @@ Int Symbolic::cliqueBlockStart(Int sn, Int bl) const {
 Int Symbolic::cliqueSize(Int sn) const {
   return clique_block_start_[sn].back();
 }
+bool Symbolic::parTree() const { return parallel_tree_; }
+bool Symbolic::parNode() const { return parallel_node_; }
 
 const std::vector<Int>& Symbolic::ptr() const { return ptr_; }
 const std::vector<Int>& Symbolic::iperm() const { return iperm_; }

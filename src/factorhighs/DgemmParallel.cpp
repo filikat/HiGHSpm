@@ -17,7 +17,6 @@ void dgemmParallelizer::run(Int start, Int end, double beta) const {
 
 void dgemmParallel(const double* P, const double* R, double* Q, Int col, Int jb,
                    Int row, Int nb, double beta) {
-#ifdef PARALLEL_NODE
   // if there is enough work to be done, parallelize
   if (col >= nb / 2 && jb >= nb / 2 && row >= kBlockParallelThreshold * nb) {
     dgemmParallelizer gemmP(P, R, Q, col, jb);
@@ -31,9 +30,6 @@ void dgemmParallel(const double* P, const double* R, double* Q, Int col, Int jb,
   } else {
     callAndTime_dgemm('T', 'N', col, row, jb, -1.0, P, jb, R, jb, beta, Q, col);
   }
-#else
-  callAndTime_dgemm('T', 'N', col, row, jb, -1.0, P, jb, R, jb, beta, Q, col);
-#endif
 }
 
 }  // namespace highspm

@@ -43,7 +43,7 @@ Int denseFactFP(Int n, Int k, Int nb, double* A, double* B,
 // dense partial factorization, in "hybrid formats"
 Int denseFactFH(char format, Int n, Int k, Int nb, double* A, double* B,
                 const Int* pivot_sign, double thresh, double* regul, Int* swaps,
-                double* pivot_2x2, Int sn);
+                double* pivot_2x2, Int sn, bool parnode);
 
 // function to convert A from lower packed, to lower-blocked-hybrid format
 Int denseFactFP2FH(double* A, Int nrow, Int ncol, Int nb);

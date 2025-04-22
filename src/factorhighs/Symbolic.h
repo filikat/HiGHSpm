@@ -17,6 +17,10 @@ class Symbolic {
   // Format
   FormatType format_type_;
 
+  // Options for parallelism
+  bool parallel_tree_ = false;
+  bool parallel_node_ = false;
+
   // Size of blocks for dense factorization
   Int block_size_;
 
@@ -94,7 +98,8 @@ class Symbolic {
   friend class Analyse;
 
  public:
-  Symbolic(FormatType format_type = FormatType::HybridHybrid);
+  Symbolic(FormatType format_type);
+  void setParallel(bool par_tree, bool par_node);
 
   // provide const access to symbolic factorization
   FormatType formatType() const;
@@ -113,6 +118,8 @@ class Symbolic {
   Int consecutiveSums(Int i, Int j) const;
   Int cliqueBlockStart(Int sn, Int bl) const;
   Int cliqueSize(Int sn) const;
+  bool parTree()const;
+  bool parNode() const;
   const std::vector<Int>& ptr() const;
   const std::vector<Int>& iperm() const;
   const std::vector<Int>& snParent() const;

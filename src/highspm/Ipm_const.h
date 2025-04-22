@@ -32,10 +32,22 @@ enum kOptionCrossover {
   kOptionCrossoverDefault = kOptionCrossoverOff
 };
 
+enum kOptionParallel {
+  kOptionParallelMin = 0,
+  kOptionParallelOff = kOptionParallelMin,  // tree off     node off
+  kOptionParallelOn,                        // tree on      node on
+  kOptionParallelChoose,                    // tree choose  node on
+  kOptionParallelTreeOnly,                  // tree on      node off
+  kOptionParallelNodeOnly,                  // tree off     node on
+  kOptionParallelMax = kOptionParallelNodeOnly,
+  kOptionParallelDefault = kOptionParallelChoose
+};
+
 struct Options {
   Int nla = kOptionNlaDefault;
   Int format = kOptionFormatDefault;
   Int crossover = kOptionCrossoverOff;
+  Int parallel = 0;
 };
 
 enum IpmStatus {
