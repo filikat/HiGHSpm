@@ -18,6 +18,7 @@ FormatType Symbolic::formatType() const { return format_type_; }
 double Symbolic::nz() const { return nz_; }
 double Symbolic::flops() const { return flops_; }
 double Symbolic::spops() const { return spops_; }
+double Symbolic::critops() const { return critops_; }
 Int Symbolic::blockSize() const { return block_size_; }
 Int Symbolic::size() const { return n_; }
 Int Symbolic::sn() const { return sn_; }

@@ -34,6 +34,7 @@ class Symbolic {
   double nz_{};
   double flops_{};
   double spops_{};
+  double critops_{};
 
   // Inverse permutation
   std::vector<Int> iperm_{};
@@ -106,6 +107,7 @@ class Symbolic {
   double nz() const;
   double flops() const;
   double spops() const;
+  double critops() const;
   Int blockSize() const;
   Int size() const;
   Int sn() const;

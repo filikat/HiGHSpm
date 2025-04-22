@@ -19,6 +19,10 @@ class FactorHiGHSSolver : public LinearSolver {
   // keep track of whether as or ne is being factorized
   bool use_as_ = true;
 
+  Int choose(const HighsSparseMatrix& A, Options& options);
+  Int setNla(const HighsSparseMatrix& A, Options& options);
+  void setParallel(const Options& options);
+
  public:
   FactorHiGHSSolver(const Options& options);
 
@@ -38,8 +42,6 @@ class FactorHiGHSSolver : public LinearSolver {
   double flops() const override;
   double spops() const override;
   double nz() const override;
-
-  Int choose(const HighsSparseMatrix& A, Options& options);
 };
 
 }  // namespace highspm

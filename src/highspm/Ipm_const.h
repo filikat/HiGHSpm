@@ -46,8 +46,8 @@ enum kOptionParallel {
 struct Options {
   Int nla = kOptionNlaDefault;
   Int format = kOptionFormatDefault;
-  Int crossover = kOptionCrossoverOff;
-  Int parallel = 0;
+  Int crossover = kOptionCrossoverDefault;
+  Int parallel = kOptionParallelDefault;
 };
 
 enum IpmStatus {
@@ -80,6 +80,10 @@ const double kMccIncreaseAlpha = 0.1;
 const double kMccIncreaseMin = 0.1;
 const double kSmallProduct = 1e-3;
 const double kLargeProduct = 1e3;
+
+// parameters for choice of parallelism
+const double kMinTreeSpeedup = 1.5;
+const double kMinParallelOps = 1e7;
 
 // other parameters
 const double kInteriorScaling = 0.999;

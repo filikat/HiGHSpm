@@ -73,50 +73,11 @@ Int getAS(const HighsSparseMatrix& A, std::vector<Int>& ptr,
 }
 
 Int FactorHiGHSSolver::setup(const HighsSparseMatrix& A, Options& options) {
-  std::vector<Int> ptrLower, rowsLower;
-
   printf("\n");
 
-  // Build the matrix
-  switch (options.nla) {
-    case kOptionNlaAugmented: {
-      getAS(A, ptrLower, rowsLower);
-      Analyse analyse(S_, rowsLower, ptrLower, A.num_col_);
-      if (analyse.run()) return kLinearSolverStatusErrorAnalyse;
-      printf("Using augmented system as requested\n");
-      break;
-    }
+  if (Int status = setNla(A, options)) return status;
 
-    case kOptionNlaNormEq: {
-      Int NE_status = getNE(A, ptrLower, rowsLower);
-      if (NE_status) {
-        printf("Failure: AAt is too large\n");
-        return kLinearSolverStatusErrorOom;
-      }
-      Analyse analyse(S_, rowsLower, ptrLower, 0);
-      if (analyse.run()) return kLinearSolverStatusErrorAnalyse;
-      printf("Using normal equations as requested\n");
-      break;
-    }
-
-    case kOptionNlaChoose: {
-      if (choose(A, options)) return kLinearSolverStatusErrorAnalyse;
-      break;
-    }
-  }
-
-  // Set parallel options
-  bool parallel_tree = false;
-  if (options.parallel == kOptionParallelOn ||
-      options.parallel == kOptionParallelTreeOnly)
-    parallel_tree = true;
-
-  bool parallel_node = false;
-  if (options.parallel == kOptionParallelOn ||
-      options.parallel == kOptionParallelNodeOnly)
-    parallel_node = true;
-
-  S_.setParallel(parallel_tree, parallel_node);
+  setParallel(options);
 
   DataCollector::get()->printSymbolic(1);
   return kLinearSolverStatusOk;
@@ -423,6 +384,82 @@ Int FactorHiGHSSolver::choose(const HighsSparseMatrix& A, Options& options) {
   }
 
   return status;
+}
+
+Int FactorHiGHSSolver::setNla(const HighsSparseMatrix& A, Options& options) {
+  std::vector<Int> ptrLower, rowsLower;
+
+  // Build the matrix
+  switch (options.nla) {
+    case kOptionNlaAugmented: {
+      getAS(A, ptrLower, rowsLower);
+      Analyse analyse(S_, rowsLower, ptrLower, A.num_col_);
+      if (analyse.run()) return kLinearSolverStatusErrorAnalyse;
+      printf("Using augmented system as requested\n");
+      break;
+    }
+
+    case kOptionNlaNormEq: {
+      Int NE_status = getNE(A, ptrLower, rowsLower);
+      if (NE_status) {
+        printf("Failure: AAt is too large\n");
+        return kLinearSolverStatusErrorOom;
+      }
+      Analyse analyse(S_, rowsLower, ptrLower, 0);
+      if (analyse.run()) return kLinearSolverStatusErrorAnalyse;
+      printf("Using normal equations as requested\n");
+      break;
+    }
+
+    case kOptionNlaChoose: {
+      if (choose(A, options)) return kLinearSolverStatusErrorAnalyse;
+      break;
+    }
+  }
+
+  return kLinearSolverStatusOk;
+}
+
+void FactorHiGHSSolver::setParallel(const Options& options) {
+  // Set parallel options
+  bool parallel_tree = false;
+  bool parallel_node = false;
+
+  switch (options.parallel) {
+    case kOptionParallelOff:
+      printf("Using no parallelism as requested\n");
+      break;
+    case kOptionParallelOn:
+      parallel_tree = true;
+      parallel_node = true;
+      printf("Using full parallelism as requested\n");
+      break;
+    case kOptionParallelChoose: {
+      parallel_node = true;
+
+      // parallel_tree is active if there is enough parallelism to exploit and
+      // if the computational effort is large enough, otherwise the overhead of
+      // the scheduler is too much.
+      double tree_speedup = S_.flops() / S_.critops();
+      if (tree_speedup > kMinTreeSpeedup && S_.flops() > kMinParallelOps) {
+        parallel_tree = true;
+        printf("Using full parallelism because it is preferrable\n");
+      } else {
+        printf("Using only node parallelism because it is preferrable\n");
+      }
+      break;
+    }
+    case kOptionParallelTreeOnly:
+      parallel_tree = true;
+      printf("Using only tree parallelism as requested\n");
+      break;
+    case kOptionParallelNodeOnly:
+      parallel_node = true;
+      printf("Using only node parallelism as requested\n");
+      break;
+  }
+
+  S_.setParallel(parallel_tree, parallel_node);
 }
 
 }  // namespace highspm

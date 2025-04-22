@@ -1412,6 +1412,7 @@ Int Analyse::run() {
   S_.nz_ = nz_factor_;
   S_.flops_ = dense_ops_;
   S_.spops_ = sparse_ops_;
+  S_.critops_ = critical_ops_;
   S_.iperm_ = std::move(iperm_);
   S_.rows_ = std::move(rows_sn_);
   S_.ptr_ = std::move(ptr_sn_);
