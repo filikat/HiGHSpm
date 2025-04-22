@@ -468,7 +468,6 @@ void Ipm::makeStep() {
   it_->computeMu();
   it_->indicators();
 
-  collectData();
   printOutput();
 }
 
@@ -1163,67 +1162,6 @@ void Ipm::printInfo() const {
   model_.checkCoefficients();
 }
 
-void Ipm::collectData() const {
-  DataCollector::get()->back().p_obj = it_->pobj;
-  DataCollector::get()->back().d_obj = it_->dobj;
-  DataCollector::get()->back().p_inf = it_->pinf;
-  DataCollector::get()->back().d_inf = it_->dinf;
-  DataCollector::get()->back().mu = it_->mu;
-  DataCollector::get()->back().pd_gap = it_->pdgap;
-  DataCollector::get()->back().p_alpha = alpha_primal_;
-  DataCollector::get()->back().d_alpha = alpha_dual_;
-
-  double& minxl = DataCollector::get()->back().min_xl;
-  double& minxu = DataCollector::get()->back().min_xu;
-  double& minzl = DataCollector::get()->back().min_zl;
-  double& minzu = DataCollector::get()->back().min_zu;
-  double& maxxl = DataCollector::get()->back().max_xl;
-  double& maxxu = DataCollector::get()->back().max_xu;
-  double& maxzl = DataCollector::get()->back().max_zl;
-  double& maxzu = DataCollector::get()->back().max_zu;
-
-  double& mindxl = DataCollector::get()->back().min_dxl;
-  double& mindxu = DataCollector::get()->back().min_dxu;
-  double& mindzl = DataCollector::get()->back().min_dzl;
-  double& mindzu = DataCollector::get()->back().min_dzu;
-  double& maxdxl = DataCollector::get()->back().max_dxl;
-  double& maxdxu = DataCollector::get()->back().max_dxu;
-  double& maxdzl = DataCollector::get()->back().max_dzl;
-  double& maxdzu = DataCollector::get()->back().max_dzu;
-
-  for (Int i = 0; i < n_; ++i) {
-    if (model_.hasLb(i)) {
-      minxl = std::min(minxl, std::abs(it_->xl[i]));
-      maxxl = std::max(maxxl, std::abs(it_->xl[i]));
-      minzl = std::min(minzl, std::abs(it_->zl[i]));
-      maxzl = std::max(maxzl, std::abs(it_->zl[i]));
-      mindxl = std::min(mindxl, std::abs(it_->delta.xl[i]));
-      maxdxl = std::max(maxdxl, std::abs(it_->delta.xl[i]));
-      mindzl = std::min(mindzl, std::abs(it_->delta.zl[i]));
-      maxdzl = std::max(maxdzl, std::abs(it_->delta.zl[i]));
-    }
-    if (model_.hasUb(i)) {
-      minxu = std::min(minxu, std::abs(it_->xu[i]));
-      maxxu = std::max(maxxu, std::abs(it_->xu[i]));
-      minzu = std::min(minzu, std::abs(it_->zu[i]));
-      maxzu = std::max(maxzu, std::abs(it_->zu[i]));
-      mindxu = std::min(mindxu, std::abs(it_->delta.xu[i]));
-      maxdxu = std::max(maxdxu, std::abs(it_->delta.xu[i]));
-      mindzu = std::min(mindzu, std::abs(it_->delta.zu[i]));
-      maxdzu = std::max(maxdzu, std::abs(it_->delta.zu[i]));
-    }
-  }
-
-  if (minxl == std::numeric_limits<double>::max()) minxl = 0.0;
-  if (minxu == std::numeric_limits<double>::max()) minxu = 0.0;
-  if (minzl == std::numeric_limits<double>::max()) minzl = 0.0;
-  if (minzu == std::numeric_limits<double>::max()) minzu = 0.0;
-  if (mindxl == std::numeric_limits<double>::max()) mindxl = 0.0;
-  if (mindxu == std::numeric_limits<double>::max()) mindxu = 0.0;
-  if (mindzl == std::numeric_limits<double>::max()) mindzl = 0.0;
-  if (mindzu == std::numeric_limits<double>::max()) mindzu = 0.0;
-}
-
 Int Ipm::getIter() const { return iter_; }
 void Ipm::getSolution(std::vector<double>& x, std::vector<double>& xl,
                       std::vector<double>& xu, std::vector<double>& slack,
@@ -1287,8 +1225,8 @@ void Ipm::maxCorrectors() {
     max_correctors_ = std::max(max_correctors_, (Int)1);
     max_correctors_ = std::min(max_correctors_, kMaxCorrectors);
 
-    printf("Using %d corrector%s, ratio %.1f, thresh %.1f\n\n", max_correctors_,
-           max_correctors_ > 1 ? "s" : "", ratio, thresh);
+    printf("Using %d corrector%s\n\n", max_correctors_,
+           max_correctors_ > 1 ? "s" : "");
   } else {
     max_correctors_ = -kMaxCorrectors;
   }

@@ -27,17 +27,7 @@ struct IterData {
   double max_wrong_sign = 0.0;
 #endif
 
-  // generic ipm data
-  double p_obj;
-  double d_obj;
-  double p_inf;
-  double d_inf;
-  double mu;
-  double pd_gap;
-  double p_alpha;
-  double d_alpha;
-
-  // advanced ipm data
+  // ipm data
   double min_theta;
   double max_theta;
   double min_prod;
@@ -53,28 +43,6 @@ struct IterData {
   double M_norm1;
   double M_maxdiag;
   Int num_solves = 0;
-
-  // extremes
-  double min_xl = std::numeric_limits<double>::max();
-  double min_xu = std::numeric_limits<double>::max();
-  double min_zl = std::numeric_limits<double>::max();
-  double min_zu = std::numeric_limits<double>::max();
-  double max_xl = 0.0;
-  double max_xu = 0.0;
-  double max_zl = 0.0;
-  double max_zu = 0.0;
-  double min_dxl = std::numeric_limits<double>::max();
-  double min_dxu = std::numeric_limits<double>::max();
-  double min_dzl = std::numeric_limits<double>::max();
-  double min_dzu = std::numeric_limits<double>::max();
-  double max_dxl = 0.0;
-  double max_dxu = 0.0;
-  double max_dzl = 0.0;
-  double max_dzu = 0.0;
-  double p_limit_x;
-  double p_limit_dx;
-  double d_limit_z;
-  double d_limit_dz;
 };
 
 struct FactorData {

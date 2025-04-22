@@ -292,8 +292,6 @@ class Ipm {
   void printInfo() const;
   void printHeader() const;
   void printOutput() const;
-
-  void collectData() const;
 };
 
 }  // namespace highspm

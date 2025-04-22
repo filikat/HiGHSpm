@@ -341,33 +341,6 @@ void DataCollector::printIter() const {
         iter.correctors, iter.sigma_aff, iter.sigma);
   }
 
-  return;
-
-  printf(
-      "\niter |"
-      "        xl       |       dxl       |"
-      "        xu       |       dxu       |"
-      "        zl       |       dzl       |"
-      "        zu       |       dzu       |"
-      "     alpha p     |     alpha d     |"
-      "\n");
-
-  for (Int i = 0; i < iter_data_record_.size(); ++i) {
-    const IterData& iter = iter_data_record_[i];
-    printf(
-        "%3d  |"
-        " %.1e %.1e | %.1e %.1e |"
-        " %.1e %.1e | %.1e %.1e |"
-        " %.1e %.1e | %.1e %.1e |"
-        " %.1e %.1e | %.1e %.1e |"
-        " %.1e %.1e | %.1e %.1e |"
-        "\n",
-        i, iter.min_xl, iter.max_xl, iter.min_dxl, iter.max_dxl, iter.min_xu,
-        iter.max_xu, iter.min_dxu, iter.max_dxu, iter.min_zl, iter.max_zl,
-        iter.min_dzl, iter.max_dzl, iter.min_zu, iter.max_zu, iter.min_dzu,
-        iter.max_dzu, iter.p_limit_x, iter.p_limit_dx, iter.d_limit_z,
-        iter.d_limit_dz);
-  }
 #endif
 }
 
