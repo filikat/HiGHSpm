@@ -9,6 +9,7 @@ enum RetValue {
   kRetOutOfMemory,
   kRetInvalidPivot,
   kRetMetisError,
+  kRetIntOverflow,
   kRetGeneric
 };
 

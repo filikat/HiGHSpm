@@ -4,6 +4,7 @@
 #include <iostream>
 #include <random>
 #include <stack>
+#include <limits>
 
 #include "DataCollector.h"
 #include "FactorHiGHSSettings.h"
@@ -1373,6 +1374,9 @@ Int Analyse::run() {
   computeStorage();
   computeBlockStart();
   computeCriticalPath();
+
+  // Too many nonzeros for the integer type selected
+  if (nz_factor_ >= std::numeric_limits<Int>::max()) return kRetIntOverflow;
 
   // move relevant stuff into S and DC
   S_.n_ = n_;

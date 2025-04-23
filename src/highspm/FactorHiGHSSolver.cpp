@@ -1,7 +1,5 @@
 #include "FactorHiGHSSolver.h"
 
-#include <limits>
-
 namespace highspm {
 
 Int computeLowerAThetaAT(const HighsSparseMatrix& matrix,
@@ -312,11 +310,7 @@ Int FactorHiGHSSolver::choose(const HighsSparseMatrix& A, Options& options) {
     else {
       Analyse analyse_NE(symb_NE, rowsLower, ptrLower, 0);
       NE_status = analyse_NE.run();
-
-      // NE may fail because of a fail in analyse, or because there are too many
-      // nonzeros in the factor, for the given integer type.
-      if (NE_status || symb_NE.nz() >= std::numeric_limits<Int>::max())
-        failure_NE = true;
+      if (NE_status) failure_NE = true;
 
       // save data collected for NE and clear record for AS
       DataCollector::get()->saveAndClear();
@@ -329,11 +323,7 @@ Int FactorHiGHSSolver::choose(const HighsSparseMatrix& A, Options& options) {
     getAS(A, ptrLower, rowsLower);
     Analyse analyse_AS(symb_AS, rowsLower, ptrLower, A.num_col_);
     Int AS_status = analyse_AS.run();
-
-    // AS may fail because of a fail in analyse, or because there are too many
-    // nonzeros in the factor, for the given integer type.
-    if (AS_status || symb_AS.nz() >= std::numeric_limits<Int>::max())
-      failure_AS = true;
+    if (AS_status) failure_AS = true;
   }
 
   Int status = kLinearSolverStatusOk;
@@ -404,7 +394,10 @@ Int FactorHiGHSSolver::setNla(const HighsSparseMatrix& A, Options& options) {
     case kOptionNlaAugmented: {
       getAS(A, ptrLower, rowsLower);
       Analyse analyse(S_, rowsLower, ptrLower, A.num_col_);
-      if (analyse.run()) return kLinearSolverStatusErrorAnalyse;
+      if (analyse.run()) {
+        printf("Analyse phase failed\n");
+        return kLinearSolverStatusErrorAnalyse;
+      }
       printf("Using augmented system as requested\n");
       break;
     }
@@ -416,7 +409,10 @@ Int FactorHiGHSSolver::setNla(const HighsSparseMatrix& A, Options& options) {
         return kLinearSolverStatusErrorOom;
       }
       Analyse analyse(S_, rowsLower, ptrLower, 0);
-      if (analyse.run()) return kLinearSolverStatusErrorAnalyse;
+      if (analyse.run()) {
+        printf("Analyse phase failed\n");
+        return kLinearSolverStatusErrorAnalyse;
+      }
       printf("Using normal equations as requested\n");
       break;
     }
