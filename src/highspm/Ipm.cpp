@@ -76,6 +76,9 @@ bool Ipm::initialize() {
   // decide number of correctors to use
   maxCorrectors();
 
+  // print information about symbolic factorisation
+  DataCollector::get()->printSymbolic(1);
+
   startingPoint();
 
   it_->residual1234();
@@ -1222,7 +1225,7 @@ void Ipm::maxCorrectors() {
     max_correctors_ = std::max(max_correctors_, (Int)1);
     max_correctors_ = std::min(max_correctors_, kMaxCorrectors);
 
-    printf("Using %d corrector%s\n\n", max_correctors_,
+    printf("Using %d corrector%s\n", max_correctors_,
            max_correctors_ > 1 ? "s" : "");
   } else {
     max_correctors_ = -kMaxCorrectors;

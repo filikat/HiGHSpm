@@ -1,17 +1,12 @@
 #include "FactorHiGHSSolver.h"
+#include <limits>
 
 namespace highspm {
 
-Int computeLowerAThetaAT(const HighsSparseMatrix& matrix,
-                         const std::vector<double>& scaling,
-                         HighsSparseMatrix& AAT,
-                         const Int max_num_nz = 100000000
-                         // Cant exceed kHighsIInf = 2,147,483,647,
-                         // otherwise start_ values may overflow. Even
-                         // 100,000,000 is probably too large, unless the
-                         // matrix is near-full, since fill-in will
-                         // overflow pointers
-);
+Int computeLowerAThetaAT(
+    const HighsSparseMatrix& matrix, const std::vector<double>& scaling,
+    HighsSparseMatrix& AAT,
+    const Int max_num_nz = std::numeric_limits<Int>::max());
 
 FactorHiGHSSolver::FactorHiGHSSolver(const Options& options)
     : S_((FormatType)options.format), N_(S_) {}
@@ -73,13 +68,8 @@ Int getAS(const HighsSparseMatrix& A, std::vector<Int>& ptr,
 }
 
 Int FactorHiGHSSolver::setup(const HighsSparseMatrix& A, Options& options) {
-  printf("\n");
-
   if (Int status = setNla(A, options)) return status;
-
   setParallel(options);
-
-  DataCollector::get()->printSymbolic(1);
   return kLinearSolverStatusOk;
 }
 

@@ -244,6 +244,7 @@ void IpmModel::checkCoefficients() const {
   scaled() ? printf("[%5.1e, %5.1e], ratio %.1e\n", scalemin, scalemax,
                     scalemax / scalemin)
            : printf("-\n");
+  printf("\n");
 }
 
 void IpmModel::scale() {
