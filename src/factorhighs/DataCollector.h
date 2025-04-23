@@ -48,13 +48,13 @@ struct IterData {
 struct FactorData {
   // Symbolic factorization statistics
   Int n{};
-  double nz{};
+  int64_t nz{};
   Int sn{};
   double fillin{};
   double dense_ops{};
   double sparse_ops{};
   double critical_ops{};
-  double artificial_nz{};
+  int64_t artificial_nz{};
   double artificial_ops{};
   double serial_storage{};
   Int largest_front{};

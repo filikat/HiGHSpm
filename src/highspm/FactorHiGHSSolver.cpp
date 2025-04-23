@@ -1,5 +1,7 @@
 #include "FactorHiGHSSolver.h"
 
+#include <limits>
+
 namespace highspm {
 
 Int computeLowerAThetaAT(const HighsSparseMatrix& matrix,
@@ -289,7 +291,7 @@ Int computeLowerAThetaAT(const HighsSparseMatrix& matrix,
 
 double FactorHiGHSSolver::flops() const { return S_.flops(); }
 double FactorHiGHSSolver::spops() const { return S_.spops(); }
-double FactorHiGHSSolver::nz() const { return S_.nz(); }
+double FactorHiGHSSolver::nz() const { return (double)S_.nz(); }
 
 Int FactorHiGHSSolver::choose(const HighsSparseMatrix& A, Options& options) {
   // Choose whether to use augmented system or normal equations.
@@ -310,7 +312,11 @@ Int FactorHiGHSSolver::choose(const HighsSparseMatrix& A, Options& options) {
     else {
       Analyse analyse_NE(symb_NE, rowsLower, ptrLower, 0);
       NE_status = analyse_NE.run();
-      if (NE_status) failure_NE = true;
+
+      // NE may fail because of a fail in analyse, or because there are too many
+      // nonzeros in the factor, for the given integer type.
+      if (NE_status || symb_NE.nz() >= std::numeric_limits<Int>::max())
+        failure_NE = true;
 
       // save data collected for NE and clear record for AS
       DataCollector::get()->saveAndClear();
@@ -323,7 +329,11 @@ Int FactorHiGHSSolver::choose(const HighsSparseMatrix& A, Options& options) {
     getAS(A, ptrLower, rowsLower);
     Analyse analyse_AS(symb_AS, rowsLower, ptrLower, A.num_col_);
     Int AS_status = analyse_AS.run();
-    if (AS_status) failure_AS = true;
+
+    // AS may fail because of a fail in analyse, or because there are too many
+    // nonzeros in the factor, for the given integer type.
+    if (AS_status || symb_AS.nz() >= std::numeric_limits<Int>::max())
+      failure_AS = true;
   }
 
   Int status = kLinearSolverStatusOk;
@@ -340,9 +350,9 @@ Int FactorHiGHSSolver::choose(const HighsSparseMatrix& A, Options& options) {
     printf("Failure: both approaches failed analyse phase\n");
   } else {
     // Coefficients for heuristic
-    double kSpopsWeight = 30.0;
-    double kThreshOps = 10.0;
-    double kThreshSn = 1.5;
+    const double kSpopsWeight = 30.0;
+    const double kThreshOps = 10.0;
+    const double kThreshSn = 1.5;
 
     // Total number of operations, given by dense flops and sparse indexing
     // operations, weighted with an empirical factor

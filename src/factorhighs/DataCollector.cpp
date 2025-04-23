@@ -32,13 +32,13 @@ IterData& DataCollector::back() {
 
 void FactorData::clear() {
   n = 0;
-  nz = 0.0;
+  nz = 0;
   sn = 0;
   fillin = 0.0;
   sparse_ops = 0.0;
   dense_ops = 0.0;
   critical_ops = 0.0;
-  artificial_nz = 0.0;
+  artificial_nz = 0;
   artificial_ops = 0.0;
   serial_storage = 0.0;
   largest_front = 0.0;
@@ -275,7 +275,7 @@ void DataCollector::printSymbolic(bool verbose) const {
 
   printf("\nStatistic of Factor L\n");
   printf("size            : %.2e\n", (double)fd.n);
-  printf("nnz             : %.2e\n", fd.nz);
+  printf("nnz             : %.2e\n", (double)fd.nz);
   printf("fill-in         : %.2f\n", fd.fillin);
   printf("serial memory   : ");
   printMemory(fd.serial_storage);
@@ -286,8 +286,8 @@ void DataCollector::printSymbolic(bool verbose) const {
   printf("max tree speedup: %.2f\n", fd.dense_ops / fd.critical_ops);
 
   if (verbose) {
-    printf("artificial nz   : %.1e (%.1f%%)\n", fd.artificial_nz,
-           fd.artificial_nz / fd.nz * 100);
+    printf("artificial nz   : %.1e (%.1f%%)\n", (double)fd.artificial_nz,
+           (double)fd.artificial_nz / fd.nz * 100);
     printf("artificial ops  : %.1e (%.1f%%)\n", fd.artificial_ops,
            fd.artificial_ops / fd.dense_ops * 100);
     printf("largest front   : %5d\n", fd.largest_front);

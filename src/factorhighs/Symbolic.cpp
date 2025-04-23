@@ -15,7 +15,7 @@ void Symbolic::setParallel(bool par_tree, bool par_node) {
 }
 
 FormatType Symbolic::formatType() const { return format_type_; }
-double Symbolic::nz() const { return nz_; }
+int64_t Symbolic::nz() const { return nz_; }
 double Symbolic::flops() const { return flops_; }
 double Symbolic::spops() const { return spops_; }
 double Symbolic::critops() const { return critops_; }

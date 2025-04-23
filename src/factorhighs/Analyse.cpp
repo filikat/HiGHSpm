@@ -306,7 +306,7 @@ void Analyse::colCount() {
   dense_ops_norelax_ = 0.0;
   nz_factor_ = 0;
   for (Int j = 0; j < n_; ++j) {
-    nz_factor_ += (double)col_count_[j];
+    nz_factor_ += (int64_t)col_count_[j];
     dense_ops_norelax_ += (double)(col_count_[j] - 1) * (col_count_[j] - 1);
   }
 }
@@ -683,7 +683,7 @@ void Analyse::afterRelaxSn() {
       }
 
       // keep track of total number of artificial nonzeros
-      artificial_nz_ += (double)fake_nz_[sn];
+      artificial_nz_ += (int64_t)fake_nz_[sn];
 
       // Compute number of indices for new sn.
       // This is equal to the number of columns in the new sn plus the clique

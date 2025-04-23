@@ -23,7 +23,7 @@ class Analyse {
   // info about matrix and factor
   Int n_{};
   Int nz_{};
-  double nz_factor_{};
+  int64_t nz_factor_{};
   double dense_ops_{};
   double dense_ops_norelax_{};
   double sparse_ops_{};
@@ -51,7 +51,7 @@ class Analyse {
 
   // fundamental supernodes information
   Int sn_count_{};
-  double artificial_nz_{};
+  int64_t artificial_nz_{};
   std::vector<Int> sn_belong_{};
   std::vector<Int> sn_start_{};
   std::vector<Int> sn_parent_{};

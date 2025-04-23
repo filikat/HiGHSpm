@@ -31,7 +31,7 @@ class Symbolic {
   Int sn_{};
 
   // Number of nonzeros and flops in the factor
-  double nz_{};
+  int64_t nz_{};
   double flops_{};
   double spops_{};
   double critops_{};
@@ -104,7 +104,7 @@ class Symbolic {
 
   // provide const access to symbolic factorization
   FormatType formatType() const;
-  double nz() const;
+  int64_t nz() const;
   double flops() const;
   double spops() const;
   double critops() const;
