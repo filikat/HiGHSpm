@@ -23,13 +23,20 @@ void Ipm::load(const Int num_var, const Int num_con, const double* obj,
   m_ = model_.m();
   n_ = model_.n();
 
-  ipx_used_ = false;
+  info_.ipx_used = false;
+  info_.m_solver = m_;
+  info_.n_solver = n_;
+  info_.m_original = num_con;
+  info_.n_original = num_var;
 }
 
 void Ipm::setOptions(const Options& options) { options_ = options; }
 
-IpmStatus Ipm::solve() {
-  if (!model_.ready()) return kIpmStatusError;
+void Ipm::solve() {
+  if (!model_.ready()) {
+    info_.ipm_status = kIpmStatusError;
+    return;
+  }
 
   DataCollector::start();
   printInfo();
@@ -39,8 +46,6 @@ IpmStatus Ipm::solve() {
 
   DataCollector::get()->printIter();
   DataCollector::destruct();
-
-  return ipm_status_;
 }
 
 void Ipm::runIpm() {
@@ -53,6 +58,7 @@ void Ipm::runIpm() {
     makeStep();
   }
 
+  finalize();
   LS_->finalise();
 }
 
@@ -69,7 +75,7 @@ bool Ipm::initialize() {
   // initialize linear solver
   LS_.reset(new FactorHiGHSSolver(options_));
   if (LS_->setup(model_.A(), options_)) {
-    ipm_status_ = kIpmStatusError;
+    info_.ipm_status = kIpmStatusError;
     return true;
   }
   LS_->clear();
@@ -89,6 +95,15 @@ bool Ipm::initialize() {
   printOutput();
 
   return false;
+}
+
+void Ipm::finalize() {
+  info_.ipm_iter = iter_;
+  if (info_.ipm_status == kIpmStatusNotRun)
+    info_.ipm_status = kIpmStatusMaxIter;
+
+  info_.option_nla = options_.nla;
+  info_.option_par = options_.parallel;
 }
 
 bool Ipm::prepareIter() {
@@ -171,9 +186,9 @@ bool Ipm::prepareIpx() {
 }
 
 void Ipm::refineWithIpx() {
-  if (ipm_status_ == kIpmStatusError) return;
+  if (info_.ipm_status == kIpmStatusError) return;
 
-  if (ipm_status_ < kIpmStatusOptimal) {
+  if (info_.ipm_status < kIpmStatusOptimal && options_.refine_with_ipx) {
     printf("\nIpm did not converge, restarting with IPX\n\n");
   } else if (options_.crossover == kOptionCrossoverOn) {
     printf("\nIpm converged, running crossover with IPX\n\n");
@@ -185,13 +200,15 @@ void Ipm::refineWithIpx() {
 
   ipx_lps_.Solve();
 
-  if (ipx_lps_.GetInfo().status_ipm == IPX_STATUS_optimal)
-    ipm_status_ = kIpmStatusPDFeas;
+  info_.ipx_info = ipx_lps_.GetInfo();
 
-  if (ipx_lps_.GetInfo().status_crossover == IPX_STATUS_optimal)
-    ipm_status_ = kIpmStatusBasic;
+  if (info_.ipx_info.status_ipm == IPX_STATUS_optimal)
+    info_.ipm_status = kIpmStatusPDFeas;
 
-  ipx_used_ = true;
+  if (info_.ipx_info.status_crossover == IPX_STATUS_optimal)
+    info_.ipm_status = kIpmStatusBasic;
+
+  info_.ipx_used = true;
 }
 
 void Ipm::runCrossover() {
@@ -203,7 +220,8 @@ void Ipm::runCrossover() {
   ipx_lps_.CrossoverFromStartingPoint(x.data(), slack.data(), y.data(),
                                       z.data());
 
-  ipx_used_ = true;
+  info_.ipx_info = ipx_lps_.GetInfo();
+  info_.ipx_used = true;
 }
 
 bool Ipm::solveNewtonSystem(NewtonDir& delta) {
@@ -247,7 +265,7 @@ bool Ipm::solveNewtonSystem(NewtonDir& delta) {
 // Failure occured in factorisation or solve
 failure:
   std::cerr << "Error while solving Newton system\n";
-  ipm_status_ = kIpmStatusError;
+  info_.ipm_status = kIpmStatusError;
   return true;
 }
 
@@ -305,11 +323,11 @@ bool Ipm::recoverDirection(NewtonDir& delta) {
   // Check for NaN of Inf
   if (it_->isDirNan()) {
     std::cerr << "Direction is nan\n";
-    ipm_status_ = kIpmStatusError;
+    info_.ipm_status = kIpmStatusError;
     return true;
   } else if (it_->isDirInf()) {
     std::cerr << "Direction is inf\n";
-    ipm_status_ = kIpmStatusError;
+    info_.ipm_status = kIpmStatusError;
     return true;
   }
   return false;
@@ -664,7 +682,7 @@ void Ipm::startingPoint() {
 
 failure:
   std::cerr << "Error while computing starting point\n";
-  ipm_status_ = kIpmStatusError;
+  info_.ipm_status = kIpmStatusError;
 }
 
 void Ipm::sigmaAffine() {
@@ -776,7 +794,7 @@ bool Ipm::centralityCorrectors() {
 #endif
 
   Int cor;
-  for (cor = 0; cor < max_correctors_; ++cor) {
+  for (cor = 0; cor < info_.correctors; ++cor) {
     // compute rhs for corrector
     residualsMcc();
 
@@ -874,11 +892,11 @@ bool Ipm::checkIterate() {
   // Check that iterate is not NaN or Inf
   if (it_->isNan()) {
     printf("\nIterate is nan\n");
-    ipm_status_ = kIpmStatusError;
+    info_.ipm_status = kIpmStatusError;
     return true;
   } else if (it_->isInf()) {
     printf("\nIterate is inf\n");
-    ipm_status_ = kIpmStatusError;
+    info_.ipm_status = kIpmStatusError;
     return true;
   }
 
@@ -900,7 +918,7 @@ bool Ipm::checkBadIter() {
   // If too many bad iterations, stop
   if (bad_iter_ >= kMaxBadIter) {
     printf("=== No progress\n");
-    ipm_status_ = kIpmStatusNoProgress;
+    info_.ipm_status = kIpmStatusNoProgress;
     return true;
   }
   return false;
@@ -914,10 +932,10 @@ bool Ipm::checkTermination() {
   bool terminate = false;
 
   if (feasible && optimal) {
-    if (ipm_status_ != kIpmStatusPDFeas)
+    if (info_.ipm_status != kIpmStatusPDFeas)
       printf("=== Primal-dual feasible point found\n");
 
-    ipm_status_ = kIpmStatusPDFeas;
+    info_.ipm_status = kIpmStatusPDFeas;
 
     if (options_.crossover) {
       bool ready_for_crossover =
@@ -1165,14 +1183,14 @@ void Ipm::printInfo() const {
   model_.checkCoefficients();
 }
 
-Int Ipm::getIter() const { return iter_; }
+const IpmInfo& Ipm::getInfo() const { return info_; }
 void Ipm::getSolution(std::vector<double>& x, std::vector<double>& xl,
                       std::vector<double>& xu, std::vector<double>& slack,
                       std::vector<double>& y, std::vector<double>& zl,
                       std::vector<double>& zu) const {
   // prepare and return solution with internal format
 
-  if (!ipx_used_) {
+  if (!info_.ipx_used) {
     it_->extract(x, xl, xu, slack, y, zl, zu);
     model_.unscale(x, xl, xu, slack, y, zl, zu);
     model_.postprocess(slack, y);
@@ -1186,7 +1204,7 @@ void Ipm::getSolution(std::vector<double>& x, std::vector<double>& slack,
                       std::vector<double>& y, std::vector<double>& z) const {
   // prepare and return solution with format for crossover
 
-  if (!ipx_used_) {
+  if (!info_.ipx_used) {
     it_->extract(x, slack, y, z);
     model_.unscale(x, slack, y, z);
     model_.postprocess(slack, y);
@@ -1224,14 +1242,14 @@ void Ipm::maxCorrectors() {
 
     double thresh = ratio / (1.0 + kMaxRefinementIter / 2.0) - 1;
 
-    max_correctors_ = std::floor(thresh);
-    max_correctors_ = std::max(max_correctors_, (Int)1);
-    max_correctors_ = std::min(max_correctors_, kMaxCorrectors);
+    info_.correctors = std::floor(thresh);
+    info_.correctors = std::max(info_.correctors, (Int)1);
+    info_.correctors = std::min(info_.correctors, kMaxCorrectors);
 
-    printf("Using %d corrector%s\n", max_correctors_,
-           max_correctors_ > 1 ? "s" : "");
+    printf("Using %d corrector%s\n", info_.correctors,
+           info_.correctors > 1 ? "s" : "");
   } else {
-    max_correctors_ = -kMaxCorrectors;
+    info_.correctors = -kMaxCorrectors;
   }
 }
 

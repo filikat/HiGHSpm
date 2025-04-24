@@ -4,6 +4,7 @@
 namespace highspm {
 
 enum IpmStatus {
+  kIpmStatusNotRun,
   kIpmStatusError,
   kIpmStatusMaxIter,
   kIpmStatusNoProgress,

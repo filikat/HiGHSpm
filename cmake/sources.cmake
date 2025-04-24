@@ -10,6 +10,7 @@ set(ipm_headers
     highspm/FactorHiGHSSolver.h
     highspm/Ipm.h
     highspm/IpmConst.h
+    highspm/IpmInfo.h
     highspm/IpmIterate.h
     highspm/IpmModel.h
     highspm/IpmOption.h
@@ -73,6 +74,7 @@ set(util_sources
 
 set(util_headers
     auxiliary/Auxiliary.h
+    auxiliary/IntConfig.h
     auxiliary/KrylovMethods.h
     auxiliary/VectorOperations.h)
 

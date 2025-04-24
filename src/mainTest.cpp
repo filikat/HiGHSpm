@@ -17,6 +17,7 @@ enum ArgC {
   kOptionNlaArg,
   kOptionFormatArg,
   kOptionCrossoverArg,
+  kOptionParallelArg,
   kMaxArgC
 };
 
@@ -123,8 +124,9 @@ int main(int argc, char** argv) {
     highspm::Options options{};
 
     // option to choose normal equations or augmented system
-    options.nla = argc > kOptionNlaArg ? atoi(argv[kOptionNlaArg])
-                                       : highspm::kOptionNlaDefault;
+    options.nla = argc > kOptionNlaArg
+                      ? (highspm::OptionNla)atoi(argv[kOptionNlaArg])
+                      : highspm::kOptionNlaDefault;
     if (options.nla < highspm::kOptionNlaMin ||
         options.nla > highspm::kOptionNlaMax) {
       std::cerr << "Illegal value of " << options.nla
@@ -134,8 +136,9 @@ int main(int argc, char** argv) {
     }
 
     // option to choose storage format inside FactorHiGHS
-    options.format = argc > kOptionFormatArg ? atoi(argv[kOptionFormatArg])
-                                             : highspm::kOptionFormatDefault;
+    options.format = argc > kOptionFormatArg
+                         ? (highspm::OptionFormat)atoi(argv[kOptionFormatArg])
+                         : highspm::kOptionFormatDefault;
     if (options.format < highspm::kOptionFormatMin ||
         options.format > highspm::kOptionFormatMax) {
       std::cerr << "Illegal value of " << options.format
@@ -146,15 +149,30 @@ int main(int argc, char** argv) {
     }
 
     // option to choose crossover
-    options.crossover = argc > kOptionCrossoverArg
-                            ? atoi(argv[kOptionCrossoverArg])
-                            : highspm::kOptionCrossoverDefault;
+    options.crossover =
+        argc > kOptionCrossoverArg
+            ? (highspm::OptionCrossover)atoi(argv[kOptionCrossoverArg])
+            : highspm::kOptionCrossoverDefault;
     if (options.crossover < highspm::kOptionCrossoverMin ||
         options.crossover > highspm::kOptionCrossoverMax) {
       std::cerr << "Illegal value of " << options.crossover
                 << " for option_crossover: must be in ["
                 << highspm::kOptionCrossoverMin << ", "
                 << highspm::kOptionCrossoverMax << "]\n";
+      return 1;
+    }
+
+    // option to choose parallel
+    options.parallel =
+        argc > kOptionParallelArg
+            ? (highspm::OptionParallel)atoi(argv[kOptionParallelArg])
+            : highspm::kOptionParallelDefault;
+    if (options.parallel < highspm::kOptionParallelMin ||
+        options.parallel > highspm::kOptionParallelMax) {
+      std::cerr << "Illegal value of " << options.parallel
+                << " for option_parallel: must be in ["
+                << highspm::kOptionParallelMin << ", "
+                << highspm::kOptionParallelMax << "]\n";
       return 1;
     }
 
@@ -174,8 +192,11 @@ int main(int argc, char** argv) {
 
     // solve LP
     clock1.start();
-    highspm::IpmStatus ipm_status = ipm.solve();
+    ipm.solve();
     double optimize_time = clock1.stop();
+
+    highspm::IpmInfo info = ipm.getInfo();
+    highspm::IpmStatus ipm_status = info.ipm_status;
 
     if ((options.crossover && ipm_status == highspm::kIpmStatusBasic) ||
         (!options.crossover && ipm_status == highspm::kIpmStatusPDFeas))
@@ -206,7 +227,7 @@ int main(int argc, char** argv) {
 
     ss << std::setw(30) << pb_name << ' ';
     ss << std::setw(12) << status_string << ' ';
-    ss << std::setw(10) << ipm.getIter() << ' ';
+    ss << std::setw(10) << info.ipm_iter << ' ';
     ss << std::setw(12) << std::fixed << std::setprecision(3) << optimize_time
        << '\n';
   }

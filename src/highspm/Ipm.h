@@ -4,10 +4,12 @@
 #include <string>
 
 #include "FactorHiGHSSolver.h"
+#include "IpmConst.h"
+#include "IpmInfo.h"
 #include "IpmIterate.h"
 #include "IpmModel.h"
-#include "IpmConst.h"
 #include "IpmOption.h"
+#include "IpmStatus.h"
 #include "LinearSolver.h"
 #include "auxiliary/Auxiliary.h"
 #include "auxiliary/IntConfig.h"
@@ -15,7 +17,6 @@
 #include "factorhighs/FactorHiGHS.h"
 #include "ipm/ipx/lp_solver.h"
 #include "util/HighsSparseMatrix.h"
-#include "IpmStatus.h"
 
 namespace highspm {
 
@@ -44,8 +45,8 @@ class Ipm {
   // Coefficient for reduction of mu
   double sigma_{}, sigma_affine_{};
 
-  // Status of the solver
-  IpmStatus ipm_status_ = kIpmStatusMaxIter;
+  // General information
+  IpmInfo info_;
 
   // Run-time options
   Options options_{};
@@ -55,9 +56,6 @@ class Ipm {
 
   // Interface to ipx
   ipx::LpSolver ipx_lps_;
-  bool ipx_used_ = false;
-
-  Int max_correctors_{};
 
  public:
   // ===================================================================================
@@ -93,7 +91,7 @@ class Ipm {
   // ===================================================================================
   // Solve the LP
   // ===================================================================================
-  IpmStatus solve();
+  void solve();
 
   // ===================================================================================
   // Extract information
@@ -104,12 +102,13 @@ class Ipm {
                    std::vector<double>& zu) const;
   void getSolution(std::vector<double>& x, std::vector<double>& slack,
                    std::vector<double>& y, std::vector<double>& z) const;
-  Int getIter() const;
+  const IpmInfo& getInfo() const;
 
  private:
   // Functions to run the various stages of the ipm
   void runIpm();
   bool initialize();
+  void finalize();
   bool prepareIter();
   bool predictor();
   bool correctors();

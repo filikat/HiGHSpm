@@ -21,7 +21,7 @@ class FactorHiGHSSolver : public LinearSolver {
 
   Int choose(const HighsSparseMatrix& A, Options& options);
   Int setNla(const HighsSparseMatrix& A, Options& options);
-  void setParallel(const Options& options);
+  void setParallel(Options& options);
 
  public:
   FactorHiGHSSolver(const Options& options);

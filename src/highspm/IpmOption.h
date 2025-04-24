@@ -44,14 +44,15 @@ enum OptionParallel {
 };
 
 struct Options {
-  Int nla = kOptionNlaDefault;
-  Int format = kOptionFormatDefault;
-  Int crossover = kOptionCrossoverDefault;
-  Int parallel = kOptionParallelDefault;
+  OptionNla nla = kOptionNlaDefault;
+  OptionFormat format = kOptionFormatDefault;
+  OptionCrossover crossover = kOptionCrossoverDefault;
+  OptionParallel parallel = kOptionParallelDefault;
   Int max_iter = kMaxIterDefault;
   double feasibility_tol = kIpmTolDefault;
   double optimality_tol = kIpmTolDefault;
   double crossover_tol = kIpmTolDefault;
+  bool refine_with_ipx = true;
 };
 
 }  // namespace highspm

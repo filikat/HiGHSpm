@@ -414,7 +414,7 @@ Int FactorHiGHSSolver::setNla(const HighsSparseMatrix& A, Options& options) {
   return kLinearSolverStatusOk;
 }
 
-void FactorHiGHSSolver::setParallel(const Options& options) {
+void FactorHiGHSSolver::setParallel(Options& options) {
   // Set parallel options
   bool parallel_tree = false;
   bool parallel_node = false;
@@ -446,8 +446,10 @@ void FactorHiGHSSolver::setParallel(const Options& options) {
       // that the number of flops is not too small.
       if (large_flops && (large_sn || (large_speedup && !small_sn))) {
         parallel_tree = true;
+        options.parallel = kOptionParallelOn;
         printf("Using full parallelism because it is preferrable\n");
       } else {
+        options.parallel = kOptionParallelNodeOnly;
         printf("Using only node parallelism because it is preferrable\n");
       }
       break;
