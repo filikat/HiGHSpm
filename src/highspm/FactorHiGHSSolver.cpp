@@ -1,4 +1,5 @@
 #include "FactorHiGHSSolver.h"
+
 #include <limits>
 
 namespace highspm {
@@ -318,7 +319,7 @@ Int FactorHiGHSSolver::choose(const HighsSparseMatrix& A, Options& options) {
 
   Int status = kLinearSolverStatusOk;
 
-  // Decision may be forces by failures
+  // Decision may be forced by failures
   if (failure_NE && !failure_AS) {
     options.nla = kOptionNlaAugmented;
     printf("Using augmented system because normal equations failed\n");
@@ -329,11 +330,6 @@ Int FactorHiGHSSolver::choose(const HighsSparseMatrix& A, Options& options) {
     status = kLinearSolverStatusErrorAnalyse;
     printf("Failure: both approaches failed analyse phase\n");
   } else {
-    // Coefficients for heuristic
-    const double kSpopsWeight = 30.0;
-    const double kThreshOps = 10.0;
-    const double kThreshSn = 1.5;
-
     // Total number of operations, given by dense flops and sparse indexing
     // operations, weighted with an empirical factor
     double ops_NE = symb_NE.flops() + symb_NE.spops() * kSpopsWeight;
@@ -346,9 +342,9 @@ Int FactorHiGHSSolver::choose(const HighsSparseMatrix& A, Options& options) {
     double ratio_ops = ops_NE / ops_AS;
     double ratio_sn = sn_size_AS / sn_size_NE;
 
-    bool NE_much_more_expensive = ratio_ops > kThreshOps;
-    bool AS_not_too_expensive = ratio_ops > 1.0 / kThreshOps;
-    bool sn_AS_larger_than_NE = ratio_sn > kThreshSn;
+    bool NE_much_more_expensive = ratio_ops > kRatioOpsThresh;
+    bool AS_not_too_expensive = ratio_ops > 1.0 / kRatioOpsThresh;
+    bool sn_AS_larger_than_NE = ratio_sn > kRatioSnThresh;
 
     if (NE_much_more_expensive ||
         (sn_AS_larger_than_NE && AS_not_too_expensive)) {
@@ -431,13 +427,22 @@ void FactorHiGHSSolver::setParallel(const Options& options) {
       printf("Using full parallelism as requested\n");
       break;
     case kOptionParallelChoose: {
+      // parallel_node is active because it is triggered only if the frontal
+      // matrix is large enough anyway.
       parallel_node = true;
 
-      // parallel_tree is active if there is enough parallelism to exploit and
-      // if the computational effort is large enough, otherwise the overhead of
-      // the scheduler is too much.
       double tree_speedup = S_.flops() / S_.critops();
-      if (tree_speedup > kMinTreeSpeedup && S_.flops() > kMinParallelOps) {
+      double sn_size = (double)S_.size() / S_.sn();
+
+      bool large_flops = S_.flops() > kLargeFlopsThresh;
+      bool large_speedup = tree_speedup > kLargeSpeedupThresh;
+      bool large_sn = sn_size > kLargeSnThresh;
+      bool small_sn = sn_size <= kSmallSnThresh;
+
+      // parallel_tree is active if the supernodes are large, or if there is a
+      // large expected speedup and the supernodes are not too small, provided
+      // that the number of flops is not too small.
+      if (large_flops && (large_sn || (large_speedup && !small_sn))) {
         parallel_tree = true;
         printf("Using full parallelism because it is preferrable\n");
       } else {

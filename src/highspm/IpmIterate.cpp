@@ -121,8 +121,8 @@ void IpmIterate::products() {
 void IpmIterate::indicators() {
   primalObj();
   dualObj();
-  primalInfeas();
-  dualInfeas();
+  primalInfeasUnscaled();
+  dualInfeasUnscaled();
   pdGap();
   products();
 }

@@ -81,12 +81,16 @@ const double kMccIncreaseMin = 0.1;
 const double kSmallProduct = 1e-3;
 const double kLargeProduct = 1e3;
 
-// parameters for choice of parallelism
-const double kMinTreeSpeedup = 1.5;
-const double kMinParallelOps = 1e7;
+// parameters for choice of AS or NE
+const double kSpopsWeight = 30.0;
+const double kRatioOpsThresh = 10.0;
+const double kRatioSnThresh = 1.5;
 
-// other parameters
-const double kInteriorScaling = 0.999;
+// parameters for choice of parallelism
+const double kLargeFlopsThresh = 1e7;
+const double kLargeSpeedupThresh = 1.5;
+const double kLargeSnThresh = 20.0;
+const double kSmallSnThresh = 5.0;
 
 }  // namespace highspm
 
