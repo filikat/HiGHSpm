@@ -38,7 +38,7 @@ class FactorHiGHSSolver : public LinearSolver {
               std::vector<double>& lhs_y) override;
   Int setup(const HighsSparseMatrix& A, Options& options) override;
   void clear() override;
-  void finalise() override;
+  void terminate() override;
   double flops() const override;
   double spops() const override;
   double nz() const override;

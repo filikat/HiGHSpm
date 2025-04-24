@@ -23,7 +23,7 @@ namespace highspm {
 // The linear solver may also define functions:
 // - setup: perform any preliminary calculation (e.g. symbolic factorization)
 // - refine: apply iterative refinement to the solution
-// - finalise: perform any final action
+// - terminate: perform any final action
 // - flops: return number of flops needed for factorisation
 // - spops: return number of sparse ops needed for factorisation
 // - nz: return number of nonzeros in factorisation
@@ -78,7 +78,7 @@ class LinearSolver {
                       const std::vector<double>& rhs_y,
                       std::vector<double>& lhs_x, std::vector<double>& lhs_y) {}
 
-  virtual void finalise() {}
+  virtual void terminate() {}
 
   virtual double flops() const { return 0; }
   virtual double spops() const { return 0; }

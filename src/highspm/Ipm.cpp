@@ -58,8 +58,8 @@ void Ipm::runIpm() {
     makeStep();
   }
 
-  finalize();
-  LS_->finalise();
+  terminate();
+  LS_->terminate();
 }
 
 bool Ipm::initialize() {
@@ -97,7 +97,7 @@ bool Ipm::initialize() {
   return false;
 }
 
-void Ipm::finalize() {
+void Ipm::terminate() {
   info_.ipm_iter = iter_;
   if (info_.ipm_status == kIpmStatusNotRun)
     info_.ipm_status = kIpmStatusMaxIter;

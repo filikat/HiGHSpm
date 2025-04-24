@@ -108,7 +108,7 @@ class Ipm {
   // Functions to run the various stages of the ipm
   void runIpm();
   bool initialize();
-  void finalize();
+  void terminate();
   bool prepareIter();
   bool predictor();
   bool correctors();
