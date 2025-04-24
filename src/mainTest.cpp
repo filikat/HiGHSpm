@@ -167,8 +167,10 @@ int main(int argc, char** argv) {
     // load the problem
     ipm.load(n, m, obj.data(), rhs.data(), lower.data(), upper.data(),
              Aptr.data(), Aind.data(), Aval.data(), constraints.data(), offset,
-             pb_name, options);
+             pb_name);
     double load_time = clock1.stop();
+
+    ipm.setOptions(options);
 
     // solve LP
     clock1.start();

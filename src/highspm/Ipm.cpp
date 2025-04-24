@@ -12,7 +12,7 @@ void Ipm::load(const Int num_var, const Int num_con, const double* obj,
                const double* rhs, const double* lower, const double* upper,
                const Int* A_ptr, const Int* A_rows, const double* A_vals,
                const char* constraints, double offset,
-               const std::string& pb_name, const Options& options) {
+               const std::string& pb_name) {
   if (!obj || !rhs || !lower || !upper || !A_ptr || !A_rows || !A_vals ||
       !constraints)
     return;
@@ -23,9 +23,10 @@ void Ipm::load(const Int num_var, const Int num_con, const double* obj,
   m_ = model_.m();
   n_ = model_.n();
 
-  options_ = options;
   ipx_used_ = false;
 }
+
+void Ipm::setOptions(const Options& options) { options_ = options; }
 
 IpmStatus Ipm::solve() {
   if (!model_.ready()) return kIpmStatusError;
