@@ -6,7 +6,8 @@
 #include "FactorHiGHSSolver.h"
 #include "IpmIterate.h"
 #include "IpmModel.h"
-#include "Ipm_const.h"
+#include "IpmConst.h"
+#include "IpmOption.h"
 #include "LinearSolver.h"
 #include "auxiliary/Auxiliary.h"
 #include "auxiliary/IntConfig.h"
@@ -14,6 +15,7 @@
 #include "factorhighs/FactorHiGHS.h"
 #include "ipm/ipx/lp_solver.h"
 #include "util/HighsSparseMatrix.h"
+#include "IpmStatus.h"
 
 namespace highspm {
 

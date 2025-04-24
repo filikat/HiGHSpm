@@ -9,9 +9,11 @@ set(ipm_headers
     highspm/CurtisReidScaling.h
     highspm/FactorHiGHSSolver.h
     highspm/Ipm.h
+    highspm/IpmConst.h
     highspm/IpmIterate.h
     highspm/IpmModel.h
-    highspm/Ipm_const.h
+    highspm/IpmOption.h
+    highspm/IpmStatus.h
     highspm/LinearSolver.h)
 
 set(factor_highs_sources

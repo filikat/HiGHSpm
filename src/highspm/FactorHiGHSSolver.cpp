@@ -2,6 +2,8 @@
 
 #include <limits>
 
+#include "IpmStatus.h"
+
 namespace highspm {
 
 Int computeLowerAThetaAT(

@@ -1,7 +1,7 @@
-#ifndef HIGHSPM_IPM_CONST_H
-#define HIGHSPM_IPM_CONST_H
+#ifndef HIGHSPM_IPM_OPTION_H
+#define HIGHSPM_IPM_OPTION_H
 
-#include "auxiliary/IntConfig.h"
+#include "IpmConst.h"
 
 namespace highspm {
 
@@ -24,7 +24,7 @@ enum OptionFormat {
   kOptionFormatDefault = kOptionFormatHybridHybrid
 };
 
-enum kOptionCrossover {
+enum OptionCrossover {
   kOptionCrossoverMin = 0,
   kOptionCrossoverOff = kOptionCrossoverMin,
   kOptionCrossoverOn,
@@ -32,7 +32,7 @@ enum kOptionCrossover {
   kOptionCrossoverDefault = kOptionCrossoverOff
 };
 
-enum kOptionParallel {
+enum OptionParallel {
   kOptionParallelMin = 0,
   kOptionParallelOff = kOptionParallelMin,  // tree off     node off
   kOptionParallelOn,                        // tree on      node on
@@ -48,49 +48,11 @@ struct Options {
   Int format = kOptionFormatDefault;
   Int crossover = kOptionCrossoverDefault;
   Int parallel = kOptionParallelDefault;
+  Int max_iter = kMaxIterDefault;
+  double feasibility_tol = kIpmTolDefault;
+  double optimality_tol = kIpmTolDefault;
+  double crossover_tol = kIpmTolDefault;
 };
-
-enum IpmStatus {
-  kIpmStatusError,
-  kIpmStatusMaxIter,
-  kIpmStatusNoProgress,
-  kIpmStatusOptimal,
-  kIpmStatusPDFeas,
-  kIpmStatusBasic
-};
-
-enum LinearSolverStatus {
-  kLinearSolverStatusOk = 0,
-  kLinearSolverStatusErrorOom,
-  kLinearSolverStatusErrorAnalyse,
-  kLinearSolverStatusErrorFactorise,
-  kLinearSolverStatusErrorSolve
-};
-
-// parameters for termination
-const Int kMaxIterations = 100;
-const double kIpmTolerance = 1e-8;
-const Int kMaxBadIter = 5;
-
-// parameters for correctors
-const double kGammaCorrector = 0.1;
-const double kSigmaAffine = 0.01;
-const Int kMaxCorrectors = 5;
-const double kMccIncreaseAlpha = 0.1;
-const double kMccIncreaseMin = 0.1;
-const double kSmallProduct = 1e-3;
-const double kLargeProduct = 1e3;
-
-// parameters for choice of AS or NE
-const double kSpopsWeight = 30.0;
-const double kRatioOpsThresh = 10.0;
-const double kRatioSnThresh = 1.5;
-
-// parameters for choice of parallelism
-const double kLargeFlopsThresh = 1e7;
-const double kLargeSpeedupThresh = 1.5;
-const double kLargeSnThresh = 20.0;
-const double kSmallSnThresh = 5.0;
 
 }  // namespace highspm
 

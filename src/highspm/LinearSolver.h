@@ -3,7 +3,8 @@
 
 #include <vector>
 
-#include "Ipm_const.h"
+#include "IpmConst.h"
+#include "IpmOption.h"
 #include "auxiliary/IntConfig.h"
 #include "auxiliary/VectorOperations.h"
 #include "util/HighsSparseMatrix.h"

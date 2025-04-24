@@ -46,7 +46,7 @@ IpmStatus Ipm::solve() {
 void Ipm::runIpm() {
   if (initialize()) return;
 
-  while (iter_ < kMaxIterations) {
+  while (iter_ < options_.max_iter) {
     if (prepareIter()) break;
     if (predictor()) break;
     if (correctors()) break;
@@ -144,8 +144,8 @@ bool Ipm::prepareIpx() {
   ipx_param.display = 1;
   ipx_param.dualize = 0;
   ipx_param.run_crossover = options_.crossover;
-  ipx_param.ipm_feasibility_tol = kIpmTolerance;
-  ipx_param.ipm_optimality_tol = kIpmTolerance;
+  ipx_param.ipm_feasibility_tol = options_.feasibility_tol;
+  ipx_param.ipm_optimality_tol = options_.optimality_tol;
   ipx_lps_.SetParameters(ipx_param);
 
   Int load_status = model_.loadIntoIpx(ipx_lps_);
@@ -907,8 +907,9 @@ bool Ipm::checkBadIter() {
 }
 
 bool Ipm::checkTermination() {
-  bool feasible = it_->pinf < kIpmTolerance && it_->dinf < kIpmTolerance;
-  bool optimal = it_->pdgap < kIpmTolerance;
+  bool feasible = it_->pinf < options_.feasibility_tol &&
+                  it_->dinf < options_.feasibility_tol;
+  bool optimal = it_->pdgap < options_.optimality_tol;
 
   bool terminate = false;
 
@@ -919,7 +920,8 @@ bool Ipm::checkTermination() {
     ipm_status_ = kIpmStatusPDFeas;
 
     if (options_.crossover) {
-      bool ready_for_crossover = it_->infeasAfterDropping() < kIpmTolerance;
+      bool ready_for_crossover =
+          it_->infeasAfterDropping() < options_.crossover_tol;
       if (ready_for_crossover) {
         printf("=== Ready for crossover\n");
         terminate = true;

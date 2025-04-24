@@ -1,6 +1,6 @@
 #include "IpmIterate.h"
 
-#include "Ipm_const.h"
+#include "IpmConst.h"
 #include "factorhighs/DataCollector.h"
 
 namespace highspm {
