@@ -39,7 +39,7 @@ set_tests_properties(test_afiro_ne PROPERTIES
                     PASS_REGULAR_EXPRESSION "Primal-dual feasible point found")
 
 add_test(NAME test_afiro_as COMMAND ipm ../instances/afiro.mps 0 2 0)
-set_tests_properties(test_afiro_ne PROPERTIES 
+set_tests_properties(test_afiro_as PROPERTIES 
                     PASS_REGULAR_EXPRESSION "Primal-dual feasible point found")
 
 add_test(NAME test_afiro_ne_crossover COMMAND ipm ../instances/afiro.mps 1 2 1)
