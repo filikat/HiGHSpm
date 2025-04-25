@@ -84,6 +84,7 @@ bool Ipm::initialise() {
   maxCorrectors();
 
   // print information about symbolic factorisation
+  printf("\nSymbolic factorisation took %.1f sec\n", clock_.stop());
   DataCollector::get()->printSymbolic(1);
 
   startingPoint();

@@ -273,7 +273,6 @@ void printMemory(double mem) {
 void DataCollector::printSymbolic(bool verbose) const {
   const FactorData& fd = factor_data_;
 
-  printf("\nStatistic of Factor L\n");
   printf("size            : %.2e\n", (double)fd.n);
   printf("nnz             : %.2e\n", (double)fd.nz);
   printf("fill-in         : %.2f\n", fd.fillin);
@@ -281,23 +280,24 @@ void DataCollector::printSymbolic(bool verbose) const {
   printMemory(fd.serial_storage);
 
   printf("dense  ops      : %.1e\n", fd.dense_ops);
-  printf("sparse ops      : %.1e\n", fd.sparse_ops);
-  printf("critical ops    : %.1e\n", fd.critical_ops);
-  printf("max tree speedup: %.2f\n", fd.dense_ops / fd.critical_ops);
-
-  if (verbose) {
+  if (verbose) printf("sparse ops      : %.1e\n", fd.sparse_ops);
+  if (verbose) printf("critical ops    : %.1e\n", fd.critical_ops);
+  if (verbose)
+    printf("max tree speedup: %.2f\n", fd.dense_ops / fd.critical_ops);
+  if (verbose)
     printf("artificial nz   : %.1e (%.1f%%)\n", (double)fd.artificial_nz,
            (double)fd.artificial_nz / fd.nz * 100);
+  if (verbose)
     printf("artificial ops  : %.1e (%.1f%%)\n", fd.artificial_ops,
            fd.artificial_ops / fd.dense_ops * 100);
-    printf("largest front   : %5d\n", fd.largest_front);
-    printf("largest sn      : %5d\n", fd.largest_sn);
-    printf("supernodes      : %5d\n", fd.sn);
-    printf("sn size <=   1  : %5d\n", fd.sn_size_1);
-    printf("sn size <=  10  : %5d\n", fd.sn_size_10);
-    printf("sn size <= 100  : %5d\n", fd.sn_size_100);
-    printf("sn avg size     : %5.1f\n", (double)fd.n / fd.sn);
-  }
+  printf("largest front   : %5d\n", fd.largest_front);
+  printf("largest sn      : %5d\n", fd.largest_sn);
+  printf("supernodes      : %5d\n", fd.sn);
+  if (verbose) printf("sn size <=   1  : %5d\n", fd.sn_size_1);
+  if (verbose) printf("sn size <=  10  : %5d\n", fd.sn_size_10);
+  if (verbose) printf("sn size <= 100  : %5d\n", fd.sn_size_100);
+  if (verbose) printf("sn avg size     : %5.1f\n", (double)fd.n / fd.sn);
+
   printf("\n");
 }
 
