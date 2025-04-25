@@ -5,10 +5,10 @@
 
 namespace highspm {
 
-// parallelize dgemm for use within factorization
+// parallelise dgemm for use within factorisation
 // Performs Q <- Q - R P^T in hybrid format.
-// Parallelized over the rows of R and Q.
-class dgemmParallelizer {
+// Parallelised over the rows of R and Q.
+class dgemmParalleliser {
   const double* P_;
   const double* R_;
   double* Q_;
@@ -16,7 +16,7 @@ class dgemmParallelizer {
   const Int jb_;
 
  public:
-  dgemmParallelizer(const double* P, const double* R, double* Q, Int col,
+  dgemmParalleliser(const double* P, const double* R, double* Q, Int col,
                     Int jb);
 
   void run(Int start, Int end, double beta) const;

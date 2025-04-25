@@ -69,7 +69,7 @@ class IpmModel {
   void preprocess();
 
  public:
-  // Initialize the model
+  // Initialise the model
   void init(const Int num_var, const Int num_con, const double* obj,
             const double* rhs, const double* lower, const double* upper,
             const Int* A_ptr, const Int* A_rows, const double* A_vals,

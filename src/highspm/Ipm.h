@@ -107,7 +107,7 @@ class Ipm {
  private:
   // Functions to run the various stages of the ipm
   void runIpm();
-  bool initialize();
+  bool initialise();
   void terminate();
   bool prepareIter();
   bool predictor();

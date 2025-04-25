@@ -158,7 +158,7 @@ int main(int argc, char** argv) {
   // create instance of IPM
   highspm::Ipm ipm{};
 
-  // scheduler should be already initialized, but no harm in doing it again
+  // scheduler should be already initialised, but no harm in doing it again
   // HighsTaskExecutor::shutdown(true);
   highs::parallel::initialize_scheduler();
 

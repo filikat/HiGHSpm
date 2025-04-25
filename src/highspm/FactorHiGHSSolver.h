@@ -10,13 +10,13 @@
 namespace highspm {
 
 class FactorHiGHSSolver : public LinearSolver {
-  // symbolic factorization
+  // symbolic factorisation
   Symbolic S_;
 
-  // numeric factorization
+  // numeric factorisation
   Numeric N_;
 
-  // keep track of whether as or ne is being factorized
+  // keep track of whether as or ne is being factorised
   bool use_as_ = true;
 
   Int choose(const HighsSparseMatrix& A, Options& options);

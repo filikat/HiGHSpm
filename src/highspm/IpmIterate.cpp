@@ -243,7 +243,7 @@ std::vector<double> IpmIterate::residual8(
 
   // temp = (Theta^-1+Rp)^-1 * res7
   for (Int i = 0; i < model->n(); ++i)
-    temp[i] /= scaling[i] + kPrimalStaticRegularization;
+    temp[i] /= scaling[i] + kPrimalStaticRegularisation;
 
   // res8 += A * temp
   model->A().alphaProductPlusY(1.0, temp, res8);

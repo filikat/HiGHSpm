@@ -12,7 +12,7 @@
 #define PIVOTING
 #define DATA_COLLECTION
 // #define PRINT_ITER_REF
-// #define PRINT_REGULARIZATION
+// #define PRINT_REGULARISATION
 // #define PRINT_CORRECTORS
 
 // choose level of timing:
@@ -35,15 +35,15 @@ const double kLowerRatioRelax = 0.01;
 const Int kMaxIterRelax = 10;
 const Int kSnSizeRelax = 16;
 
-// dense factorization
+// dense factorisation
 const Int kBlockSize = 128;
 const double kAlphaBK = 0.01;  //(sqrt(17.0) + 1.0) / 8.0;
 const Int kBlockGrainSize = 1;
 const Int kBlockParallelThreshold = 5;
 
-// regularization
-const double kPrimalStaticRegularization = 1e-12;
-const double kDualStaticRegularization = 1e-10;
+// regularisation
+const double kPrimalStaticRegularisation = 1e-12;
+const double kDualStaticRegularisation = 1e-10;
 const double kDynamicDiagCoeff = 1e-24;
 
 // refinement

@@ -22,7 +22,7 @@ class IpmMatrix : public AbstractMatrix {
   void apply(std::vector<double>& x) const override;
 };
 
-// Class to perform solves with the ipm factorization
+// Class to perform solves with the ipm factorisation
 class IpmFactor : public AbstractMatrix {
   const Numeric& N_;
 

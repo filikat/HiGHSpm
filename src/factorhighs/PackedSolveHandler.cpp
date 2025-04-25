@@ -94,7 +94,7 @@ void PackedSolveHandler::backwardSolve(std::vector<double>& x) const {
     const Int n_blocks = (sn_size - 1) / nb + 1;
 
     // index to access snColumns[sn]
-    // initialized with the total number of entries of snColumns[sn]
+    // initialised with the total number of entries of snColumns[sn]
     std::vector<Int> diag_start;
     getDiagStart(ldSn, sn_size, nb, n_blocks, diag_start);
 

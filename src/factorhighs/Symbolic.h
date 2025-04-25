@@ -12,7 +12,7 @@ namespace highspm {
 // (see report for details)
 enum class FormatType { Full, HybridPacked, HybridHybrid, PackedPacked };
 
-// Symbolic factorization object
+// Symbolic factorisation object
 class Symbolic {
   // Format
   FormatType format_type_;
@@ -21,7 +21,7 @@ class Symbolic {
   bool parallel_tree_ = false;
   bool parallel_node_ = false;
 
-  // Size of blocks for dense factorization
+  // Size of blocks for dense factorisation
   Int block_size_;
 
   // Size of the matrix L
@@ -86,10 +86,10 @@ class Symbolic {
   //   and increment equal to one.
   std::vector<std::vector<Int>> consecutive_sums_{};
 
-  // Sign of each pivot (for indefinite factorization)
+  // Sign of each pivot (for indefinite factorisation)
   // - pivot_sign_[i] = 1  if pivot i is supposed to be positive.
   // - pivot_sign_[i] = -1 is pivot i is supposed to be negative.
-  // This is used when regularizing the pivots, to know the sign that the pivot
+  // This is used when regularising the pivots, to know the sign that the pivot
   // should have.
   std::vector<Int> pivot_sign_{};
 
@@ -102,7 +102,7 @@ class Symbolic {
   Symbolic(FormatType format_type);
   void setParallel(bool par_tree, bool par_node);
 
-  // provide const access to symbolic factorization
+  // provide const access to symbolic factorisation
   FormatType formatType() const;
   int64_t nz() const;
   double flops() const;

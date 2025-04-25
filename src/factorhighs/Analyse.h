@@ -9,12 +9,12 @@
 
 namespace highspm {
 
-// Class to perform the analyse phase of the factorization.
-// The final symbolic factorization is stored in an object of type Symbolic.
+// Class to perform the analyse phase of the factorisation.
+// The final symbolic factorisation is stored in an object of type Symbolic.
 class Analyse {
   bool ready_ = false;
 
-  // Matrix to be factorized, stored in upper and lower triangular format
+  // Matrix to be factorised, stored in upper and lower triangular format
   std::vector<Int> rows_upper_{};
   std::vector<Int> ptr_upper_{};
   std::vector<Int> rows_lower_{};

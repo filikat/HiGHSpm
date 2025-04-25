@@ -11,7 +11,7 @@
 namespace highspm {
 
 class Numeric {
-  // columns of factorization, stored by supernode
+  // columns of factorisation, stored by supernode
   std::vector<std::vector<double>> sn_columns_{};
 
   // swaps of columns for each supernode, ordered locally within a block
@@ -34,7 +34,7 @@ class Numeric {
   friend class Factorise;
 
  public:
-  // dynamic regularization applied to the matrix
+  // dynamic regularisation applied to the matrix
   std::vector<double> total_reg_{};
 
   Numeric(const Symbolic& S);

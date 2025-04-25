@@ -8,13 +8,13 @@
 
 namespace highspm {
 
-// Factorization with "full formats".
+// Factorisation with "full formats".
 // Kept only for reference, "hybrid formats" should be preferred.
 
 Int denseFactF(Int n, Int k, Int nb, double* A, Int lda, double* B, Int ldb,
                const Int* pivot_sign, double thresh, double* regul, Int sn) {
   // ===========================================================================
-  // Partial blocked factorization
+  // Partial blocked factorisation
   // Matrix A is in format F
   // Matrix B is in format F
   // BLAS calls: dcopy, dscal, dsyrk, dgemm, dtrsm
@@ -62,7 +62,7 @@ Int denseFactF(Int n, Int k, Int nb, double* A, Int lda, double* B, Int ldb,
     callAndTime_dgemm('N', 'T', jb, jb, j, -1.0, P, lda, T.data(), ldt, 1.0, D,
                       lda);
 
-    // factorize diagonal block
+    // factorise diagonal block
     std::vector<Int> pivot_sign_current(&pivot_sign[j], &pivot_sign[j] + jb);
     double* regul_current = &regul[j];
     Int bl = j / nb;
@@ -151,7 +151,7 @@ Int denseFactF(Int n, Int k, Int nb, double* A, Int lda, double* B, Int ldb,
 Int denseFactFP(Int n, Int k, Int nb, double* A, double* B,
                 const Int* pivot_sign, double thresh, double* regul, Int sn) {
   // ===========================================================================
-  // Partial blocked factorization
+  // Partial blocked factorisation
   // Matrix A is in format FP
   // Matrix B is in format FP
   // BLAS calls: dcopy, dscal, dgemm, dtrsm
@@ -229,7 +229,7 @@ Int denseFactFP(Int n, Int k, Int nb, double* A, double* B,
       }
     }
 
-    // factorize diagonal block
+    // factorise diagonal block
     double* regul_current = &regul[j * nb];
     std::vector<Int> pivot_sign_current(&pivot_sign[j * nb],
                                         &pivot_sign[j * nb] + jb);
@@ -254,7 +254,7 @@ Int denseFactFP(Int n, Int k, Int nb, double* A, double* B,
   clock.start();
 #endif
 
-  // compute Schur complement if partial factorization is required
+  // compute Schur complement if partial factorisation is required
   if (k < n) {
     // number of rows/columns in the Schur complement
     const Int ns = n - k;

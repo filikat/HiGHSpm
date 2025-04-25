@@ -49,7 +49,7 @@ class Factorise {
   double min_diag_{};
   double A_norm1_{};
 
-  // regularization
+  // regularisation
   std::vector<double> total_reg_{};
 
   // flag to stop computation

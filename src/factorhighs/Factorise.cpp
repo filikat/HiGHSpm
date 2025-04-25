@@ -22,7 +22,7 @@ Factorise::Factorise(const Symbolic& S, const std::vector<Int>& rowsA,
                      const std::vector<double>& valA)
     : S_{S} {
   // Input the symmetric matrix to be factorised in CSC format and the symbolic
-  // factorisation coming from Analyze.
+  // factorisation coming from Analyse.
   // Only the lower triangular part of the matrix is used.
   // The Factorise object takes ownership of the matrix; rowsA, ptrA and valA
   // are not valid anymore.
@@ -211,7 +211,7 @@ void Factorise::processSupernode(Int sn) {
   const Int sn_end = S_.snStart(sn + 1);
   const Int sn_size = sn_end - sn_begin;
 
-  // initialize the format handler
+  // initialise the format handler
   // this also allocates space for the frontal matrix and schur complement
   std::unique_ptr<FormatHandler> FH = getFormatHandler(S_, sn);
 
@@ -333,7 +333,7 @@ void Factorise::processSupernode(Int sn) {
 #ifdef FINE_TIMING
   clock.start();
 #endif
-  // threshold for regularization
+  // threshold for regularisation
   // const double reg_thresh = max_diag_ * kDynamicDiagCoeff;
   const double reg_thresh = A_norm1_ * kDynamicDiagCoeff;
 
@@ -348,7 +348,7 @@ void Factorise::processSupernode(Int sn) {
 #ifdef FINE_TIMING
   clock.start();
 #endif
-  // compute largest elements in factorization
+  // compute largest elements in factorisation
   FH->extremeEntries();
 
   // terminate the format handler

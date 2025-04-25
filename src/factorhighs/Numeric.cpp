@@ -15,7 +15,7 @@
 namespace highspm {
 
 Numeric::Numeric(const Symbolic& S) : S_{S} {
-  // initialize solve handler
+  // initialise solve handler
   switch (S_.formatType()) {
     case FormatType::Full:
       SH_.reset(new FullSolveHandler(S_, sn_columns_));

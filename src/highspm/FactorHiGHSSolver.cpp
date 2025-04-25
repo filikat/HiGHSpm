@@ -78,10 +78,10 @@ Int FactorHiGHSSolver::setup(const HighsSparseMatrix& A, Options& options) {
 
 Int FactorHiGHSSolver::factorAS(const HighsSparseMatrix& A,
                                 const std::vector<double>& scaling) {
-  // only execute factorization if it has not been done yet
+  // only execute factorisation if it has not been done yet
   assert(!this->valid_);
 
-  // initialize
+  // initialise
   std::vector<Int> ptrLower;
   std::vector<Int> rowsLower;
   std::vector<double> valLower;
@@ -129,10 +129,10 @@ Int FactorHiGHSSolver::factorAS(const HighsSparseMatrix& A,
 
 Int FactorHiGHSSolver::factorNE(const HighsSparseMatrix& A,
                                 const std::vector<double>& scaling) {
-  // only execute factorization if it has not been done yet
+  // only execute factorisation if it has not been done yet
   assert(!this->valid_);
 
-  // initialize
+  // initialise
   std::vector<Int> ptrLower;
   std::vector<Int> rowsLower;
   std::vector<double> valLower;
@@ -156,10 +156,10 @@ Int FactorHiGHSSolver::factorNE(const HighsSparseMatrix& A,
 
 Int FactorHiGHSSolver::solveNE(const std::vector<double>& rhs,
                                std::vector<double>& lhs) {
-  // only execute the solve if factorization is valid
+  // only execute the solve if factorisation is valid
   assert(this->valid_);
 
-  // initialize lhs with rhs
+  // initialise lhs with rhs
   lhs = rhs;
 
   N_.solve(lhs);
@@ -171,7 +171,7 @@ Int FactorHiGHSSolver::solveAS(const std::vector<double>& rhs_x,
                                const std::vector<double>& rhs_y,
                                std::vector<double>& lhs_x,
                                std::vector<double>& lhs_y) {
-  // only execute the solve if factorization is valid
+  // only execute the solve if factorisation is valid
   assert(this->valid_);
 
   Int n = rhs_x.size();
@@ -220,7 +220,7 @@ Int computeLowerAThetaAT(const HighsSparseMatrix& matrix,
       Int iCol = AT.index_[iRowEl];
       const double theta_value =
           scaling.empty() ? 1.0
-                          : 1.0 / (scaling[iCol] + kPrimalStaticRegularization);
+                          : 1.0 / (scaling[iCol] + kPrimalStaticRegularisation);
       if (!theta_value) continue;
       const double row_value = theta_value * AT.value_[iRowEl];
       for (Int iColEl = matrix.start_[iCol]; iColEl < matrix.start_[iCol + 1];

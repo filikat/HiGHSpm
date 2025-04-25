@@ -34,7 +34,7 @@ void FormatHandler::terminate(std::vector<double>& frontal,
   swaps = std::move(swaps_);
   pivot_2x2 = std::move(pivot_2x2_);
 
-  // Move local regularization into total regularization.
+  // Move local regularisation into total regularisation.
   for (Int i = 0; i < sn_size_; ++i)
     total_reg[S_->snStart(sn_) + i] = local_reg_[i];
 

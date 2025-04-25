@@ -9,7 +9,7 @@ namespace highspm {
 
 PackedPackedFormatHandler::PackedPackedFormatHandler(const Symbolic& S, Int sn)
     : FormatHandler(S, sn) {
-  // initialize frontal and clique
+  // initialise frontal and clique
   initFrontal();
   initClique();
 }

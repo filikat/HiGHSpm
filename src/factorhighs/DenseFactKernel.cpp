@@ -8,7 +8,7 @@
 
 namespace highspm {
 
-// Dense Factorization kernel
+// Dense Factorisation kernel
 
 std::pair<Int, double> maxInCol(Int j, Int n, Int m, double* A, Int lda) {
   // Given the symemtric matrix A, of size nxn, accessed with leading dimension
@@ -37,13 +37,13 @@ std::pair<Int, double> maxInCol(Int j, Int n, Int m, double* A, Int lda) {
 }
 
 void staticReg(double& pivot, Int sign, double& regul) {
-  // apply static regularization
+  // apply static regularisation
 
   double old_pivot = pivot;
   if (sign > 0)
-    pivot += kDualStaticRegularization;
+    pivot += kDualStaticRegularisation;
   else
-    pivot -= kPrimalStaticRegularization;
+    pivot -= kPrimalStaticRegularisation;
   regul = pivot - old_pivot;
 }
 
@@ -55,7 +55,7 @@ bool blockBunchKaufman(Int j, Int n, double* A, Int lda, Int* swaps, Int* sign,
   // It works only for upper triangular A.
   // Return true if 2x2 pivot should be used, false otherwise.
   // Swap of columns may be performed.
-  // Regularization of pivot may be performed.
+  // Regularisation of pivot may be performed.
 
   Clock clock;
   bool flag_2x2 = false;
@@ -70,7 +70,7 @@ bool blockBunchKaufman(Int j, Int n, double* A, Int lda, Int* swaps, Int* sign,
     if (std::abs(A[j + lda * j]) < kAlphaBK * max_in_R * 1e-6) {
       A[j + lda * j] = sign[j] * kAlphaBK * max_in_R * 1e-6;
       DataCollector::get()->countRegPiv();
-      // #ifdef PRINT_REGULARIZATION
+      // #ifdef PRINT_REGULARISATION
       printf("%4d %2d %2d: pivot %8.1e set to %8.1e\n", sn, bl, j, old_pivot,
              A[j + lda * j]);
       // #endif
@@ -100,8 +100,8 @@ bool blockBunchKaufman(Int j, Int n, double* A, Int lda, Int* swaps, Int* sign,
   auto res = maxInCol(j, n, j, A, lda);
   double gamma_j = res.second;
   Int r = res.first;
-  double Ajj = sign[j] > 0 ? A[j + lda * j] + kDualStaticRegularization
-                           : A[j + lda * j] - kPrimalStaticRegularization;
+  double Ajj = sign[j] > 0 ? A[j + lda * j] + kDualStaticRegularisation
+                           : A[j + lda * j] - kPrimalStaticRegularisation;
 
   if (std::max(std::abs(Ajj), gamma_j) <= thresh || sign[j] * Ajj < 0 ||
       j == n - 1) {
@@ -118,7 +118,7 @@ bool blockBunchKaufman(Int j, Int n, double* A, Int lda, Int* swaps, Int* sign,
       // perturbe pivot
       A[j + lda * j] = sign[j] * thresh;
       DataCollector::get()->countRegPiv();
-#ifdef PRINT_REGULARIZATION
+#ifdef PRINT_REGULARISATION
       printf("%4d %2d %2d: pivot %8.1e set to %8.1e\n", sn, bl, j, old_pivot,
              A[j + lda * j]);
 #endif
@@ -131,8 +131,8 @@ bool blockBunchKaufman(Int j, Int n, double* A, Int lda, Int* swaps, Int* sign,
     assert(r >= 0);
     res = maxInCol(j, n, r, A, lda);
     double gamma_r = res.second;
-    double Arr = sign[r] > 0 ? A[r + lda * r] + kDualStaticRegularization
-                             : A[r + lda * r] - kPrimalStaticRegularization;
+    double Arr = sign[r] > 0 ? A[r + lda * r] + kDualStaticRegularisation
+                             : A[r + lda * r] - kPrimalStaticRegularisation;
 
     if ((std::abs(Ajj) >= kAlphaBK * gamma_j ||
          std::abs(Ajj) * gamma_r >= kAlphaBK * gamma_j * gamma_j)) {
@@ -170,14 +170,14 @@ bool blockBunchKaufman(Int j, Int n, double* A, Int lda, Int* swaps, Int* sign,
   return flag_2x2;
 }
 
-double regularizePivot(double pivot, double thresh, const Int* sign,
+double regularisePivot(double pivot, double thresh, const Int* sign,
                        const double* A, Int lda, Int j, Int n, char uplo,
                        Int sn, Int bl) {
-  // add static regularization
+  // add static regularisation
   if (sign[j] == 1)
-    pivot += kDualStaticRegularization;
+    pivot += kDualStaticRegularisation;
   else
-    pivot -= kPrimalStaticRegularization;
+    pivot -= kPrimalStaticRegularisation;
 
   double s = (double)sign[j];
   double old_pivot = pivot;
@@ -193,7 +193,7 @@ double regularizePivot(double pivot, double thresh, const Int* sign,
     pivot = s * thresh;
     adjust = true;
     modified_pivot = true;
-#ifdef PRINT_REGULARIZATION
+#ifdef PRINT_REGULARISATION
     printf("%2d, %2d, %2d: small pivot %e, with sign %d, set to %e\n", sn, bl,
            j, old_pivot, sign[j], pivot);
 #endif
@@ -203,7 +203,7 @@ double regularizePivot(double pivot, double thresh, const Int* sign,
     pivot = s * thresh * 10;
     adjust = true;
     modified_pivot = true;
-#ifdef PRINT_REGULARIZATION
+#ifdef PRINT_REGULARISATION
     printf("%2d, %2d, %2d: wrong pivot %e, with sign %d, set to %e\n", sn, bl,
            j, old_pivot, sign[j], pivot);
 #endif
@@ -212,7 +212,7 @@ double regularizePivot(double pivot, double thresh, const Int* sign,
     // pivot is completely lost
     pivot = s * 1e100;
     modified_pivot = true;
-#ifdef PRINT_REGULARIZATION
+#ifdef PRINT_REGULARISATION
     printf("%2d, %2d, %2d: disaster pivot %e, with sign %d, set to %e\n", sn,
            bl, j, old_pivot, sign[j], pivot);
 #endif
@@ -255,7 +255,7 @@ double regularizePivot(double pivot, double thresh, const Int* sign,
       else
         pivot = std::min(pivot, required_pivot);
 
-#ifdef PRINT_REGULARIZATION
+#ifdef PRINT_REGULARISATION
       printf("\t%2d, %2d, %2d: adjust %e to %e\n", sn, bl, j, old_pivot, pivot);
 #endif
     }
@@ -270,7 +270,7 @@ Int denseFactK(char uplo, Int n, double* A, Int lda, Int* pivot_sign,
                double thresh, double* regul, Int* swaps, double* pivot_2x2,
                Int sn, Int bl, double max_in_R) {
   // ===========================================================================
-  // Factorization kernel
+  // Factorisation kernel
   // Matrix A is in format F
   // BLAS calls: dscal, dcopy, dger
   // ===========================================================================
@@ -306,10 +306,10 @@ Int denseFactK(char uplo, Int n, double* A, Int lda, Int* pivot_sign,
         return kRetInvalidPivot;
       }
 
-      // add regularization
+      // add regularisation
       double old_pivot = Ajj;
       Ajj =
-          regularizePivot(Ajj, thresh, pivot_sign, A, lda, j, n, uplo, sn, bl);
+          regularisePivot(Ajj, thresh, pivot_sign, A, lda, j, n, uplo, sn, bl);
       regul[j] = Ajj - old_pivot;
       DataCollector::get()->setMaxReg(std::abs(regul[j]));
 
@@ -340,7 +340,7 @@ Int denseFactK(char uplo, Int n, double* A, Int lda, Int* pivot_sign,
       return kRetInvalidInput;
     }
 
-    // initialize order of pivots
+    // initialise order of pivots
     for (Int i = 0; i < n; ++i) swaps[i] = i;
 
     // allocate space for copy of col(s)
@@ -373,9 +373,9 @@ Int denseFactK(char uplo, Int n, double* A, Int lda, Int* pivot_sign,
         }
 
 #ifndef PIVOTING
-        // add regularization
+        // add regularisation
         double old_pivot = Ajj;
-        Ajj = regularizePivot(Ajj, thresh, pivot_sign, A, lda, j, n, uplo, sn,
+        Ajj = regularisePivot(Ajj, thresh, pivot_sign, A, lda, j, n, uplo, sn,
                               bl);
         regul[j] = Ajj - old_pivot;
         DataCollector::get()->setMaxReg(std::abs(regul[j]));

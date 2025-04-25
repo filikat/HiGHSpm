@@ -49,7 +49,7 @@ void Ipm::solve() {
 }
 
 void Ipm::runIpm() {
-  if (initialize()) return;
+  if (initialise()) return;
 
   while (iter_ < options_.max_iter) {
     if (prepareIter()) break;
@@ -62,17 +62,17 @@ void Ipm::runIpm() {
   LS_->terminate();
 }
 
-bool Ipm::initialize() {
+bool Ipm::initialise() {
   // Prepare ipm for execution.
   // Return true if an error occurred.
 
   // start timer
   clock_.start();
 
-  // initialize iterate object
+  // initialise iterate object
   it_.reset(new IpmIterate(model_));
 
-  // initialize linear solver
+  // initialise linear solver
   LS_.reset(new FactorHiGHSSolver(options_));
   if (LS_->setup(model_.A(), options_)) {
     info_.ipm_status = kIpmStatusError;
@@ -247,7 +247,7 @@ bool Ipm::solveNewtonSystem(NewtonDir& delta) {
 
     // Deltax = (Theta^-1+Rp)^-1 * Deltax
     for (Int i = 0; i < n_; ++i)
-      delta.x[i] /= theta_inv[i] + kPrimalStaticRegularization;
+      delta.x[i] /= theta_inv[i] + kPrimalStaticRegularisation;
 
   }
 
@@ -519,10 +519,10 @@ void Ipm::startingPoint() {
     y = model_.b();
     model_.A().alphaProductPlusY(-1.0, x, y);
 
-    // solve A*A^T * dx = b-A*x with factorization and store the result in
+    // solve A*A^T * dx = b-A*x with factorisation and store the result in
     // temp_m
 
-    // factorize A*A^T
+    // factorise A*A^T
     if (LS_->factorNE(model_.A(), temp_scaling)) goto failure;
 
     if (LS_->solveNE(y, temp_m)) goto failure;
@@ -1225,8 +1225,8 @@ void Ipm::maxCorrectors() {
     // because there are two sweeps through L (forward and backward).
     double solv_effort = 2.0 * LS_->nz();
 
-    // The factorise phase uses BLAS-3 and can be parallelized, the solve phase
-    // uses BLAS-2 and cannot be parallelized. To account for this, the
+    // The factorise phase uses BLAS-3 and can be parallelised, the solve phase
+    // uses BLAS-2 and cannot be parallelised. To account for this, the
     // factorisation effort is multiplied by a coefficient < 1, estimated
     // empirically.
     double alpha = 1.0 / 112.0;

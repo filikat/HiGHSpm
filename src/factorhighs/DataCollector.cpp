@@ -54,7 +54,7 @@ void CounterData::clear() {
 }
 
 void DataCollector::saveAndClear() {
-  // Save current factorization and counter data in temporary storage and clear
+  // Save current factorisation and counter data in temporary storage and clear
   // main data. This is useful if analyse phase of both NE and AS is attempted,
   // otherwise the data would get corrupted.
 
@@ -66,7 +66,7 @@ void DataCollector::saveAndClear() {
 }
 
 void DataCollector::loadSaved() {
-  // Sets the factorization data equal to the one stored in temporary storage.
+  // Sets the factorisation data equal to the one stored in temporary storage.
   factor_data_ = std::move(saved_factor_data_);
   counter_data_ = std::move(saved_counter_data_);
 }
@@ -110,7 +110,7 @@ void DataCollector::setExtremeEntries(double minD, double maxD, double minoffD,
 
 void DataCollector::countRegPiv() {
 #ifdef DATA_COLLECTION
-  // Increase the number of dynamically regularized pivots.
+  // Increase the number of dynamically regularised pivots.
   std::lock_guard<std::mutex> lock(iter_data_mutex_);
   ++back().n_reg_piv;
 #endif
@@ -140,7 +140,7 @@ void DataCollector::setWrongSign(double p) {
 
 void DataCollector::setMaxReg(double new_reg) {
 #ifdef DATA_COLLECTION
-  // Keep track of maximum regularization used.
+  // Keep track of maximum regularisation used.
   std::lock_guard<std::mutex> lock(iter_data_mutex_);
   back().max_reg = std::max(back().max_reg, new_reg);
 #endif

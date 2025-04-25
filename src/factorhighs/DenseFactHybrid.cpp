@@ -9,13 +9,13 @@
 
 namespace highspm {
 
-// Factorization with "hybrid formats".
+// Factorisation with "hybrid formats".
 
 Int denseFactFH(char format, Int n, Int k, Int nb, double* A, double* B,
                 const Int* pivot_sign, double thresh, double* regul, Int* swaps,
                 double* pivot_2x2, Int sn, bool parnode) {
   // ===========================================================================
-  // Partial blocked factorization
+  // Partial blocked factorisation
   // Matrix A is in format FH
   // Matrix B is in format FP, if format == 'P'
   //                       FH, if format == 'H'
@@ -83,7 +83,7 @@ Int denseFactFH(char format, Int n, Int k, Int nb, double* A, double* B,
     double* R = &A[R_pos];
 
     // ===========================================================================
-    // FACTORIZE DIAGONAL BLOCK
+    // FACTORISE DIAGONAL BLOCK
     // ===========================================================================
     double max_in_R = -1.0;
     if (jb == 1) {
@@ -105,7 +105,7 @@ Int denseFactFH(char format, Int n, Int k, Int nb, double* A, double* B,
     // swap columns in R
     applySwaps(swaps_current, M, jb, R);
 
-    // unswap regularization, to keep it with original ordering
+    // unswap regularisation, to keep it with original ordering
     permuteWithSwaps(regul_current, swaps_current, jb, true);
 #endif
 
@@ -208,7 +208,7 @@ Int denseFactFH(char format, Int n, Int k, Int nb, double* A, double* B,
           double* Q = format == 'P' ? schur_buf.data() : &B[B_offset];
           const double* Rjj = &R[offset];
 
-          // beta is 0 to avoid initializing schur_buf if format=='P'
+          // beta is 0 to avoid initialising schur_buf if format=='P'
           double beta = format == 'P' ? 0.0 : 1.0;
 
           // perform gemm (potentially) in parallel

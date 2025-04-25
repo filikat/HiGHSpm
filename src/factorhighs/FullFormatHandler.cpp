@@ -8,13 +8,13 @@ namespace highspm {
 
 FullFormatHandler::FullFormatHandler(const Symbolic& S, Int sn)
     : FormatHandler(S, sn) {
-  // initialize frontal and clique
+  // initialise frontal and clique
   initFrontal();
   initClique();
 }
 
 void FullFormatHandler::initFrontal() {
-  // frontal is initialized to zero
+  // frontal is initialised to zero
   frontal_.resize(ldf_ * sn_size_);
 }
 

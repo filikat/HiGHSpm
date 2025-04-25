@@ -11,17 +11,17 @@ namespace highspm {
 // Interface class to handle different formats of dense matrices during the
 // factorise phase.
 // Any implementation of a specific format needs to define:
-// - initFrontal: to initialize the frontal matrix with the correct number of
+// - initFrontal: to initialise the frontal matrix with the correct number of
 //                elements; the entries should be set to zero.
-// - initClique: to initialize the clique matrix with the correct number of
-//                elements; the entries should be left uninitialized.
+// - initClique: to initialise the clique matrix with the correct number of
+//                elements; the entries should be left uninitialised.
 // - assembleFrontal: to set a specific entry of frontal (used to assemble the
 //                original matrix)
 // - assembleFrontalMultiple: to sum a given number of consecutive entries into
 //                frontal (used to assemble the child supernodes)
 // - assembleClique: to sum the contributions of a given child supernode into
 //                clique.
-// - denseFactorise: to perform the dense partial factorization of frontal,
+// - denseFactorise: to perform the dense partial factorisation of frontal,
 //                storing the Schur complement in clique.
 
 class FormatHandler {

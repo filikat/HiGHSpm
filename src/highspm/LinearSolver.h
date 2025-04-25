@@ -14,14 +14,14 @@ namespace highspm {
 // Interface class for solving augmented system or normal equations.
 //
 // Any linear solver needs to define the functions:
-// - factorAS: factorize the augmented system
+// - factorAS: factorise the augmented system
 // - solveAS: solve a linear system with the augmented system
-// - factorNE: factorize the normal equations
+// - factorNE: factorise the normal equations
 // - solveNE: solve a linear system with the normal equations
-// - clear: reset the data structure for the next factorization.
+// - clear: reset the data structure for the next factorisation.
 //
 // The linear solver may also define functions:
-// - setup: perform any preliminary calculation (e.g. symbolic factorization)
+// - setup: perform any preliminary calculation (e.g. symbolic factorisation)
 // - refine: apply iterative refinement to the solution
 // - terminate: perform any final action
 // - flops: return number of flops needed for factorisation

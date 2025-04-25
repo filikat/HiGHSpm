@@ -8,10 +8,10 @@ namespace highspm {
 /*
   Names:
   denseFact:
-  - K : factorization kernel for diagonal blocks
-  - F : blocked factorization in full format
-  - FP: blocked factorization in format FP
-  - FH : blocked factorization in "hybrid formats"
+  - K : factorisation kernel for diagonal blocks
+  - F : blocked factorisation in full format
+  - FP: blocked factorisation in format FP
+  - FH : blocked factorisation in "hybrid formats"
 
   Formats used:
   - F : Full format
@@ -27,20 +27,20 @@ namespace highspm {
   See report for more details.
 */
 
-// dense factorization kernel
+// dense factorisation kernel
 Int denseFactK(char uplo, Int n, double* A, Int lda, Int* pivot_sign,
                double thresh, double* regul, Int* swaps, double* pivot_2x2,
                Int sn, Int bl, double max_in_R = -1);
 
-// dense partial factorization, in full format
+// dense partial factorisation, in full format
 Int denseFactF(Int n, Int k, Int nb, double* A, Int lda, double* B, Int ldb,
                const Int* pivot_sign, double thresh, double* regul, Int sn);
 
-// dense partial factorization, in packed format with full diagonal blocks
+// dense partial factorisation, in packed format with full diagonal blocks
 Int denseFactFP(Int n, Int k, Int nb, double* A, double* B,
                 const Int* pivot_sign, double thresh, double* regul, Int sn);
 
-// dense partial factorization, in "hybrid formats"
+// dense partial factorisation, in "hybrid formats"
 Int denseFactFH(char format, Int n, Int k, Int nb, double* A, double* B,
                 const Int* pivot_sign, double thresh, double* regul, Int* swaps,
                 double* pivot_2x2, Int sn, bool parnode);

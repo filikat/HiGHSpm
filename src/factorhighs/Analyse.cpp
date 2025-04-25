@@ -2,9 +2,9 @@
 
 #include <fstream>
 #include <iostream>
+#include <limits>
 #include <random>
 #include <stack>
-#include <limits>
 
 #include "DataCollector.h"
 #include "FactorHiGHSSettings.h"
@@ -196,7 +196,7 @@ void Analyse::eTree() {
   Int next{};
 
   for (Int j = 0; j < n_; ++j) {
-    // initialize parent and ancestor, which are still unknown
+    // initialise parent and ancestor, which are still unknown
     parent_[j] = -1;
     ancestor[j] = -1;
 
@@ -706,7 +706,7 @@ void Analyse::afterRelaxSn() {
   // include artificial nonzeros in the nonzeros of the factor
   nz_factor_ += artificial_nz_;
 
-  // compute number of flops needed for the factorization
+  // compute number of flops needed for the factorisation
   dense_ops_ = 0.0;
   for (Int sn = 0; sn < new_snCount; ++sn) {
     const double colcount_sn = (double)sn_indices_[sn];
@@ -897,7 +897,7 @@ void Analyse::relativeIndClique() {
     // size of the clique of the supernode
     const Int sn_clique_size = sn_column_size - sn_size;
 
-    // count number of assembly operations during factorize
+    // count number of assembly operations during factorise
     sparse_ops_ += sn_clique_size * (sn_clique_size + 1) / 2;
 
     relind_clique_[sn].resize(sn_clique_size);
@@ -997,7 +997,7 @@ void Analyse::computeStorage() {
   std::vector<double> storage(sn_count_);
   std::vector<double> storage_factors(sn_count_);
 
-  // initialize data of supernodes
+  // initialise data of supernodes
   for (Int sn = 0; sn < sn_count_; ++sn) {
     // supernode size
     const Int sz = sn_start_[sn + 1] - sn_start_[sn];
@@ -1118,7 +1118,7 @@ void Analyse::reorderChildren() {
   std::vector<double> storage(sn_count_);
   std::vector<double> storage_factors(sn_count_);
 
-  // initialize data of supernodes
+  // initialise data of supernodes
   for (Int sn = 0; sn < sn_count_; ++sn) {
     // supernode size
     const Int sz = sn_start_[sn + 1] - sn_start_[sn];
@@ -1408,7 +1408,7 @@ Int Analyse::run() {
     if (i <= 100) fd.sn_size_100++;
   }
 
-  // initialize sign of pivots and permute them
+  // initialise sign of pivots and permute them
   S_.pivot_sign_.insert(S_.pivot_sign_.end(), negative_pivots_, -1);
   S_.pivot_sign_.insert(S_.pivot_sign_.end(), n_ - negative_pivots_, 1);
   permuteVector(S_.pivot_sign_, perm_);

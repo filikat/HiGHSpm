@@ -14,7 +14,7 @@ struct IterData {
   // data of a given ipm iteration
 
 #ifdef DATA_COLLECTION
-  // factorization data
+  // factorisation data
   double minD = std::numeric_limits<double>::max();
   double maxD = 0.0;
   double minL = std::numeric_limits<double>::max();
@@ -46,7 +46,7 @@ struct IterData {
 };
 
 struct FactorData {
-  // Symbolic factorization statistics
+  // Symbolic factorisation statistics
   Int n{};
   int64_t nz{};
   Int sn{};
@@ -83,7 +83,7 @@ struct CounterData {
 // Use DataCollector::get()->... to access any non-static member function.
 
 class DataCollector {
-  // Symbolic factorization data
+  // Symbolic factorisation data
   FactorData factor_data_;
 
   // Record of times and BLAS calls
@@ -117,7 +117,7 @@ class DataCollector {
   void append();
   IterData& back();
 
-  // Manage factorization data
+  // Manage factorisation data
   void saveAndClear();
   void loadSaved();
   void clearSaved();

@@ -112,7 +112,7 @@ void HybridSolveHandler::backwardSolve(std::vector<double>& x) const {
     const Int n_blocks = (sn_size - 1) / nb + 1;
 
     // index to access snColumns[sn]
-    // initialized with the total number of entries of snColumns[sn]
+    // initialised with the total number of entries of snColumns[sn]
     Int SnCol_ind = sn_columns_[sn].size() - extra_space;
 
     // go through blocks of columns for this supernode in reverse order
