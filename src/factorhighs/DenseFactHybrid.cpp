@@ -212,7 +212,11 @@ Int denseFactFH(char format, Int n, Int k, Int nb, double* A, double* B,
           double beta = format == 'P' ? 0.0 : 1.0;
 
           // perform gemm (potentially) in parallel
-          dgemmParallel(P, Rjj, Q, ncol, jb, nrow, nb, beta);
+          if (parnode)
+            dgemmParallel(P, Rjj, Q, ncol, jb, nrow, nb, beta);
+          else
+            callAndTime_dgemm('T', 'N', ncol, nrow, jb, -1.0, P, jb, Rjj, jb,
+                              beta, Q, ncol);
 
           if (format == 'P') {
             // schur_buf contains Schur complement in hybrid format (with full
