@@ -29,6 +29,7 @@ const double kLargeFlopsThresh = 1e7;
 const double kLargeSpeedupThresh = 1.5;
 const double kLargeSnThresh = 20.0;
 const double kSmallSnThresh = 5.0;
+const Int kMinNumberSn = 10;
 
 }  // namespace highspm
 

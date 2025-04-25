@@ -436,15 +436,17 @@ void FactorHiGHSSolver::setParallel(Options& options) {
       double tree_speedup = S_.flops() / S_.critops();
       double sn_size = (double)S_.size() / S_.sn();
 
-      bool large_flops = S_.flops() > kLargeFlopsThresh;
-      bool large_speedup = tree_speedup > kLargeSpeedupThresh;
-      bool large_sn = sn_size > kLargeSnThresh;
-      bool small_sn = sn_size <= kSmallSnThresh;
+      bool enough_sn = S_.sn() > kMinNumberSn;
+      bool enough_flops = S_.flops() > kLargeFlopsThresh;
+      bool speedup_is_large = tree_speedup > kLargeSpeedupThresh;
+      bool sn_are_large = sn_size > kLargeSnThresh;
+      bool sn_are_not_small = sn_size > kSmallSnThresh;
 
       // parallel_tree is active if the supernodes are large, or if there is a
       // large expected speedup and the supernodes are not too small, provided
-      // that the number of flops is not too small.
-      if (large_flops && (large_sn || (large_speedup && !small_sn))) {
+      // that the number of flops and supernodes is not too small.
+      if (enough_sn && enough_flops &&
+          (sn_are_large || (speedup_is_large && sn_are_not_small))) {
         parallel_tree = true;
         options.parallel = kOptionParallelOn;
         printf("Using full parallelism because it is preferrable\n");
