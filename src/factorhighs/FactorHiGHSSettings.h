@@ -10,7 +10,7 @@
 // ===========================================================================
 
 #define PIVOTING
-#define DATA_COLLECTION
+// #define DATA_COLLECTION
 // #define PRINT_ITER_REF
 // #define PRINT_REGULARISATION
 // #define PRINT_CORRECTORS

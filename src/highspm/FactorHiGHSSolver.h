@@ -3,6 +3,7 @@
 
 #include <algorithm>
 
+#include "IpmInfo.h"
 #include "LinearSolver.h"
 #include "auxiliary/IntConfig.h"
 #include "factorhighs/FactorHiGHS.h"
@@ -19,12 +20,14 @@ class FactorHiGHSSolver : public LinearSolver {
   // keep track of whether as or ne is being factorised
   bool use_as_ = true;
 
+  IpmInfo* info_ = nullptr;
+
   Int choose(const HighsSparseMatrix& A, Options& options);
   Int setNla(const HighsSparseMatrix& A, Options& options);
   void setParallel(Options& options);
 
  public:
-  FactorHiGHSSolver(const Options& options);
+  FactorHiGHSSolver(const Options& options, IpmInfo* info);
 
   // Override functions
   Int factorAS(const HighsSparseMatrix& A,

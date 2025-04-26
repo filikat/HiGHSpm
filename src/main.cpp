@@ -199,7 +199,11 @@ int main(int argc, char** argv) {
     printf("Run       %5.2f\n", run_time);
   }
 
-  printf("Ipm iterations: %d\n", info.ipm_iter);
+  printf("\n");
+  printf("Ipm iterations    : %d\n", info.ipm_iter);
+  printf("Form matrix time  : %.2f\n", info.matrix_time);
+  printf("Factorisation time: %.2f\n", info.factor_time);
+  printf("Solve time        : %.2f\n", info.solve_time);
 
   return 0;
 }

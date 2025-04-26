@@ -3,6 +3,7 @@
 #include <limits>
 
 #include "IpmStatus.h"
+#include "auxiliary/Auxiliary.h"
 
 namespace highspm {
 
@@ -11,8 +12,8 @@ Int computeLowerAThetaAT(
     HighsSparseMatrix& AAT,
     const Int max_num_nz = std::numeric_limits<Int>::max());
 
-FactorHiGHSSolver::FactorHiGHSSolver(const Options& options)
-    : S_((FormatType)options.format), N_(S_) {}
+FactorHiGHSSolver::FactorHiGHSSolver(const Options& options, IpmInfo* info)
+    : S_((FormatType)options.format), N_(S_), info_{info} {}
 
 void FactorHiGHSSolver::clear() {
   valid_ = false;
@@ -81,6 +82,8 @@ Int FactorHiGHSSolver::factorAS(const HighsSparseMatrix& A,
   // only execute factorisation if it has not been done yet
   assert(!this->valid_);
 
+  Clock clock;
+
   // initialise
   std::vector<Int> ptrLower;
   std::vector<Int> rowsLower;
@@ -117,10 +120,13 @@ Int FactorHiGHSSolver::factorAS(const HighsSparseMatrix& A,
     valLower[next++] = 0.0;
     ptrLower[nA + i + 1] = ptrLower[nA + i] + 1;
   }
+  if (info_) info_->matrix_time += clock.stop();
 
   // factorise matrix
+  clock.start();
   Factorise factorise(S_, rowsLower, ptrLower, valLower);
   if (factorise.run(N_)) return kLinearSolverStatusErrorFactorise;
+  if (info_) info_->factor_time += clock.stop();
 
   this->valid_ = true;
   use_as_ = true;
@@ -131,6 +137,8 @@ Int FactorHiGHSSolver::factorNE(const HighsSparseMatrix& A,
                                 const std::vector<double>& scaling) {
   // only execute factorisation if it has not been done yet
   assert(!this->valid_);
+
+  Clock clock;
 
   // initialise
   std::vector<Int> ptrLower;
@@ -144,10 +152,13 @@ Int FactorHiGHSSolver::factorNE(const HighsSparseMatrix& A,
   // build full matrix
   HighsSparseMatrix AAt;
   Int status = computeLowerAThetaAT(A, scaling, AAt);
+  if (info_) info_->matrix_time += clock.stop();
 
   // factorise
+  clock.start();
   Factorise factorise(S_, AAt.index_, AAt.start_, AAt.value_);
   if (factorise.run(N_)) return kLinearSolverStatusErrorFactorise;
+  if (info_) info_->factor_time += clock.stop();
 
   this->valid_ = true;
   use_as_ = false;
@@ -162,7 +173,9 @@ Int FactorHiGHSSolver::solveNE(const std::vector<double>& rhs,
   // initialise lhs with rhs
   lhs = rhs;
 
+  Clock clock;
   N_.solve(lhs);
+  if (info_) info_->solve_time += clock.stop();
 
   return kLinearSolverStatusOk;
 }
@@ -181,7 +194,9 @@ Int FactorHiGHSSolver::solveAS(const std::vector<double>& rhs_x,
   rhs.insert(rhs.end(), rhs_x.begin(), rhs_x.end());
   rhs.insert(rhs.end(), rhs_y.begin(), rhs_y.end());
 
+  Clock clock;
   N_.solve(rhs);
+  if (info_) info_->solve_time += clock.stop();
 
   // split lhs
   lhs_x = std::vector<double>(rhs.begin(), rhs.begin() + n);

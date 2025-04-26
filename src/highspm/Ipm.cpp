@@ -73,7 +73,7 @@ bool Ipm::initialise() {
   it_.reset(new IpmIterate(model_));
 
   // initialise linear solver
-  LS_.reset(new FactorHiGHSSolver(options_));
+  LS_.reset(new FactorHiGHSSolver(options_, &info_));
   if (LS_->setup(model_.A(), options_)) {
     info_.ipm_status = kIpmStatusError;
     return true;

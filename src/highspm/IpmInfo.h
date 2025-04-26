@@ -1,6 +1,7 @@
 #ifndef HIGHSPM_IPM_INFO_H
 #define HIGHSPM_IPM_INFO_H
 
+#include "IpmOption.h"
 #include "IpmStatus.h"
 #include "auxiliary/IntConfig.h"
 #include "ipm/ipx/info.h"
@@ -34,6 +35,11 @@ struct IpmInfo {
 
   // Parallel option used
   OptionParallel option_par;
+
+  // Total times to form matrix, factorise and solve linear systems
+  double matrix_time{};
+  double factor_time{};
+  double solve_time{};
 };
 
 }  // namespace highspm
