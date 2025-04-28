@@ -83,10 +83,6 @@ bool Ipm::initialise() {
   // decide number of correctors to use
   maxCorrectors();
 
-  // print information about symbolic factorisation
-  printf("\nSymbolic factorisation took %.1f sec\n", clock_.stop());
-  DataCollector::get()->printSymbolic(1);
-
   startingPoint();
 
   it_->residual1234();
@@ -1247,8 +1243,6 @@ void Ipm::maxCorrectors() {
     info_.correctors = std::max(info_.correctors, (Int)1);
     info_.correctors = std::min(info_.correctors, kMaxCorrectors);
 
-    printf("Using %d corrector%s\n", info_.correctors,
-           info_.correctors > 1 ? "s" : "");
   } else {
     info_.correctors = -kMaxCorrectors;
   }

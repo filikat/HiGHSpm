@@ -24,17 +24,22 @@ class Symbolic {
   // Size of blocks for dense factorisation
   Int block_size_;
 
-  // Size of the matrix L
+  // Statistics about symbolic factorisation
   Int n_{};
-
-  // Number of supernodes
-  Int sn_{};
-
-  // Number of nonzeros and flops in the factor
   int64_t nz_{};
+  Int sn_{};
+  double fillin_{};
   double flops_{};
   double spops_{};
   double critops_{};
+  int64_t artificial_nz_{};
+  double artificial_ops_{};
+  double serial_storage_{};
+  Int largest_front_{};
+  Int largest_sn_{};
+  Int sn_size_1_{};
+  Int sn_size_10_{};
+  Int sn_size_100_{};
 
   // Inverse permutation
   std::vector<Int> iperm_{};
@@ -120,13 +125,15 @@ class Symbolic {
   Int consecutiveSums(Int i, Int j) const;
   Int cliqueBlockStart(Int sn, Int bl) const;
   Int cliqueSize(Int sn) const;
-  bool parTree()const;
+  bool parTree() const;
   bool parNode() const;
   const std::vector<Int>& ptr() const;
   const std::vector<Int>& iperm() const;
   const std::vector<Int>& snParent() const;
   const std::vector<Int>& snStart() const;
   const std::vector<Int>& pivotSign() const;
+
+  void print(bool verbose = false) const;
 };
 
 // Explanation of relative indices:

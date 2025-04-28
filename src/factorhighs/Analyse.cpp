@@ -1378,34 +1378,32 @@ Int Analyse::run() {
   // Too many nonzeros for the integer type selected
   if (nz_factor_ >= std::numeric_limits<Int>::max()) return kRetIntOverflow;
 
-  // move relevant stuff into S and DC
+  // move relevant stuff into S
   S_.n_ = n_;
   S_.sn_ = sn_count_;
 
-  FactorData& fd = DataCollector::get()->factorData();
-
-  fd.sn = sn_count_;
-  fd.n = n_;
-  fd.nz = nz_factor_;
-  fd.fillin = (double)nz_factor_ / nz_;
-  fd.artificial_nz = artificial_nz_;
-  fd.artificial_ops = dense_ops_ - dense_ops_norelax_;
-  fd.sparse_ops = sparse_ops_;
-  fd.critical_ops = critical_ops_;
-  fd.largest_front = *std::max_element(sn_indices_.begin(), sn_indices_.end());
-  fd.serial_storage = serial_storage_;
-  fd.dense_ops = dense_ops_;
+  S_.sn_ = sn_count_;
+  S_.n_ = n_;
+  S_.nz_ = nz_factor_;
+  S_.fillin_ = (double)nz_factor_ / nz_;
+  S_.artificial_nz_ = artificial_nz_;
+  S_.artificial_ops_ = dense_ops_ - dense_ops_norelax_;
+  S_.spops_ = sparse_ops_;
+  S_.critops_ = critical_ops_;
+  S_.largest_front_ = *std::max_element(sn_indices_.begin(), sn_indices_.end());
+  S_.serial_storage_ = serial_storage_;
+  S_.flops_ = dense_ops_;
 
   // compute largest supernode
   std::vector<Int> sn_size(sn_start_.begin() + 1, sn_start_.end());
   for (Int i = sn_count_ - 1; i > 0; --i) sn_size[i] -= sn_size[i - 1];
-  fd.largest_sn = *std::max_element(sn_size.begin(), sn_size.end());
+  S_.largest_sn_ = *std::max_element(sn_size.begin(), sn_size.end());
 
   // build statistics about supernodes size
   for (Int i : sn_size) {
-    if (i == 1) fd.sn_size_1++;
-    if (i <= 10) fd.sn_size_10++;
-    if (i <= 100) fd.sn_size_100++;
+    if (i == 1) S_.sn_size_1_++;
+    if (i <= 10) S_.sn_size_10_++;
+    if (i <= 100) S_.sn_size_100_++;
   }
 
   // initialise sign of pivots and permute them

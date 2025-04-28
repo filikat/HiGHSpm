@@ -74,6 +74,8 @@ Int getAS(const HighsSparseMatrix& A, std::vector<Int>& ptr,
 Int FactorHiGHSSolver::setup(const HighsSparseMatrix& A, Options& options) {
   if (Int status = setNla(A, options)) return status;
   setParallel(options);
+
+  S_.print(1);
   return kLinearSolverStatusOk;
 }
 

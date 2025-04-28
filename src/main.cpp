@@ -208,6 +208,7 @@ int main(int argc, char** argv) {
   printf("Solve time        : %.2f\n", info.solve_time);
   printf("Factorisations    : %d\n", info.factor_number);
   printf("Solves            : %d\n", info.solve_number);
+  printf("Correctors        : %d\n", info.correctors);
 
   return 0;
 }

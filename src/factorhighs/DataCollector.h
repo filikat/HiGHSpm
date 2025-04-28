@@ -45,27 +45,6 @@ struct IterData {
   Int num_solves = 0;
 };
 
-struct FactorData {
-  // Symbolic factorisation statistics
-  Int n{};
-  int64_t nz{};
-  Int sn{};
-  double fillin{};
-  double dense_ops{};
-  double sparse_ops{};
-  double critical_ops{};
-  int64_t artificial_nz{};
-  double artificial_ops{};
-  double serial_storage{};
-  Int largest_front{};
-  Int largest_sn{};
-  Int sn_size_1{};
-  Int sn_size_10{};
-  Int sn_size_100{};
-
-  void clear();
-};
-
 struct CounterData {
   // Record of times and BLAS calls
   std::vector<double> times{};
@@ -83,9 +62,6 @@ struct CounterData {
 // Use DataCollector::get()->... to access any non-static member function.
 
 class DataCollector {
-  // Symbolic factorisation data
-  FactorData factor_data_;
-
   // Record of times and BLAS calls
   CounterData counter_data_;
 
@@ -100,7 +76,6 @@ class DataCollector {
   static DataCollector* ptr_;
 
   // Data that was set aside
-  FactorData saved_factor_data_;
   CounterData saved_counter_data_;
 
   // Private ctor and dtor
@@ -121,7 +96,6 @@ class DataCollector {
   void saveAndClear();
   void loadSaved();
   void clearSaved();
-  FactorData& factorData() { return factor_data_; }
 
   // Functions with lock, they can be accessed simultaneously
   void sumTime(TimeItems i, double t);
@@ -136,7 +110,6 @@ class DataCollector {
 
   // Const functions
   void printTimes() const;
-  void printSymbolic(bool verbose = false) const;
   void printIter() const;
 };
 

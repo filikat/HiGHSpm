@@ -30,23 +30,6 @@ IterData& DataCollector::back() {
   return iter_data_record_.back();
 }
 
-void FactorData::clear() {
-  n = 0;
-  nz = 0;
-  sn = 0;
-  fillin = 0.0;
-  sparse_ops = 0.0;
-  dense_ops = 0.0;
-  critical_ops = 0.0;
-  artificial_nz = 0;
-  artificial_ops = 0.0;
-  serial_storage = 0.0;
-  largest_front = 0.0;
-  largest_sn = 0.0;
-  sn_size_1 = 0.0;
-  sn_size_10 = 0.0;
-  sn_size_100 = 0.0;
-}
 void CounterData::clear() {
   times.assign(times.size(), 0.0);
   blas_calls.assign(blas_calls.size(), 0);
@@ -58,21 +41,16 @@ void DataCollector::saveAndClear() {
   // main data. This is useful if analyse phase of both NE and AS is attempted,
   // otherwise the data would get corrupted.
 
-  saved_factor_data_ = factor_data_;
   saved_counter_data_ = counter_data_;
-
-  factor_data_.clear();
   counter_data_.clear();
 }
 
 void DataCollector::loadSaved() {
   // Sets the factorisation data equal to the one stored in temporary storage.
-  factor_data_ = std::move(saved_factor_data_);
   counter_data_ = std::move(saved_counter_data_);
 }
 
 void DataCollector::clearSaved() {
-  saved_factor_data_.clear();
   saved_counter_data_.clear();
 }
 
@@ -259,46 +237,6 @@ void DataCollector::printTimes() const {
   printf("----------------------------------------------------\n");
 #endif
 #endif
-}
-void printMemory(double mem) {
-  if (mem < 1024)
-    printf("%.1f B\n", mem);
-  else if (mem < 1024 * 1024)
-    printf("%.1f KB\n", mem / 1024);
-  else if (mem < 1024 * 1024 * 1024)
-    printf("%.1f MB\n", mem / 1024 / 1024);
-  else
-    printf("%.1f GB\n", mem / 1024 / 1024 / 1024);
-}
-void DataCollector::printSymbolic(bool verbose) const {
-  const FactorData& fd = factor_data_;
-
-  printf("size            : %.2e\n", (double)fd.n);
-  printf("nnz             : %.2e\n", (double)fd.nz);
-  printf("fill-in         : %.2f\n", fd.fillin);
-  printf("serial memory   : ");
-  printMemory(fd.serial_storage);
-
-  printf("dense  ops      : %.1e\n", fd.dense_ops);
-  if (verbose) printf("sparse ops      : %.1e\n", fd.sparse_ops);
-  if (verbose) printf("critical ops    : %.1e\n", fd.critical_ops);
-  if (verbose)
-    printf("max tree speedup: %.2f\n", fd.dense_ops / fd.critical_ops);
-  if (verbose)
-    printf("artificial nz   : %.1e (%.1f%%)\n", (double)fd.artificial_nz,
-           (double)fd.artificial_nz / fd.nz * 100);
-  if (verbose)
-    printf("artificial ops  : %.1e (%.1f%%)\n", fd.artificial_ops,
-           fd.artificial_ops / fd.dense_ops * 100);
-  printf("largest front   : %5d\n", fd.largest_front);
-  printf("largest sn      : %5d\n", fd.largest_sn);
-  printf("supernodes      : %5d\n", fd.sn);
-  if (verbose) printf("sn size <=   1  : %5d\n", fd.sn_size_1);
-  if (verbose) printf("sn size <=  10  : %5d\n", fd.sn_size_10);
-  if (verbose) printf("sn size <= 100  : %5d\n", fd.sn_size_100);
-  if (verbose) printf("sn avg size     : %5.1f\n", (double)fd.n / fd.sn);
-
-  printf("\n");
 }
 
 void DataCollector::printIter() const {
