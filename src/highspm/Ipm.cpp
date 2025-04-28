@@ -44,6 +44,7 @@ void Ipm::solve() {
   runIpm();
   refineWithIpx();
 
+  DataCollector::get()->printTimes();
   DataCollector::get()->printIter();
   DataCollector::terminate();
 }
@@ -59,7 +60,6 @@ void Ipm::runIpm() {
   }
 
   terminate();
-  LS_->terminate();
 }
 
 bool Ipm::initialise() {
@@ -1168,9 +1168,15 @@ void Ipm::printInfo() const {
          (double)model_.A().numNz());
 
   if (options_.parallel == kOptionParallelOff)
-    printf("Running on 1 thread\n\n");
+    printf("Running on 1 thread\n");
   else
-    printf("Running on %d threads\n\n", highs::parallel::num_threads());
+    printf("Running on %d threads\n", highs::parallel::num_threads());
+
+#ifdef DEBUG
+  printf("Running in debug mode\n");
+#endif
+
+  printf("\n");
 
   // print range of coefficients
   model_.checkCoefficients();

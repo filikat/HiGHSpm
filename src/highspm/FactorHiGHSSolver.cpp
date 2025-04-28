@@ -219,8 +219,6 @@ Int FactorHiGHSSolver::solveAS(const std::vector<double>& rhs_x,
   return kLinearSolverStatusOk;
 }
 
-void FactorHiGHSSolver::terminate() { DataCollector::get()->printTimes(); }
-
 Int computeLowerAThetaAT(const HighsSparseMatrix& matrix,
                          const std::vector<double>& scaling,
                          HighsSparseMatrix& AAT, const Int max_num_nz) {

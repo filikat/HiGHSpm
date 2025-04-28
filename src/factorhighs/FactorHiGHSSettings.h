@@ -10,7 +10,7 @@
 // ===========================================================================
 
 #define PIVOTING
-//#define DEBUG
+// #define DEBUG
 
 // #define PRINT_ITER_REF
 // #define PRINT_REGULARISATION
