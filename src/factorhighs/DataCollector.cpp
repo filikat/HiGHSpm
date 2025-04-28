@@ -6,7 +6,7 @@ namespace highspm {
 DataCollector* DataCollector::ptr_ = nullptr;
 
 DataCollector::DataCollector() {
-#ifdef DATA_COLLECTION
+#ifdef DEBUG
   counter_data_.times.resize(kTimeSize);
   counter_data_.blas_calls.resize(kTimeBlasEnd - kTimeBlasStart + 1);
 #endif
@@ -14,48 +14,30 @@ DataCollector::DataCollector() {
 
 DataCollector* DataCollector::get() { return ptr_; }
 
-void DataCollector::start() {
+void DataCollector::initialise() {
+#ifdef DEBUG
   if (!ptr_) ptr_ = new DataCollector();
+#endif
 }
-void DataCollector::destruct() {
+void DataCollector::terminate() {
+#ifdef DEBUG
   delete ptr_;
   ptr_ = nullptr;
+#endif
 }
 void DataCollector::append() {
+#ifdef DEBUG
   // add an empty IterData object to the record
   iter_data_record_.push_back(IterData());
+#endif
 }
 IterData& DataCollector::back() {
   // access most recent record of data
   return iter_data_record_.back();
 }
 
-void CounterData::clear() {
-  times.assign(times.size(), 0.0);
-  blas_calls.assign(blas_calls.size(), 0);
-  solves = 0;
-}
-
-void DataCollector::saveAndClear() {
-  // Save current factorisation and counter data in temporary storage and clear
-  // main data. This is useful if analyse phase of both NE and AS is attempted,
-  // otherwise the data would get corrupted.
-
-  saved_counter_data_ = counter_data_;
-  counter_data_.clear();
-}
-
-void DataCollector::loadSaved() {
-  // Sets the factorisation data equal to the one stored in temporary storage.
-  counter_data_ = std::move(saved_counter_data_);
-}
-
-void DataCollector::clearSaved() {
-  saved_counter_data_.clear();
-}
-
 void DataCollector::sumTime(TimeItems i, double t) {
-#ifdef DATA_COLLECTION
+#ifdef DEBUG
   // Keep track of times and blas calls.
   std::lock_guard<std::mutex> lock(times_mutex_);
   counter_data_.times[i] += t;
@@ -65,18 +47,16 @@ void DataCollector::sumTime(TimeItems i, double t) {
 #endif
 #endif
 }
-
 void DataCollector::countSolves() {
-#ifdef DATA_COLLECTION
+#ifdef DEBUG
   std::lock_guard<std::mutex> lock(times_mutex_);
   ++counter_data_.solves;
   ++back().num_solves;
 #endif
 }
-
 void DataCollector::setExtremeEntries(double minD, double maxD, double minoffD,
                                       double maxoffD) {
-#ifdef DATA_COLLECTION
+#ifdef DEBUG
   // Store max and min entries of D and L.
   std::lock_guard<std::mutex> lock(iter_data_mutex_);
   back().minD = std::min(back().minD, minD);
@@ -85,42 +65,89 @@ void DataCollector::setExtremeEntries(double minD, double maxD, double minoffD,
   back().maxL = std::max(back().maxL, maxoffD);
 #endif
 }
-
 void DataCollector::countRegPiv() {
-#ifdef DATA_COLLECTION
+#ifdef DEBUG
   // Increase the number of dynamically regularised pivots.
   std::lock_guard<std::mutex> lock(iter_data_mutex_);
   ++back().n_reg_piv;
 #endif
 }
-
 void DataCollector::countSwap() {
-#ifdef DATA_COLLECTION
+#ifdef DEBUG
   std::lock_guard<std::mutex> lock(iter_data_mutex_);
   ++back().n_swap;
 #endif
 }
-
 void DataCollector::count2x2() {
-#ifdef DATA_COLLECTION
+#ifdef DEBUG
   std::lock_guard<std::mutex> lock(iter_data_mutex_);
   ++back().n_2x2;
 #endif
 }
-
 void DataCollector::setWrongSign(double p) {
-#ifdef DATA_COLLECTION
+#ifdef DEBUG
   std::lock_guard<std::mutex> lock(iter_data_mutex_);
   ++back().n_wrong_sign;
   back().max_wrong_sign = std::max(back().max_wrong_sign, std::abs(p));
 #endif
 }
-
 void DataCollector::setMaxReg(double new_reg) {
-#ifdef DATA_COLLECTION
+#ifdef DEBUG
   // Keep track of maximum regularisation used.
   std::lock_guard<std::mutex> lock(iter_data_mutex_);
   back().max_reg = std::max(back().max_reg, new_reg);
+#endif
+}
+
+void DataCollector::setOmega(double omega) {
+#ifdef DEBUG
+  back().omega = std::max(back().omega, omega);
+#endif
+}
+void DataCollector::setNorms(double norm1, double maxdiag) {
+#ifdef DEBUG
+  back().M_norm1 = norm1;
+  back().M_maxdiag = maxdiag;
+#endif
+}
+void DataCollector::setSigma(double sigma, bool affinescaling) {
+#ifdef DEBUG
+  if (affinescaling)
+    back().sigma_aff = sigma;
+  else
+    back().sigma = sigma;
+#endif
+}
+void DataCollector::setCorrectors(Int correctors) {
+#ifdef DEBUG
+  back().correctors = correctors;
+#endif
+}
+void DataCollector::setBackError(double nw, double cw) {
+#ifdef DEBUG
+  back().nw_back_err = std::max(back().nw_back_err, nw);
+  back().cw_back_err = std::max(back().cw_back_err, cw);
+#endif
+}
+void DataCollector::setExtremeTheta(const std::vector<double>& scaling) {
+#ifdef DEBUG
+  back().min_theta = std::numeric_limits<double>::infinity();
+  back().max_theta = 0.0;
+  for (double d : scaling) {
+    if (d != 0.0) {
+      back().min_theta = std::min(back().min_theta, 1.0 / d);
+      back().max_theta = std::max(back().max_theta, 1.0 / d);
+    }
+  }
+#endif
+}
+void DataCollector::setProducts(double min_prod, double max_prod, Int num_small,
+                                Int num_large) {
+#ifdef DEBUG
+  back().min_prod = min_prod;
+  back().max_prod = max_prod;
+  back().num_small_prod = num_small;
+  back().num_large_prod = num_large;
 #endif
 }
 
@@ -240,7 +267,7 @@ void DataCollector::printTimes() const {
 }
 
 void DataCollector::printIter() const {
-#ifdef DATA_COLLECTION
+#ifdef DEBUG
   printf(
       "\niter |    min D     max D     min L     max L  |"
       "    reg   swap    2x2     ws | "

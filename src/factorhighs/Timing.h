@@ -4,7 +4,7 @@
 #include "FactorHiGHSSettings.h"
 
 // defines for timing
-#ifdef DATA_COLLECTION
+#ifdef DEBUG
 
 #if (defined(TIMING_1) || defined(TIMING_2) || defined(TIMING_3))
 #define COARSE_TIMING

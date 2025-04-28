@@ -142,8 +142,7 @@ Int Numeric::refine(const std::vector<double>& rhs,
   printf("%e\n", omega);
 #endif
 
-  double& omg = DataCollector::get()->back().omega;
-  omg = std::max(omg, omega);
+  DataCollector::get()->setOmega(omega);
 
   return solves_counter;
 }

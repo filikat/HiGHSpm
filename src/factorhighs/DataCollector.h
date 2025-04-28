@@ -2,6 +2,7 @@
 #define FACTORHIGHS_DATA_COLLECTOR_H
 
 #include <atomic>
+#include <limits>
 #include <mutex>
 #include <vector>
 
@@ -13,7 +14,6 @@ namespace highspm {
 struct IterData {
   // data of a given ipm iteration
 
-#ifdef DATA_COLLECTION
   // factorisation data
   double minD = std::numeric_limits<double>::max();
   double maxD = 0.0;
@@ -25,7 +25,6 @@ struct IterData {
   Int n_2x2 = 0;
   Int n_wrong_sign = 0;
   double max_wrong_sign = 0.0;
-#endif
 
   // ipm data
   double min_theta;
@@ -50,16 +49,19 @@ struct CounterData {
   std::vector<double> times{};
   std::vector<Int> blas_calls{};
   Int solves{};
-
-  void clear();
 };
 
-// DataCollector is a singleton object.
-// Only one copy of it can exist and it does not have a public constructor or
-// destructor.
-// Use DataCollector::start() to allocate the DataCollector.
-// Use DataCollector::destruct() to deallocate the DataCollector.
-// Use DataCollector::get()->... to access any non-static member function.
+// DataCollector is used to collect debug data during the ipm and factorisation.
+// DataCollector is a singleton object. Only one copy of it can exist and it
+// does not have a public constructor or destructor. Use:
+// - DataCollector::initialise() to allocate the DataCollector.
+// - DataCollector::terminate() to deallocate the DataCollector.
+// - DataCollector::get()->... to access any non-static member function.
+// Nothing happens if DEBUG is not switched on during compilation.
+// Debug mode is selected at compile time, because some data is collected many
+// times, during many steps of the factorisation; if debug is off at compile
+// time, then there is no performance hit, since the functions are empty and are
+// completely ignored by the compiler.
 
 class DataCollector {
   // Record of times and BLAS calls
@@ -75,27 +77,25 @@ class DataCollector {
   // Instance of DataCollector
   static DataCollector* ptr_;
 
-  // Data that was set aside
-  CounterData saved_counter_data_;
-
   // Private ctor and dtor
   DataCollector();
   ~DataCollector() = default;
 
+  IterData& back();
+
  public:
   // Access to the object
   static DataCollector* get();
-  static void start();
-  static void destruct();
+  static void initialise();
+  static void terminate();
+
+  // =================================================
+  // The functions below can only be accessed via DataCollector::get()->
+  // They do nothing if DEBUG is not switched on by an ifdef statement.
+  // =================================================
 
   // Manage record of data of iterations
   void append();
-  IterData& back();
-
-  // Manage factorisation data
-  void saveAndClear();
-  void loadSaved();
-  void clearSaved();
 
   // Functions with lock, they can be accessed simultaneously
   void sumTime(TimeItems i, double t);
@@ -107,6 +107,15 @@ class DataCollector {
   void setMaxReg(double new_reg);
   void setExtremeEntries(double minD, double maxD, double minoffD,
                          double maxoffD);
+
+  void setOmega(double omega);
+  void setNorms(double norm1, double maxdiag);
+  void setSigma(double sigma, bool affinescaling = false);
+  void setCorrectors(Int correctors);
+  void setBackError(double nw, double cw);
+  void setExtremeTheta(const std::vector<double>& scaling);
+  void setProducts(double min_prod, double max_prod, Int num_small,
+                   Int num_large);
 
   // Const functions
   void printTimes() const;

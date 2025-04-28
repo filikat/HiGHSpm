@@ -337,9 +337,6 @@ Int FactorHiGHSSolver::choose(const HighsSparseMatrix& A, Options& options) {
       NE_status = analyse_NE.run();
       if (NE_status) failure_NE = true;
       if (info_) info_->analyse_NE_time = clock.stop();
-
-      // save data collected for NE and clear record for AS
-      DataCollector::get()->saveAndClear();
     }
   }
 
@@ -394,15 +391,10 @@ Int FactorHiGHSSolver::choose(const HighsSparseMatrix& A, Options& options) {
   }
 
   if (status != kLinearSolverStatusErrorAnalyse) {
-    // DataCollector now contains data of AS in main storage and data of NE in
-    // saved storage.
-
     if (options.nla == kOptionNlaAugmented) {
       S_ = std::move(symb_AS);
-      DataCollector::get()->clearSaved();
     } else {
       S_ = std::move(symb_NE);
-      DataCollector::get()->loadSaved();
     }
   }
 

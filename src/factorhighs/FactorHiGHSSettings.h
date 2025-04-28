@@ -10,12 +10,13 @@
 // ===========================================================================
 
 #define PIVOTING
-// #define DATA_COLLECTION
+//#define DEBUG
+
 // #define PRINT_ITER_REF
 // #define PRINT_REGULARISATION
 // #define PRINT_CORRECTORS
 
-// choose level of timing:
+// choose level of timing (if DEBUG is switched on):
 // - TIMING_0: no timing
 // - TIMING_1: basic timing
 // - TIMING_2: advanced timing

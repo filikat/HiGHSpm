@@ -38,14 +38,14 @@ void Ipm::solve() {
     return;
   }
 
-  DataCollector::start();
+  DataCollector::initialise();
   printInfo();
 
   runIpm();
   refineWithIpx();
 
   DataCollector::get()->printIter();
-  DataCollector::destruct();
+  DataCollector::terminate();
 }
 
 void Ipm::runIpm() {
@@ -685,7 +685,7 @@ failure:
 void Ipm::sigmaAffine() {
   sigma_ = kSigmaAffine;
 
-  DataCollector::get()->back().sigma_aff = sigma_;
+  DataCollector::get()->setSigma(sigma_, true);
 }
 
 void Ipm::sigmaCorrectors() {
@@ -701,7 +701,7 @@ void Ipm::sigmaCorrectors() {
     sigma_ = 0.9;
   }
 
-  DataCollector::get()->back().sigma = sigma_;
+  DataCollector::get()->setSigma(sigma_);
 }
 
 void Ipm::residualsMcc() {
@@ -845,7 +845,7 @@ bool Ipm::centralityCorrectors() {
   printf("\n");
 #endif
 
-  DataCollector::get()->back().correctors = cor;
+  DataCollector::get()->setCorrectors(cor);
 
   return false;
 }
@@ -1056,9 +1056,6 @@ void Ipm::backwardError(const NewtonDir& delta) const {
   double nw_back_err =
       inf_norm_r / (inf_norm_matrix * inf_norm_delta + inf_norm_res);
 
-  DataCollector::get()->back().nw_back_err =
-      std::max(DataCollector::get()->back().nw_back_err, nw_back_err);
-
   // ===================================================================================
   // Componentwise backward error
   // ===================================================================================
@@ -1143,8 +1140,7 @@ void Ipm::backwardError(const NewtonDir& delta) const {
     }
   }
 
-  DataCollector::get()->back().cw_back_err =
-      std::max(DataCollector::get()->back().cw_back_err, cw_back_err);
+  DataCollector::get()->setBackError(nw_back_err, cw_back_err);
 }
 
 void Ipm::printHeader() const {

@@ -85,14 +85,7 @@ Factorise::Factorise(const Symbolic& S, const std::vector<Int>& rowsA,
   }
   A_norm1_ = *std::max_element(col_norm1.begin(), col_norm1.end());
 
-  DataCollector::get()->back().M_norm1 = A_norm1_;
-  DataCollector::get()->back().M_maxdiag = max_diag_;
-
-  /*print(S_.snParent(), "parent");
-  print(S_.snStart(), "start");
-  print(rowsA_, "Mrows");
-  print(ptrA_, "Mptr");
-  print(valA_, "Mval");*/
+  DataCollector::get()->setNorms(A_norm1_, max_diag_);
 }
 
 void Factorise::permute(const std::vector<Int>& iperm) {

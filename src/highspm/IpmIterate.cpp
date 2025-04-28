@@ -77,17 +77,7 @@ void IpmIterate::computeScaling() {
     if (scaling[i] < 1e-12) scaling[i] = sqrt(1e-12 * scaling[i]);
   }
 
-  // compute min and max entry in Theta
-  double& min_theta = DataCollector::get()->back().min_theta;
-  double& max_theta = DataCollector::get()->back().max_theta;
-  min_theta = kHighsInf;
-  max_theta = 0.0;
-  for (Int i = 0; i < model->n(); ++i) {
-    if (scaling[i] != 0.0) {
-      min_theta = std::min(min_theta, 1.0 / scaling[i]);
-      max_theta = std::max(max_theta, 1.0 / scaling[i]);
-    }
-  }
+  DataCollector::get()->setExtremeTheta(scaling);
 }
 void IpmIterate::products() {
   double min_prod = std::numeric_limits<double>::max();
@@ -112,10 +102,7 @@ void IpmIterate::products() {
     }
   }
 
-  DataCollector::get()->back().min_prod = min_prod;
-  DataCollector::get()->back().max_prod = max_prod;
-  DataCollector::get()->back().num_small_prod = num_small;
-  DataCollector::get()->back().num_large_prod = num_large;
+  DataCollector::get()->setProducts(min_prod, max_prod, num_small, num_large);
 }
 
 void IpmIterate::indicators() {
