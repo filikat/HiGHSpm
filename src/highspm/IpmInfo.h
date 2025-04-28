@@ -37,9 +37,15 @@ struct IpmInfo {
   OptionParallel option_par;
 
   // Total times to form matrix, factorise and solve linear systems
+  double analyse_NE_time{};
+  double analyse_AS_time{};
   double matrix_time{};
   double factor_time{};
   double solve_time{};
+
+  // Counters
+  Int factor_number{};
+  Int solve_number{};
 };
 
 }  // namespace highspm

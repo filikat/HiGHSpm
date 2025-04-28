@@ -30,7 +30,9 @@ Numeric::Numeric(const Symbolic& S) : S_{S} {
   }
 }
 
-void Numeric::solve(std::vector<double>& x) const {
+Int Numeric::solve(std::vector<double>& x) const {
+  // Return the number of solves performed
+
 #ifdef COARSE_TIMING
   Clock clock{};
 #endif
@@ -48,7 +50,7 @@ void Numeric::solve(std::vector<double>& x) const {
   DataCollector::get()->countSolves();
 
   // iterative refinement
-  refine(rhs, x);
+  Int refine_solves = refine(rhs, x);
 
   // unpermute solution
   permuteVector(x, S_.iperm());
@@ -56,6 +58,8 @@ void Numeric::solve(std::vector<double>& x) const {
 #ifdef COARSE_TIMING
   DataCollector::get()->sumTime(kTimeSolve, clock.stop());
 #endif
+
+  return refine_solves + 1;
 }
 
 std::vector<double> Numeric::residual(const std::vector<double>& rhs,
@@ -86,9 +90,12 @@ std::vector<double> Numeric::residualQuad(const std::vector<double>& rhs,
   return result;
 }
 
-void Numeric::refine(const std::vector<double>& rhs,
-                     std::vector<double>& x) const {
+Int Numeric::refine(const std::vector<double>& rhs,
+                    std::vector<double>& x) const {
+  // Return the number of solver performed
+
   double old_omega{};
+  Int solves_counter{};
 
   // compute residual
   std::vector<double> res = residualQuad(rhs, x);
@@ -108,6 +115,7 @@ void Numeric::refine(const std::vector<double>& rhs,
     SH_->diagSolve(res);
     SH_->backwardSolve(res);
     DataCollector::get()->countSolves();
+    ++solves_counter;
 
     // add correction
     std::vector<double> temp(x);
@@ -136,6 +144,8 @@ void Numeric::refine(const std::vector<double>& rhs,
 
   double& omg = DataCollector::get()->back().omega;
   omg = std::max(omg, omega);
+
+  return solves_counter;
 }
 
 double Numeric::computeOmega(const std::vector<double>& b,

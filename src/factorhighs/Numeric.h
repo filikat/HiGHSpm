@@ -40,10 +40,10 @@ class Numeric {
   Numeric(const Symbolic& S);
 
   // Full solve with refinement
-  void solve(std::vector<double>& x) const;
+  Int solve(std::vector<double>& x) const;
 
   // Iterative refinement
-  void refine(const std::vector<double>& rhs, std::vector<double>& x) const;
+  Int refine(const std::vector<double>& rhs, std::vector<double>& x) const;
   std::vector<double> residual(const std::vector<double>& rhs,
                                const std::vector<double>& x) const;
   std::vector<double> residualQuad(const std::vector<double>& rhs,

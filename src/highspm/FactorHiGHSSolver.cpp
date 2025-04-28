@@ -126,7 +126,10 @@ Int FactorHiGHSSolver::factorAS(const HighsSparseMatrix& A,
   clock.start();
   Factorise factorise(S_, rowsLower, ptrLower, valLower);
   if (factorise.run(N_)) return kLinearSolverStatusErrorFactorise;
-  if (info_) info_->factor_time += clock.stop();
+  if (info_) {
+    info_->factor_time += clock.stop();
+    info_->factor_number++;
+  }
 
   this->valid_ = true;
   use_as_ = true;
@@ -158,7 +161,10 @@ Int FactorHiGHSSolver::factorNE(const HighsSparseMatrix& A,
   clock.start();
   Factorise factorise(S_, AAt.index_, AAt.start_, AAt.value_);
   if (factorise.run(N_)) return kLinearSolverStatusErrorFactorise;
-  if (info_) info_->factor_time += clock.stop();
+  if (info_) {
+    info_->factor_time += clock.stop();
+    info_->factor_number++;
+  }
 
   this->valid_ = true;
   use_as_ = false;
@@ -174,8 +180,11 @@ Int FactorHiGHSSolver::solveNE(const std::vector<double>& rhs,
   lhs = rhs;
 
   Clock clock;
-  N_.solve(lhs);
-  if (info_) info_->solve_time += clock.stop();
+  Int solves = N_.solve(lhs);
+  if (info_) {
+    info_->solve_time += clock.stop();
+    info_->solve_number += solves;
+  }
 
   return kLinearSolverStatusOk;
 }
@@ -195,8 +204,11 @@ Int FactorHiGHSSolver::solveAS(const std::vector<double>& rhs_x,
   rhs.insert(rhs.end(), rhs_y.begin(), rhs_y.end());
 
   Clock clock;
-  N_.solve(rhs);
-  if (info_) info_->solve_time += clock.stop();
+  Int solves = N_.solve(rhs);
+  if (info_) {
+    info_->solve_time += clock.stop();
+    info_->solve_number += solves;
+  }
 
   // split lhs
   lhs_x = std::vector<double>(rhs.begin(), rhs.begin() + n);
@@ -309,6 +321,8 @@ Int FactorHiGHSSolver::choose(const HighsSparseMatrix& A, Options& options) {
   bool failure_NE = false;
   bool failure_AS = false;
 
+  Clock clock;
+
   // Perform analyse phase of normal equations
   {
     std::vector<Int> ptrLower, rowsLower;
@@ -316,9 +330,11 @@ Int FactorHiGHSSolver::choose(const HighsSparseMatrix& A, Options& options) {
     if (NE_status)
       failure_NE = true;
     else {
+      clock.start();
       Analyse analyse_NE(symb_NE, rowsLower, ptrLower, 0);
       NE_status = analyse_NE.run();
       if (NE_status) failure_NE = true;
+      if (info_) info_->analyse_NE_time = clock.stop();
 
       // save data collected for NE and clear record for AS
       DataCollector::get()->saveAndClear();
@@ -329,9 +345,11 @@ Int FactorHiGHSSolver::choose(const HighsSparseMatrix& A, Options& options) {
   {
     std::vector<Int> ptrLower, rowsLower;
     getAS(A, ptrLower, rowsLower);
+    clock.start();
     Analyse analyse_AS(symb_AS, rowsLower, ptrLower, A.num_col_);
     Int AS_status = analyse_AS.run();
     if (AS_status) failure_AS = true;
+    if (info_) info_->analyse_AS_time = clock.stop();
   }
 
   Int status = kLinearSolverStatusOk;
@@ -391,16 +409,19 @@ Int FactorHiGHSSolver::choose(const HighsSparseMatrix& A, Options& options) {
 
 Int FactorHiGHSSolver::setNla(const HighsSparseMatrix& A, Options& options) {
   std::vector<Int> ptrLower, rowsLower;
+  Clock clock;
 
   // Build the matrix
   switch (options.nla) {
     case kOptionNlaAugmented: {
       getAS(A, ptrLower, rowsLower);
+      clock.start();
       Analyse analyse(S_, rowsLower, ptrLower, A.num_col_);
       if (analyse.run()) {
         printf("Analyse phase failed\n");
         return kLinearSolverStatusErrorAnalyse;
       }
+      if (info_) info_->analyse_AS_time = clock.stop();
       printf("Using augmented system as requested\n");
       break;
     }
@@ -411,11 +432,13 @@ Int FactorHiGHSSolver::setNla(const HighsSparseMatrix& A, Options& options) {
         printf("Failure: AAt is too large\n");
         return kLinearSolverStatusErrorOom;
       }
+      clock.start();
       Analyse analyse(S_, rowsLower, ptrLower, 0);
       if (analyse.run()) {
         printf("Analyse phase failed\n");
         return kLinearSolverStatusErrorAnalyse;
       }
+      if (info_) info_->analyse_NE_time = clock.stop();
       printf("Using normal equations as requested\n");
       break;
     }

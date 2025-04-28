@@ -201,9 +201,13 @@ int main(int argc, char** argv) {
 
   printf("\n");
   printf("Ipm iterations    : %d\n", info.ipm_iter);
-  printf("Form matrix time  : %.2f\n", info.matrix_time);
+  printf("Analyse NE time   : %.2f\n", info.analyse_NE_time);
+  printf("Analyse AS time   : %.2f\n", info.analyse_AS_time);
+  printf("Matrix time       : %.2f\n", info.matrix_time);
   printf("Factorisation time: %.2f\n", info.factor_time);
   printf("Solve time        : %.2f\n", info.solve_time);
+  printf("Factorisations    : %d\n", info.factor_number);
+  printf("Solves            : %d\n", info.solve_number);
 
   return 0;
 }
