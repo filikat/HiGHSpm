@@ -464,9 +464,15 @@ void FactorHiGHSSolver::setParallel(Options& options) {
       printf("Using full parallelism as requested\n");
       break;
     case kOptionParallelChoose: {
-      // parallel_node is active because it is triggered only if the frontal
-      // matrix is large enough anyway.
+#ifdef FRAMEWORK_ACCELERATE
+      // When using framework accelerate on Apple, parallelizing dense linear
+      // algebra is not very effective.
+      parallel_node = false;
+#else
+      // Otherwise, parallel_node is active because it is triggered only if the
+      // frontal matrix is large enough anyway.
       parallel_node = true;
+#endif
 
       double tree_speedup = S_.flops() / S_.critops();
       double sn_size = (double)S_.size() / S_.sn();
@@ -484,11 +490,20 @@ void FactorHiGHSSolver::setParallel(Options& options) {
           (sn_are_large || (speedup_is_large && sn_are_not_small))) {
         parallel_tree = true;
         options.parallel = kOptionParallelOn;
-        printf("Using full parallelism because it is preferrable\n");
+
       } else {
         options.parallel = kOptionParallelNodeOnly;
-        printf("Using only node parallelism because it is preferrable\n");
       }
+
+      if (parallel_tree && parallel_node)
+        printf("Using full parallelism because it is preferrable\n");
+      else if (parallel_tree && !parallel_node)
+        printf("Using only tree parallelism because it is preferrable\n");
+      else if (!parallel_tree && parallel_node)
+        printf("Using only node parallelism because it is preferrable\n");
+      else
+        printf("Using no parallelism because it is preferrable\n");
+
       break;
     }
     case kOptionParallelTreeOnly:

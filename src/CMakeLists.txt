@@ -14,6 +14,7 @@ target_include_directories(highspm PUBLIC ${PROJECT_SOURCE_DIR}/src)
 # BLAS
 if(APPLE)
     target_link_libraries(highspm PRIVATE "-framework Accelerate")
+    target_compile_definitions(highspm PRIVATE FRAMEWORK_ACCELERATE)
 else(APPLE)
     if(BLAS_LIB)
         target_link_libraries(highspm PRIVATE "${BLAS_LIB}")
