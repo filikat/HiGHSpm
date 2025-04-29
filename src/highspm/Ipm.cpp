@@ -1163,6 +1163,7 @@ void Ipm::printOutput() const {
 
 void Ipm::printInfo() const {
   printf("\n");
+  printf("Running HiGHSpm\n");
   printf("Problem %s\n", model_.name().c_str());
   printf("%.2e rows, %.2e cols, %.2e nnz\n", (double)m_, (double)n_,
          (double)model_.A().numNz());

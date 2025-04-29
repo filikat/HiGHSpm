@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.15)
 
-project(ProtoIpm VERSION 1.0)
+project(HiGHSpm VERSION 1.0)
 
 # set cpp version
 set(CMAKE_CXX_STANDARD 11)
