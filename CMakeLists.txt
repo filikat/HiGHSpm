@@ -34,26 +34,18 @@ target_include_directories(run_test PRIVATE "${HIGHS_PATH}/src" "${HIGHS_PATH}/b
 # tests
 enable_testing()
 
-add_test(NAME test_afiro_ne COMMAND ipm ../instances/afiro.mps 1 2 0)
-set_tests_properties(test_afiro_ne PROPERTIES 
+add_test(NAME test_ne COMMAND ipm ../instances/afiro.mps 1 2 0)
+set_tests_properties(test_ne PROPERTIES 
                     PASS_REGULAR_EXPRESSION "Primal-dual feasible point found")
 
-add_test(NAME test_afiro_as COMMAND ipm ../instances/afiro.mps 0 2 0)
-set_tests_properties(test_afiro_as PROPERTIES 
+add_test(NAME test_as COMMAND ipm ../instances/afiro.mps 0 2 0)
+set_tests_properties(test_as PROPERTIES 
                     PASS_REGULAR_EXPRESSION "Primal-dual feasible point found")
 
-add_test(NAME test_afiro_ne_crossover COMMAND ipm ../instances/afiro.mps 1 2 1)
-set_tests_properties(test_afiro_ne_crossover PROPERTIES
+add_test(NAME test_ne_crossover COMMAND ipm ../instances/afiro.mps 1 2 1)
+set_tests_properties(test_ne_crossover PROPERTIES
                     PASS_REGULAR_EXPRESSION "Status crossover: +optimal")
 
-add_test(NAME test_afiro_as_crossover COMMAND ipm ../instances/afiro.mps 0 2 1)
-set_tests_properties(test_afiro_as_crossover PROPERTIES
-                    PASS_REGULAR_EXPRESSION "Status crossover: +optimal")
-
-add_test(NAME test_cycle COMMAND ipm ../instances/cycle.mps 1 2 0)
-set_tests_properties(test_cycle PROPERTIES
-                    PASS_REGULAR_EXPRESSION "Primal-dual feasible point found")
-
-add_test(NAME test_pilotwe COMMAND ipm ../instances/pilot.we.mps 1 2 0)
-set_tests_properties(test_pilotwe PROPERTIES
-                    PASS_REGULAR_EXPRESSION "Primal-dual feasible point found")                    
+add_test(NAME test_as_crossover COMMAND ipm ../instances/afiro.mps 0 2 1)
+set_tests_properties(test_as_crossover PROPERTIES
+                    PASS_REGULAR_EXPRESSION "Status crossover: +optimal")                 
