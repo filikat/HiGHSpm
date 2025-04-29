@@ -76,5 +76,6 @@ set(util_headers
     auxiliary/Auxiliary.h
     auxiliary/IntConfig.h
     auxiliary/KrylovMethods.h
+    auxiliary/mycblas.h
     auxiliary/VectorOperations.h)
 

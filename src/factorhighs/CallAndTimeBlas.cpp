@@ -4,7 +4,7 @@
 #include "DenseFact.h"
 #include "Timing.h"
 #include "auxiliary/Auxiliary.h"
-#include "mycblas.h"
+#include "auxiliary/mycblas.h"
 
 namespace highspm {
 
