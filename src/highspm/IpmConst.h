@@ -31,6 +31,8 @@ const double kLargeSnThresh = 20.0;
 const double kSmallSnThresh = 5.0;
 const Int kMinNumberSn = 10;
 
+const double kSymbNzMult = 5.0;
+
 }  // namespace highspm
 
 #endif

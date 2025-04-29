@@ -10,7 +10,7 @@ namespace highspm {
 Int computeLowerAThetaAT(
     const HighsSparseMatrix& matrix, const std::vector<double>& scaling,
     HighsSparseMatrix& AAT,
-    const Int max_num_nz = std::numeric_limits<Int>::max());
+    const int64_t max_num_nz = std::numeric_limits<Int>::max());
 
 FactorHiGHSSolver::FactorHiGHSSolver(const Options& options, IpmInfo* info)
     : S_((FormatType)options.format), N_(S_), info_{info} {}
@@ -21,11 +21,12 @@ void FactorHiGHSSolver::clear() {
 }
 
 Int getNE(const HighsSparseMatrix& A, std::vector<Int>& ptr,
-          std::vector<Int>& rows) {
+          std::vector<Int>& rows,
+          const int64_t max_num_nz = std::numeric_limits<Int>::max()) {
   // Normal equations, full matrix
   std::vector<double> theta;
   HighsSparseMatrix AAt;
-  Int status = computeLowerAThetaAT(A, theta, AAt);
+  Int status = computeLowerAThetaAT(A, theta, AAt, max_num_nz);
   if (status) return kLinearSolverStatusErrorOom;
 
   rows = std::move(AAt.index_);
@@ -221,7 +222,7 @@ Int FactorHiGHSSolver::solveAS(const std::vector<double>& rhs_x,
 
 Int computeLowerAThetaAT(const HighsSparseMatrix& matrix,
                          const std::vector<double>& scaling,
-                         HighsSparseMatrix& AAT, const Int max_num_nz) {
+                         HighsSparseMatrix& AAT, const int64_t max_num_nz) {
   // Create a row-wise copy of the matrix
   HighsSparseMatrix AT = matrix;
   AT.ensureRowwise();
@@ -323,21 +324,6 @@ Int FactorHiGHSSolver::choose(const HighsSparseMatrix& A, Options& options) {
 
   Clock clock;
 
-  // Perform analyse phase of normal equations
-  {
-    std::vector<Int> ptrLower, rowsLower;
-    Int NE_status = getNE(A, ptrLower, rowsLower);
-    if (NE_status)
-      failure_NE = true;
-    else {
-      clock.start();
-      Analyse analyse_NE(symb_NE, rowsLower, ptrLower, 0);
-      NE_status = analyse_NE.run();
-      if (NE_status) failure_NE = true;
-      if (info_) info_->analyse_NE_time = clock.stop();
-    }
-  }
-
   // Perform analyse phase of augmented system
   {
     std::vector<Int> ptrLower, rowsLower;
@@ -347,6 +333,25 @@ Int FactorHiGHSSolver::choose(const HighsSparseMatrix& A, Options& options) {
     Int AS_status = analyse_AS.run();
     if (AS_status) failure_AS = true;
     if (info_) info_->analyse_AS_time = clock.stop();
+  }
+
+  // Perform analyse phase of normal equations
+  {
+    // If NE has more nonzeros than the factor of AS, then it's likely that AS
+    // will be preferred, so stopped computation of NE.
+    const int64_t NE_nz_limit = symb_AS.nz() * kSymbNzMult;
+
+    std::vector<Int> ptrLower, rowsLower;
+    Int NE_status = getNE(A, ptrLower, rowsLower, NE_nz_limit);
+    if (NE_status)
+      failure_NE = true;
+    else {
+      clock.start();
+      Analyse analyse_NE(symb_NE, rowsLower, ptrLower, 0);
+      NE_status = analyse_NE.run();
+      if (NE_status) failure_NE = true;
+      if (info_) info_->analyse_NE_time = clock.stop();
+    }
   }
 
   Int status = kLinearSolverStatusOk;
