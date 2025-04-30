@@ -36,7 +36,7 @@ enum OptionParallel {
   kOptionParallelMin = 0,
   kOptionParallelOff = kOptionParallelMin,  // tree off     node off
   kOptionParallelOn,                        // tree on      node on
-  kOptionParallelChoose,                    // tree choose  node on
+  kOptionParallelChoose,                    // tree choose  node choose
   kOptionParallelTreeOnly,                  // tree on      node off
   kOptionParallelNodeOnly,                  // tree off     node on
   kOptionParallelMax = kOptionParallelNodeOnly,

@@ -235,7 +235,6 @@ Int computeLowerAThetaAT(const HighsSparseMatrix& matrix,
   std::vector<std::tuple<Int, Int, double>> non_zero_values;
 
   // First pass to calculate the number of non-zero elements in each column
-  //
   Int AAT_num_nz = 0;
   std::vector<double> AAT_col_value(AAT_dim, 0);
   std::vector<Int> AAT_col_index(AAT_dim);
@@ -465,14 +464,16 @@ void FactorHiGHSSolver::setParallel(Options& options) {
       break;
     case kOptionParallelChoose: {
 #ifdef FRAMEWORK_ACCELERATE
-      // When using framework accelerate on Apple, parallelizing dense linear
-      // algebra is not very effective.
+      // Blas on Apple do not work well with parallel_node, but parallel_tree
+      // seems to always be beneficial.
       parallel_node = false;
+      parallel_tree = true;
 #else
       // Otherwise, parallel_node is active because it is triggered only if the
       // frontal matrix is large enough anyway.
       parallel_node = true;
-#endif
+
+      // parallel_tree instead is chosen with a heuristic
 
       double tree_speedup = S_.flops() / S_.critops();
       double sn_size = (double)S_.size() / S_.sn();
@@ -489,20 +490,22 @@ void FactorHiGHSSolver::setParallel(Options& options) {
       if (enough_sn && enough_flops &&
           (sn_are_large || (speedup_is_large && sn_are_not_small))) {
         parallel_tree = true;
-        options.parallel = kOptionParallelOn;
-
-      } else {
-        options.parallel = kOptionParallelNodeOnly;
       }
+#endif
 
-      if (parallel_tree && parallel_node)
+      if (parallel_tree && parallel_node) {
+        options.parallel = kOptionParallelOn;
         printf("Using full parallelism because it is preferrable\n");
-      else if (parallel_tree && !parallel_node)
+      } else if (parallel_tree && !parallel_node) {
+        options.parallel = kOptionParallelTreeOnly;
         printf("Using only tree parallelism because it is preferrable\n");
-      else if (!parallel_tree && parallel_node)
+      } else if (!parallel_tree && parallel_node) {
+        options.parallel = kOptionParallelNodeOnly;
         printf("Using only node parallelism because it is preferrable\n");
-      else
+      } else {
+        options.parallel = kOptionParallelOff;
         printf("Using no parallelism because it is preferrable\n");
+      }
 
       break;
     }

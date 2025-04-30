@@ -21,7 +21,7 @@ struct IpmInfo {
   // Number of ipm iterations performed
   Int ipm_iter = 0;
 
-  // True if ipx was invoked, wither to refine solution or for crossover
+  // True if ipx was invoked, whether to refine solution or for crossover
   bool ipx_used = false;
 
   // Info from ipx
