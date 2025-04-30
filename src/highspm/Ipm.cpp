@@ -34,7 +34,7 @@ void Ipm::setOptions(const Options& options) { options_ = options; }
 
 void Ipm::solve() {
   if (!model_.ready()) {
-    info_.ipm_status = kIpmStatusError;
+    info_.ipm_status = kIpmStatusNotRun;
     return;
   }
 
@@ -192,12 +192,9 @@ bool Ipm::prepareIpx() {
 }
 
 void Ipm::refineWithIpx() {
-  if ((info_.ipm_status > kIpmStatusStop &&
-       info_.ipm_status < kIpmStatusOptimal) ||
-      checkTimeLimit())
-    return;
+  if (statusIsStop() || checkTimeLimit()) return;
 
-  if (info_.ipm_status < kIpmStatusOptimal && options_.refine_with_ipx) {
+  if (!statusIsOptimal() && options_.refine_with_ipx) {
     printf("\nIpm did not converge, restarting with IPX\n\n");
   } else if (options_.crossover == kOptionCrossoverOn) {
     printf("\nIpm converged, running crossover with IPX\n\n");
@@ -1302,6 +1299,14 @@ void Ipm::maxCorrectors() {
   } else {
     info_.correctors = -kMaxCorrectors;
   }
+}
+
+bool Ipm::statusIsOptimal() const {
+  return info_.ipm_status >= kIpmStatusOptimal;
+}
+bool Ipm::statusIsStop() const {
+  return info_.ipm_status >= kIpmStatusStop &&
+         info_.ipm_status < kIpmStatusOptimal;
 }
 
 }  // namespace highspm

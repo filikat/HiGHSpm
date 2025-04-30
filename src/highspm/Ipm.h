@@ -292,6 +292,14 @@ class Ipm {
   bool checkTimeLimit();
 
   // ===================================================================================
+  // Check if the current ipm status belongs to the optimal group (i.e., solver
+  // converged), or the stop group (i.e., the solver should not continue, for
+  // example with refinement with ipx).
+  // ===================================================================================
+  bool statusIsOptimal() const;
+  bool statusIsStop() const;
+
+  // ===================================================================================
   // Compute the normwise and componentwise backward error for the large 6x6
   // linear system
   // ===================================================================================

@@ -248,6 +248,9 @@ int main(int argc, char** argv) {
       case highspm::kIpmStatusDualInfeasible:
         status_string = "Dual inf";
         break;
+      case highspm::kIpmStatusNotRun:
+        status_string = "Not run";
+        break;
       default:
         status_string = "Unknown";
         break;
