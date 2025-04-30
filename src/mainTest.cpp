@@ -70,15 +70,22 @@ int main(int argc, char** argv) {
     model_file.insert(0, problems_path);
     std::string model = extractModelName(model_file);
     HighsStatus status = highs.readModel(model_file);
-    assert(status == HighsStatus::kOk);
+    if (status != HighsStatus::kOk) {
+      printf("Problem reading file %s\n", model_file.c_str());
+      continue;
+    }
     double read_time = clock1.stop();
+
     const bool presolve = true;
     HighsLp lp;
     double presolve_time = -1;
     if (presolve) {
       clock1.start();
       status = highs.presolve();
-      assert(status == HighsStatus::kOk);
+      if (status != HighsStatus::kOk) {
+        printf("Problem with presolve of file %s\n", model_file.c_str());
+        continue;
+      }
       lp = highs.getPresolvedLp();
       presolve_time = clock1.stop();
     } else {
@@ -188,6 +195,9 @@ int main(int argc, char** argv) {
              pb_name);
     double load_time = clock1.stop();
 
+    // options.max_iter = 5;
+    // options.refine_with_ipx = false;
+    // options.time_limit = 1000;
     ipm.setOptions(options);
 
     // solve LP
@@ -203,6 +213,17 @@ int main(int argc, char** argv) {
       ++converged;
 
     double run_time = clock0.stop();
+
+    printf("\n");
+    printf("Ipm iterations    : %d\n", info.ipm_iter);
+    printf("Analyse NE time   : %.2f\n", info.analyse_NE_time);
+    printf("Analyse AS time   : %.2f\n", info.analyse_AS_time);
+    printf("Matrix time       : %.2f\n", info.matrix_time);
+    printf("Factorisation time: %.2f\n", info.factor_time);
+    printf("Solve time        : %.2f\n", info.solve_time);
+    printf("Factorisations    : %d\n", info.factor_number);
+    printf("Solves            : %d\n", info.solve_number);
+    printf("Correctors        : %d\n", info.correctors);
 
     std::string status_string;
     switch (ipm_status) {

@@ -18,3 +18,4 @@ test*
 Makefile_local
 build
 old_stuff
+*.sh
