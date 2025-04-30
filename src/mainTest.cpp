@@ -242,7 +242,14 @@ int main(int argc, char** argv) {
       case highspm::kIpmStatusBasic:
         status_string = "Basic";
         break;
+      case highspm::kIpmStatusPrimalInfeasible:
+        status_string = "Primal inf";
+        break;
+      case highspm::kIpmStatusDualInfeasible:
+        status_string = "Dual inf";
+        break;
       default:
+        status_string = "Unknown";
         break;
     }
 

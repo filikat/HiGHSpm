@@ -9,6 +9,7 @@ namespace highspm {
 const Int kMaxIterDefault = 100;
 const double kIpmTolDefault = 1e-8;
 const Int kMaxBadIter = 5;
+const double kDivergeTol = 1e3;
 
 // parameters for correctors
 const double kGammaCorrector = 0.1;

@@ -4,11 +4,19 @@
 namespace highspm {
 
 enum IpmStatus {
+  // With these statuses, the solver can proceed with refining, if requested
   kIpmStatusNotRun,
-  kIpmStatusError,
   kIpmStatusMaxIter,
   kIpmStatusNoProgress,
+
+  // With these statuses, the solver should stop and not attempt refining
+  kIpmStatusStop,
+  kIpmStatusError,
   kIpmStatusTimeLimit,
+  kIpmStatusPrimalInfeasible,
+  kIpmStatusDualInfeasible,
+
+  // Solver is optimal
   kIpmStatusOptimal,
   kIpmStatusPDFeas,
   kIpmStatusBasic

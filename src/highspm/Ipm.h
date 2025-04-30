@@ -274,6 +274,7 @@ class Ipm {
 
   // ===================================================================================
   // If too many bad iterations happened consecutively, abort the iterations.
+  // Also, detect if the problem is primal or dual infeasible.
   // ===================================================================================
   bool checkBadIter();
 

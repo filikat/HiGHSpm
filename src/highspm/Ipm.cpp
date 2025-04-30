@@ -192,8 +192,9 @@ bool Ipm::prepareIpx() {
 }
 
 void Ipm::refineWithIpx() {
-  if (info_.ipm_status == kIpmStatusError ||
-      info_.ipm_status == kIpmStatusTimeLimit || checkTimeLimit())
+  if ((info_.ipm_status > kIpmStatusStop &&
+       info_.ipm_status < kIpmStatusOptimal) ||
+      checkTimeLimit())
     return;
 
   if (info_.ipm_status < kIpmStatusOptimal && options_.refine_with_ipx) {
@@ -210,8 +211,13 @@ void Ipm::refineWithIpx() {
 
   info_.ipx_info = ipx_lps_.GetInfo();
 
+  // Convert between ipx and highspm status
   if (info_.ipx_info.status_ipm == IPX_STATUS_optimal)
     info_.ipm_status = kIpmStatusPDFeas;
+  else if (info_.ipx_info.status_ipm == IPX_STATUS_primal_infeas)
+    info_.ipm_status = kIpmStatusPrimalInfeasible;
+  else if (info_.ipx_info.status_ipm == IPX_STATUS_dual_infeas)
+    info_.ipm_status = kIpmStatusDualInfeasible;
 
   if (info_.ipx_info.status_crossover == IPX_STATUS_optimal)
     info_.ipm_status = kIpmStatusBasic;
@@ -923,13 +929,39 @@ bool Ipm::checkIterate() {
 }
 
 bool Ipm::checkBadIter() {
-  // If too many bad iterations, stop
-  if (bad_iter_ >= kMaxBadIter) {
-    printf("=== No progress\n");
-    info_.ipm_status = kIpmStatusNoProgress;
-    return true;
+  bool terminate = false;
+
+  // check for bad iterations
+  bool too_many_bad_iter = bad_iter_ >= kMaxBadIter;
+
+  // check for infeasibility
+  bool mu_is_large =
+      it_->best_mu > 0.0 ? it_->mu > it_->best_mu * kDivergeTol : false;
+  bool pobj_is_large =
+      it_->pobj < -std::max(std::abs(it_->dobj) * kDivergeTol, 1.0);
+  bool dobj_is_large =
+      it_->dobj > std::max(std::abs(it_->pobj) * kDivergeTol, 1.0);
+
+  if (too_many_bad_iter || mu_is_large) {
+    if (pobj_is_large) {
+      // problem is likely to be primal unbounded, i.e. dual infeasible
+      printf("=== Dual infeasible\n");
+      info_.ipm_status = kIpmStatusDualInfeasible;
+      terminate = true;
+    } else if (dobj_is_large) {
+      // problem is likely to be dual unbounded, i.e. primal infeasible
+      printf("=== Primal infeasible\n");
+      info_.ipm_status = kIpmStatusPrimalInfeasible;
+      terminate = true;
+    } else {
+      // Too many bad iterations in a row, abort the solver
+      printf("=== No progress\n");
+      info_.ipm_status = kIpmStatusNoProgress;
+      terminate = true;
+    }
   }
-  return false;
+
+  return terminate;
 }
 
 bool Ipm::checkTermination() {

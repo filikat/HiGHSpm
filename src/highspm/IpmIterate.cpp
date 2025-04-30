@@ -12,6 +12,7 @@ IpmIterate::IpmIterate(const IpmModel& model_input)
     : model{&model_input}, delta(model->m(), model->n()) {
   clearIter();
   clearRes();
+  best_mu = 0;
 }
 
 bool IpmIterate::isNan() const {
@@ -65,6 +66,11 @@ void IpmIterate::computeMu() {
     }
   }
   mu /= number_finite_bounds;
+
+  if (best_mu > 0.0)
+    best_mu = std::min(best_mu, mu);
+  else
+    best_mu = mu;
 }
 void IpmIterate::computeScaling() {
   scaling.assign(model->n(), 0.0);

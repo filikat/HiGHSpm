@@ -39,6 +39,8 @@ struct IpmIterate {
   double mu;
   std::vector<double> scaling;
 
+  double best_mu;
+
   // ===================================================================================
   // Functions to construct, clear and check for nan or inf
   // ===================================================================================
