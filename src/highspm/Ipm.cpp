@@ -80,6 +80,8 @@ bool Ipm::initialise() {
   }
   LS_->clear();
 
+  if (checkTimeLimit()) return true;
+
   // decide number of correctors to use
   maxCorrectors();
 
@@ -90,6 +92,8 @@ bool Ipm::initialise() {
   it_->indicators();
 
   printOutput();
+
+  if (checkTimeLimit()) return true;
 
   return false;
 }
@@ -110,6 +114,7 @@ bool Ipm::prepareIter() {
   if (checkIterate()) return true;
   if (checkBadIter()) return true;
   if (checkTermination()) return true;
+  if (checkTimeLimit()) return true;
 
   ++iter_;
 
@@ -129,6 +134,8 @@ bool Ipm::predictor() {
   // Compute affine scaling direction.
   // Return true if an error occurred.
 
+  if (checkTimeLimit()) return true;
+
   // compute sigma and residuals for affine scaling direction
   sigmaAffine();
   it_->residual56(sigma_);
@@ -142,6 +149,8 @@ bool Ipm::predictor() {
 bool Ipm::correctors() {
   // Compute multiple centrality correctors.
   // Return true if an error occurred.
+
+  if (checkTimeLimit()) return true;
 
   sigmaCorrectors();
   if (centralityCorrectors()) return true;
@@ -183,7 +192,9 @@ bool Ipm::prepareIpx() {
 }
 
 void Ipm::refineWithIpx() {
-  if (info_.ipm_status == kIpmStatusError) return;
+  if (info_.ipm_status == kIpmStatusError ||
+      info_.ipm_status == kIpmStatusTimeLimit || checkTimeLimit())
+    return;
 
   if (info_.ipm_status < kIpmStatusOptimal && options_.refine_with_ipx) {
     printf("\nIpm did not converge, restarting with IPX\n\n");
@@ -944,6 +955,16 @@ bool Ipm::checkTermination() {
     } else {
       terminate = true;
     }
+  }
+  return terminate;
+}
+
+bool Ipm::checkTimeLimit() {
+  bool terminate = false;
+  if (options_.time_limit > 0 && clock_.stop() > options_.time_limit) {
+    terminate = true;
+    info_.ipm_status = kIpmStatusTimeLimit;
+    printf("Reached time limit of %.1f seconds\n", options_.time_limit);
   }
   return terminate;
 }

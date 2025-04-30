@@ -8,6 +8,7 @@ enum IpmStatus {
   kIpmStatusError,
   kIpmStatusMaxIter,
   kIpmStatusNoProgress,
+  kIpmStatusTimeLimit,
   kIpmStatusOptimal,
   kIpmStatusPDFeas,
   kIpmStatusBasic
