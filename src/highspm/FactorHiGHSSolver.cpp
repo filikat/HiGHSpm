@@ -72,8 +72,8 @@ Int getAS(const HighsSparseMatrix& A, std::vector<Int>& ptr,
   return kLinearSolverStatusOk;
 }
 
-Int FactorHiGHSSolver::setup(const HighsSparseMatrix& A, Options& options) {
-  if (Int status = setNla(A, options)) return status;
+Int FactorHiGHSSolver::setup(const IpmModel& model, Options& options) {
+  if (Int status = setNla(model, options)) return status;
   setParallel(options);
 
   S_.print(1);
@@ -311,7 +311,7 @@ double FactorHiGHSSolver::flops() const { return S_.flops(); }
 double FactorHiGHSSolver::spops() const { return S_.spops(); }
 double FactorHiGHSSolver::nz() const { return (double)S_.nz(); }
 
-Int FactorHiGHSSolver::choose(const HighsSparseMatrix& A, Options& options) {
+Int FactorHiGHSSolver::choose(const IpmModel& model, Options& options) {
   // Choose whether to use augmented system or normal equations.
 
   assert(options.nla == kOptionNlaChoose);
@@ -326,9 +326,9 @@ Int FactorHiGHSSolver::choose(const HighsSparseMatrix& A, Options& options) {
   // Perform analyse phase of augmented system
   {
     std::vector<Int> ptrLower, rowsLower;
-    getAS(A, ptrLower, rowsLower);
+    getAS(model.A(), ptrLower, rowsLower);
     clock.start();
-    Analyse analyse_AS(symb_AS, rowsLower, ptrLower, A.num_col_);
+    Analyse analyse_AS(symb_AS, rowsLower, ptrLower, model.A().num_col_);
     Int AS_status = analyse_AS.run();
     if (AS_status) failure_AS = true;
     if (info_) info_->analyse_AS_time = clock.stop();
@@ -336,21 +336,31 @@ Int FactorHiGHSSolver::choose(const HighsSparseMatrix& A, Options& options) {
 
   // Perform analyse phase of normal equations
   {
-    // If NE has more nonzeros than the factor of AS, then it's likely that AS
-    // will be preferred, so stopped computation of NE.
-    const int64_t NE_nz_limit = symb_AS.nz() * kSymbNzMult;
-
-    std::vector<Int> ptrLower, rowsLower;
-    Int NE_status = getNE(A, ptrLower, rowsLower, NE_nz_limit);
-    if (NE_status)
+    if (model.m() > kMinRowsForDensity &&
+        model.maxColDensity() > kDenseColThresh) {
+      // Normal equations would be too expensive because there are dense
+      // columns, so skip it.
       failure_NE = true;
-    else {
-      clock.start();
-      Analyse analyse_NE(symb_NE, rowsLower, ptrLower, 0);
-      NE_status = analyse_NE.run();
-      if (NE_status) failure_NE = true;
-      if (info_) info_->analyse_NE_time = clock.stop();
+    } else {
+      // If NE has more nonzeros than the factor of AS, then it's likely that AS
+      // will be preferred, so stop computation of NE.
+      const int64_t NE_nz_limit = symb_AS.nz() * kSymbNzMult;
+
+      std::vector<Int> ptrLower, rowsLower;
+      Int NE_status = getNE(model.A(), ptrLower, rowsLower, NE_nz_limit);
+      if (NE_status)
+        failure_NE = true;
+      else {
+        clock.start();
+        Analyse analyse_NE(symb_NE, rowsLower, ptrLower, 0);
+        NE_status = analyse_NE.run();
+        if (NE_status) failure_NE = true;
+        if (info_) info_->analyse_NE_time = clock.stop();
+      }
     }
+
+    info_->num_dense_cols = model.numDenseCols();
+    info_->max_col_density = model.maxColDensity();
   }
 
   Int status = kLinearSolverStatusOk;
@@ -403,16 +413,16 @@ Int FactorHiGHSSolver::choose(const HighsSparseMatrix& A, Options& options) {
   return status;
 }
 
-Int FactorHiGHSSolver::setNla(const HighsSparseMatrix& A, Options& options) {
+Int FactorHiGHSSolver::setNla(const IpmModel& model, Options& options) {
   std::vector<Int> ptrLower, rowsLower;
   Clock clock;
 
   // Build the matrix
   switch (options.nla) {
     case kOptionNlaAugmented: {
-      getAS(A, ptrLower, rowsLower);
+      getAS(model.A(), ptrLower, rowsLower);
       clock.start();
-      Analyse analyse(S_, rowsLower, ptrLower, A.num_col_);
+      Analyse analyse(S_, rowsLower, ptrLower, model.A().num_col_);
       if (analyse.run()) {
         printf("Analyse phase failed\n");
         return kLinearSolverStatusErrorAnalyse;
@@ -423,7 +433,7 @@ Int FactorHiGHSSolver::setNla(const HighsSparseMatrix& A, Options& options) {
     }
 
     case kOptionNlaNormEq: {
-      Int NE_status = getNE(A, ptrLower, rowsLower);
+      Int NE_status = getNE(model.A(), ptrLower, rowsLower);
       if (NE_status) {
         printf("Failure: AAt is too large\n");
         return kLinearSolverStatusErrorOom;
@@ -440,7 +450,7 @@ Int FactorHiGHSSolver::setNla(const HighsSparseMatrix& A, Options& options) {
     }
 
     case kOptionNlaChoose: {
-      if (choose(A, options)) return kLinearSolverStatusErrorAnalyse;
+      if (choose(model, options)) return kLinearSolverStatusErrorAnalyse;
       break;
     }
   }

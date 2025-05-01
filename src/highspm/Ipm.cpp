@@ -74,7 +74,7 @@ bool Ipm::initialise() {
 
   // initialise linear solver
   LS_.reset(new FactorHiGHSSolver(options_, &info_));
-  if (LS_->setup(model_.A(), options_)) {
+  if (LS_->setup(model_, options_)) {
     info_.ipm_status = kIpmStatusError;
     return true;
   }
@@ -1215,8 +1215,6 @@ void Ipm::printInfo() const {
   printf("\n");
   printf("Running HiGHSpm\n");
   printf("Problem %s\n", model_.name().c_str());
-  printf("%.2e rows, %.2e cols, %.2e nnz\n", (double)m_, (double)n_,
-         (double)model_.A().numNz());
 
   if (options_.parallel == kOptionParallelOff)
     printf("Running on 1 thread\n");
@@ -1227,10 +1225,8 @@ void Ipm::printInfo() const {
   printf("Running in debug mode\n");
 #endif
 
-  printf("\n");
-
   // print range of coefficients
-  model_.checkCoefficients();
+  model_.print();
 }
 
 const IpmInfo& Ipm::getInfo() const { return info_; }

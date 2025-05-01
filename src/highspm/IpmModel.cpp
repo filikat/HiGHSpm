@@ -1,5 +1,7 @@
 #include "IpmModel.h"
 
+#include "IpmConst.h"
+
 namespace highspm {
 
 void IpmModel::init(const Int num_var, const Int num_con, const double* obj,
@@ -42,6 +44,7 @@ void IpmModel::init(const Int num_var, const Int num_con, const double* obj,
   preprocess();
   scale();
   reformulate();
+  denseColumns();
 
   ready_ = true;
 }
@@ -64,11 +67,11 @@ void IpmModel::preprocess() {
   }
 
   rows_shift_.assign(m_, 0);
-  Int empty_rows{};
+  empty_rows_ = 0;
   for (Int i = 0; i < m_; ++i) {
     if (entries_per_row[i] == 0) {
       // count number of empty rows
-      ++empty_rows;
+      ++empty_rows_;
 
       // count how many empty rows there are before a given row
       for (Int j = i + 1; j < m_; ++j) ++rows_shift_[j];
@@ -77,7 +80,7 @@ void IpmModel::preprocess() {
     }
   }
 
-  if (empty_rows > 0) {
+  if (empty_rows_ > 0) {
     // shift each row index by the number of empty rows before it
     for (Int col = 0; col < n_; ++col) {
       for (Int el = A_.start_[col]; el < A_.start_[col + 1]; ++el) {
@@ -85,7 +88,7 @@ void IpmModel::preprocess() {
         A_.index_[el] -= rows_shift_[row];
       }
     }
-    A_.num_row_ -= empty_rows;
+    A_.num_row_ -= empty_rows_;
 
     // shift entries in b and constraints
     for (Int i = 0; i < m_; ++i) {
@@ -100,8 +103,6 @@ void IpmModel::preprocess() {
     constraints_.resize(A_.num_row_);
 
     m_ = A_.num_row_;
-
-    printf("Removed %d empty rows\n", empty_rows);
   }
 }
 
@@ -164,7 +165,13 @@ void IpmModel::reformulate() {
   }
 }
 
-void IpmModel::checkCoefficients() const {
+void IpmModel::print() const {
+  printf("Rows: %.1e\n", (double)m_);
+  printf("Cols: %.1e\n", (double)n_);
+  printf("Nnz : %.1e\n", (double)A_.numNz());
+  printf("Dense cols: %d\n", num_dense_cols_);
+  if (empty_rows_ > 0) printf("Removed %d empty rows\n", empty_rows_);
+
   // compute max and min entry of A in absolute value
   double Amin = kHighsInf;
   double Amax = 0.0;
@@ -357,6 +364,21 @@ void IpmModel::unscale(std::vector<double>& x, std::vector<double>& slack,
       y[i] *= rowscale_[i];
       slack[i] /= rowscale_[i];
     }
+  }
+}
+
+void IpmModel::denseColumns() {
+  // Compute the maximum density of any column of A and count the number of
+  // dense columns.
+
+  max_col_density_ = 0.0;
+  num_dense_cols_ = 0;
+  for (Int col = 0; col < n_; ++col) {
+    Int col_nz = A_.start_[col + 1] - A_.start_[col];
+    double col_density = (double)col_nz / m_;
+    max_col_density_ = std::max(max_col_density_, col_density);
+    if (A_.num_row_ > kMinRowsForDensity && col_density > kDenseColThresh)
+      ++num_dense_cols_;
   }
 }
 

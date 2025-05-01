@@ -46,6 +46,10 @@ struct IpmInfo {
   // Counters
   Int factor_number{};
   Int solve_number{};
+
+  // Information on dense columns
+  Int num_dense_cols{};
+  double max_col_density{};
 };
 
 }  // namespace highspm

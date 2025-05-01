@@ -4,6 +4,7 @@
 #include <algorithm>
 
 #include "IpmInfo.h"
+#include "IpmModel.h"
 #include "LinearSolver.h"
 #include "auxiliary/IntConfig.h"
 #include "factorhighs/FactorHiGHS.h"
@@ -22,8 +23,8 @@ class FactorHiGHSSolver : public LinearSolver {
 
   IpmInfo* info_ = nullptr;
 
-  Int choose(const HighsSparseMatrix& A, Options& options);
-  Int setNla(const HighsSparseMatrix& A, Options& options);
+  Int choose(const IpmModel& model, Options& options);
+  Int setNla(const IpmModel& model, Options& options);
   void setParallel(Options& options);
 
  public:
@@ -39,7 +40,7 @@ class FactorHiGHSSolver : public LinearSolver {
   Int solveAS(const std::vector<double>& rhs_x,
               const std::vector<double>& rhs_y, std::vector<double>& lhs_x,
               std::vector<double>& lhs_y) override;
-  Int setup(const HighsSparseMatrix& A, Options& options) override;
+  Int setup(const IpmModel& model, Options& options) override;
   void clear() override;
   double flops() const override;
   double spops() const override;

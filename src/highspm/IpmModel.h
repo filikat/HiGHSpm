@@ -50,6 +50,8 @@ class IpmModel {
   HighsSparseMatrix A_{};
   std::vector<char> constraints_{};
   std::string pb_name_{};
+  Int num_dense_cols_{};
+  double max_col_density_{};
 
   bool ready_ = false;
 
@@ -59,6 +61,7 @@ class IpmModel {
 
   // information about empty rows, for postprocessing
   std::vector<Int> rows_shift_{};
+  Int empty_rows_{};
 
   // Put the model into correct formulation
   void reformulate();
@@ -68,6 +71,8 @@ class IpmModel {
 
   void preprocess();
 
+  void denseColumns();
+
  public:
   // Initialise the model
   void init(const Int num_var, const Int num_con, const double* obj,
@@ -75,8 +80,8 @@ class IpmModel {
             const Int* A_ptr, const Int* A_rows, const double* A_vals,
             const char* constraints, double offset, const std::string& pb_name);
 
-  // Compute range of coefficients
-  void checkCoefficients() const;
+  // Print information of model
+  void print() const;
 
   void postprocess(std::vector<double>& slack, std::vector<double>& y) const;
 
@@ -112,6 +117,8 @@ class IpmModel {
   bool ready() const { return ready_; }
   bool scaled() const { return colscale_.size() > 0; }
   double offset() const { return offset_; }
+  double maxColDensity() const { return max_col_density_; }
+  Int numDenseCols() const { return num_dense_cols_; }
 
   Int loadIntoIpx(ipx::LpSolver& lps) const;
 };
