@@ -99,7 +99,7 @@ Int Numeric::refine(const std::vector<double>& rhs,
 
   // compute residual
   std::vector<double> res = residualQuad(rhs, x);
-  double omega = computeOmega(rhs, x);
+  double omega = computeOmega(rhs, x, res);
 
   Int iter = 0;
   for (; iter < kMaxRefinementIter; ++iter) {
@@ -125,7 +125,7 @@ Int Numeric::refine(const std::vector<double>& rhs,
     res = residualQuad(rhs, temp);
 
     old_omega = omega;
-    omega = computeOmega(rhs, temp);
+    omega = computeOmega(rhs, temp, res);
 
     if (omega < old_omega) {
       x = temp;
@@ -148,40 +148,15 @@ Int Numeric::refine(const std::vector<double>& rhs,
 }
 
 double Numeric::computeOmega(const std::vector<double>& b,
-                             const std::vector<double>& x) const {
+                             const std::vector<double>& x,
+                             const std::vector<double>& res) const {
   // Termination of iterative refinement based on "Solving sparse linear systems
   // with sparse backward error", Arioli, Demmel, Duff.
 
   const Int n = x.size();
 
-  // residual b-Ax
-  const std::vector<double> res = residualQuad(b, x);
-
   // infinity norm of x
   const double inf_norm_x = infNorm(x);
-
-  // infinity norm of columns of A
-  std::vector<double> inf_norm_cols(n);
-  for (Int col = 0; col < n; ++col) {
-    for (Int el = ptrA_[col]; el < ptrA_[col + 1]; ++el) {
-      Int row = rowsA_[el];
-      double val = valA_[el];
-      inf_norm_cols[col] = std::max(inf_norm_cols[col], std::abs(val));
-      if (row != col)
-        inf_norm_cols[row] = std::max(inf_norm_cols[row], std::abs(val));
-    }
-  }
-
-  // one norm of columns of A
-  std::vector<double> one_norm_cols(n);
-  for (Int col = 0; col < n; ++col) {
-    for (Int el = ptrA_[col]; el < ptrA_[col + 1]; ++el) {
-      Int row = rowsA_[el];
-      double val = valA_[el];
-      one_norm_cols[col] += std::abs(val);
-      if (row != col) one_norm_cols[row] += std::abs(val);
-    }
-  }
 
   // |A|*|x|
   std::vector<double> abs_prod(n);
@@ -200,7 +175,7 @@ double Numeric::computeOmega(const std::vector<double>& b,
   for (Int i = 0; i < n; ++i) {
     // threshold 1000 * n * eps * (||Ai|| * ||x|| + |bi|)
     double tau =
-        1000 * n * 1e-16 * (inf_norm_cols[i] * inf_norm_x + std::abs(b[i]));
+        1000 * n * 1e-16 * (inf_norm_cols_[i] * inf_norm_x + std::abs(b[i]));
 
     if (abs_prod[i] + std::abs(b[i]) > tau) {
       // case 1, denominator is large enough
@@ -209,7 +184,7 @@ double Numeric::computeOmega(const std::vector<double>& b,
     } else {
       // case 2, denominator would be small, change it
       double omega =
-          std::abs(res[i]) / (abs_prod[i] + one_norm_cols[i] * inf_norm_x);
+          std::abs(res[i]) / (abs_prod[i] + one_norm_cols_[i] * inf_norm_x);
       omega_2 = std::max(omega_2, omega);
     }
   }

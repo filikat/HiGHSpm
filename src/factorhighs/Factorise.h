@@ -44,10 +44,12 @@ class Factorise {
   //  the off-diagonal pivot entry (of the 2x2 inverse).
   std::vector<std::vector<double>> pivot_2x2_{};
 
-  // largest diagonal element in the original matrix
+  // largest diagonal element in the original matrix and norms of columns
   double max_diag_{};
   double min_diag_{};
   double A_norm1_{};
+  std::vector<double> one_norm_cols_{};
+  std::vector<double> inf_norm_cols_{};
 
   // regularisation
   std::vector<double> total_reg_{};
