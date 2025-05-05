@@ -37,11 +37,20 @@ Int Numeric::solve(std::vector<double>& x) const {
   Clock clock{};
 #endif
 
+#ifdef FINE_TIMING
+  Clock clock_fine{};
+#endif
+
   // permute rhs
   permuteVectorInverse(x, S_.iperm());
 
   // make a copy of permuted rhs, for refinement
   const std::vector<double> rhs(x);
+
+#ifdef FINE_TIMING
+  DataCollector::get()->sumTime(kTimeSolvePrepare, clock_fine.stop());
+  clock_fine.start();
+#endif
 
   // solve
   SH_->forwardSolve(x);
@@ -49,11 +58,23 @@ Int Numeric::solve(std::vector<double>& x) const {
   SH_->backwardSolve(x);
   DataCollector::get()->countSolves();
 
+#ifdef FINE_TIMING
+  DataCollector::get()->sumTime(kTimeSolveSolve, clock_fine.stop());
+#endif
+
   // iterative refinement
   Int refine_solves = refine(rhs, x);
 
+#ifdef FINE_TIMING
+  clock_fine.start();
+#endif
+
   // unpermute solution
   permuteVector(x, S_.iperm());
+
+#ifdef FINE_TIMING
+  DataCollector::get()->sumTime(kTimeSolvePrepare, clock_fine.stop());
+#endif
 
 #ifdef COARSE_TIMING
   DataCollector::get()->sumTime(kTimeSolve, clock.stop());
@@ -97,9 +118,23 @@ Int Numeric::refine(const std::vector<double>& rhs,
   double old_omega{};
   Int solves_counter{};
 
+#ifdef FINE_TIMING
+  Clock clock{};
+#endif
+
   // compute residual
   std::vector<double> res = residualQuad(rhs, x);
+
+#ifdef FINE_TIMING
+  DataCollector::get()->sumTime(kTimeSolveResidual, clock.stop());
+  clock.start();
+#endif
+
   double omega = computeOmega(rhs, x, res);
+
+#ifdef FINE_TIMING
+  DataCollector::get()->sumTime(kTimeSolveOmega, clock.stop());
+#endif
 
   Int iter = 0;
   for (; iter < kMaxRefinementIter; ++iter) {
@@ -110,22 +145,45 @@ Int Numeric::refine(const std::vector<double>& rhs,
     printf("%e  --> ", omega);
 #endif
 
+#ifdef FINE_TIMING
+    clock.start();
+#endif
+
     // compute correction
     SH_->forwardSolve(res);
     SH_->diagSolve(res);
     SH_->backwardSolve(res);
     DataCollector::get()->countSolves();
     ++solves_counter;
+    
+#ifdef FINE_TIMING
+    DataCollector::get()->sumTime(kTimeSolveSolve, clock.stop());
+    clock.start();
+#endif
 
     // add correction
     std::vector<double> temp(x);
     vectorAdd(temp, res);
 
+#ifdef FINE_TIMING
+    DataCollector::get()->sumTime(kTimeSolvePrepare, clock.stop());
+    clock.start();
+#endif
+
     // compute new residual
     res = residualQuad(rhs, temp);
 
+#ifdef FINE_TIMING
+    DataCollector::get()->sumTime(kTimeSolveResidual, clock.stop());
+    clock.start();
+#endif
+
     old_omega = omega;
     omega = computeOmega(rhs, temp, res);
+
+#ifdef FINE_TIMING
+    DataCollector::get()->sumTime(kTimeSolveOmega, clock.stop());
+#endif
 
     if (omega < old_omega) {
       x = temp;

@@ -215,6 +215,19 @@ void DataCollector::printTimes() const {
   printf("----------------------------------------------------\n");
   printf("Solve time              \t%8.4f (%d calls)\n", times[kTimeSolve],
          counter_data_.solves);
+
+#ifdef FINE_TIMING
+  printf("\tPrepare:                %8.4f (%4.1f%%)\n",
+         times[kTimeSolvePrepare],
+         times[kTimeSolvePrepare] / times[kTimeSolve] * 100);
+  printf("\tSolve:                  %8.4f (%4.1f%%)\n", times[kTimeSolveSolve],
+         times[kTimeSolveSolve] / times[kTimeSolve] * 100);
+  printf("\tResidual:               %8.4f (%4.1f%%)\n",
+         times[kTimeSolveResidual],
+         times[kTimeSolveResidual] / times[kTimeSolve] * 100);
+  printf("\tOmega:                  %8.4f (%4.1f%%)\n", times[kTimeSolveOmega],
+         times[kTimeSolveOmega] / times[kTimeSolve] * 100);
+#endif
   printf("----------------------------------------------------\n");
 
 #ifdef BLAS_TIMING

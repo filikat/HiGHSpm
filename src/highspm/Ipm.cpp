@@ -999,6 +999,7 @@ bool Ipm::checkTimeLimit() {
 }
 
 void Ipm::backwardError(const NewtonDir& delta) const {
+#ifdef DEBUG
   std::vector<double>& x = it_->x;
   std::vector<double>& xl = it_->xl;
   std::vector<double>& xu = it_->xu;
@@ -1191,6 +1192,7 @@ void Ipm::backwardError(const NewtonDir& delta) const {
   }
 
   DataCollector::get()->setBackError(nw_back_err, cw_back_err);
+#endif
 }
 
 void Ipm::printHeader() const {

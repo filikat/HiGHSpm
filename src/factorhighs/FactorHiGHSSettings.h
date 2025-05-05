@@ -21,7 +21,7 @@
 // - TIMING_1: basic timing
 // - TIMING_2: advanced timing
 // - TIMING_3: extreme timing (timing of each BLAS call, considerably slower)
-#define TIMING_1
+#define TIMING_0
 
 // ===========================================================================
 // PARAMETERS

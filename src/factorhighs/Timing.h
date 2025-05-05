@@ -23,16 +23,14 @@
 namespace highspm {
 
 enum TimeItems {
-  // Analyse timer
-  kTimeAnalyse,         // TIMING_1
-  kTimeAnalyseMetis,    // TIMING_2
-  kTimeAnalyseTree,     // TIMING_2
-  kTimeAnalyseCount,    // TIMING_2
-  kTimeAnalysePattern,  // TIMING_2
-  kTimeAnalyseSn,       // TIMING_2
-  kTimeAnalyseReorder,  // TIMING_2
-  kTimeAnalyseRelInd,   // TIMING_2
-  // Factorise timer
+  kTimeAnalyse,                           // TIMING_1
+  kTimeAnalyseMetis,                      // TIMING_2
+  kTimeAnalyseTree,                       // TIMING_2
+  kTimeAnalyseCount,                      // TIMING_2
+  kTimeAnalysePattern,                    // TIMING_2
+  kTimeAnalyseSn,                         // TIMING_2
+  kTimeAnalyseReorder,                    // TIMING_2
+  kTimeAnalyseRelInd,                     // TIMING_2
   kTimeFactorise,                         // TIMING_1
   kTimeFactorisePrepare,                  // TIMING_2
   kTimeFactoriseAssembleOriginal,         // TIMING_2
@@ -45,24 +43,25 @@ enum TimeItems {
   kTimeDenseFact_convert,                 // TIMING_2
   kTimeDenseFact_pivoting,                // TIMING_2
   kTimeFactoriseTerminate,                // TIMING_2
-  // Solve timer
-  kTimeSolve,  // TIMING_1
-  // BLAS times
-  kTimeBlasStart,
-  kTimeBlas_copy = kTimeBlasStart,  // TIMING_3
-  kTimeBlas_axpy,                   // TIMING_3
-  kTimeBlas_scal,                   // TIMING_3
-  kTimeBlas_swap,                   // TIMING_3
-  kTimeBlas_gemv,                   // TIMING_3
-  kTimeBlas_trsv,                   // TIMING_3
-  kTimeBlas_tpsv,                   // TIMING_3
-  kTimeBlas_ger,                    // TIMING_3
-  kTimeBlas_trsm,                   // TIMING_3
-  kTimeBlas_syrk,                   // TIMING_3
-  kTimeBlas_gemm,                   // TIMING_3
-  kTimeBlasEnd = kTimeBlas_gemm,
-  // enum size
-  kTimeSize
+  kTimeSolve,                             // TIMING_1
+  kTimeSolvePrepare,                      // TIMING_2
+  kTimeSolveSolve,                        // TIMING_2
+  kTimeSolveResidual,                     // TIMING_2
+  kTimeSolveOmega,                        // TIMING_2
+  kTimeBlasStart,                         //
+  kTimeBlas_copy = kTimeBlasStart,        // TIMING_3
+  kTimeBlas_axpy,                         // TIMING_3
+  kTimeBlas_scal,                         // TIMING_3
+  kTimeBlas_swap,                         // TIMING_3
+  kTimeBlas_gemv,                         // TIMING_3
+  kTimeBlas_trsv,                         // TIMING_3
+  kTimeBlas_tpsv,                         // TIMING_3
+  kTimeBlas_ger,                          // TIMING_3
+  kTimeBlas_trsm,                         // TIMING_3
+  kTimeBlas_syrk,                         // TIMING_3
+  kTimeBlas_gemm,                         // TIMING_3
+  kTimeBlasEnd = kTimeBlas_gemm,          //
+  kTimeSize                               //
 };
 
 }
