@@ -36,9 +36,6 @@ class Ipm {
   // Iterations counters
   Int iter_{}, bad_iter_{};
 
-  // Other statistics
-  double min_prod_{}, max_prod_{};
-
   // Stepsizes
   double alpha_primal_{}, alpha_dual_{};
 

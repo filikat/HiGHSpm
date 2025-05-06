@@ -88,8 +88,8 @@ void IpmIterate::computeScaling() {
 void IpmIterate::products() {
   double min_prod = std::numeric_limits<double>::max();
   double max_prod = 0.0;
-  Int num_small = 0;
-  Int num_large = 0;
+  num_small = 0;
+  num_large = 0;
 
   for (Int i = 0; i < model->n(); ++i) {
     if (model->hasLb(i)) {

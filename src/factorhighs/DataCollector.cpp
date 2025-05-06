@@ -123,10 +123,12 @@ void DataCollector::setCorrectors(Int correctors) {
   back().correctors = correctors;
 #endif
 }
-void DataCollector::setBackError(double nw, double cw) {
+void DataCollector::setBackError(double nw, double cw, Int large_components) {
 #ifdef DEBUG
   back().nw_back_err = std::max(back().nw_back_err, nw);
   back().cw_back_err = std::max(back().cw_back_err, cw);
+  back().large_components_cw =
+      std::max(back().large_components_cw, large_components);
 #endif
 }
 void DataCollector::setExtremeTheta(const std::vector<double>& scaling) {
@@ -284,17 +286,18 @@ void DataCollector::printIter() const {
   printf(
       "\niter |    min D     max D     min L     max L  |"
       "    reg   swap    2x2     ws | "
-      "  max_reg  solv   omega     back_err nw/cw      max_ws |\n");
+      "  max_reg  solv   omega     nw_be     cw_be     cw_large  max_ws |\n");
   for (Int i = 0; i < iter_data_record_.size(); ++i) {
     const IterData& iter = iter_data_record_[i];
     printf(
         "%3d  |"
         " %9.1e %9.1e %9.1e %9.1e |"
         " %6d %6d %6d %6d |"
-        " %9.1e %4d %9.1e %9.1e %9.1e",
+        " %9.1e %4d %9.1e %9.1e %9.1e %9d",
         i, iter.minD, iter.maxD, iter.minL, iter.maxL, iter.n_reg_piv,
         iter.n_swap, iter.n_2x2, iter.n_wrong_sign, iter.max_reg,
-        iter.num_solves, iter.omega, iter.nw_back_err, iter.cw_back_err);
+        iter.num_solves, iter.omega, iter.nw_back_err, iter.cw_back_err,
+        iter.large_components_cw);
 
     if (iter.max_wrong_sign > 0.0)
       printf(" %9.1e |\n", iter.max_wrong_sign);

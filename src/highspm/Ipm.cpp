@@ -1024,15 +1024,21 @@ void Ipm::backwardError(const NewtonDir& delta) const {
 
   // res2 - dx + dxl
   std::vector<double> r2(n_);
-  for (Int i = 0; i < n_; ++i) r2[i] = res2[i] - delta.x[i] + delta.xl[i];
+  for (Int i = 0; i < n_; ++i)
+    if (model_.hasLb(i)) r2[i] = res2[i] - delta.x[i] + delta.xl[i];
 
   // res3 - dx - dxu
   std::vector<double> r3(n_);
-  for (Int i = 0; i < n_; ++i) r3[i] = res3[i] - delta.x[i] - delta.xu[i];
+  for (Int i = 0; i < n_; ++i)
+    if (model_.hasUb(i)) r3[i] = res3[i] - delta.x[i] - delta.xu[i];
 
   // res4 - A^T * dy - dzl + dzu
   std::vector<double> r4(n_);
-  for (Int i = 0; i < n_; ++i) r4[i] = res4[i] - delta.zl[i] + delta.zu[i];
+  for (Int i = 0; i < n_; ++i) {
+    r4[i] = res4[i];
+    if (model_.hasLb(i)) r4[i] -= delta.zl[i];
+    if (model_.hasUb(i)) r4[i] += delta.zu[i];
+  }
   model_.A().alphaProductPlusY(-1.0, delta.y, r4, true);
 
   // res5 - Zl * Dxl - Xl * Dzl
@@ -1127,6 +1133,8 @@ void Ipm::backwardError(const NewtonDir& delta) const {
   // componentwise backward error:
   // max |residual_i| / (|matrix| * |solution| + |rhs|)_i
   double cw_back_err{};
+  Int large_components{};
+  const double large_thresh = 1e-2;
 
   // first block
   for (Int i = 0; i < m_; ++i) {
@@ -1134,8 +1142,11 @@ void Ipm::backwardError(const NewtonDir& delta) const {
     double num = std::abs(r1[i]);
     if (denom == 0.0) {
       if (num != 0.0) cw_back_err = std::numeric_limits<double>::max();
-    } else
-      cw_back_err = std::max(cw_back_err, num / denom);
+    } else {
+      const double temp = num / denom;
+      cw_back_err = std::max(cw_back_err, temp);
+      if (temp > large_thresh) large_components++;
+    }
   }
   // second and third block
   for (Int i = 0; i < n_; ++i) {
@@ -1145,8 +1156,11 @@ void Ipm::backwardError(const NewtonDir& delta) const {
       double num = std::abs(r2[i]);
       if (denom == 0.0) {
         if (num != 0.0) cw_back_err = std::numeric_limits<double>::max();
-      } else
-        cw_back_err = std::max(cw_back_err, num / denom);
+      } else {
+        const double temp = num / denom;
+        cw_back_err = std::max(cw_back_err, temp);
+        if (temp > large_thresh) large_components++;
+      }
     }
     if (model_.hasUb(i)) {
       double denom =
@@ -1154,8 +1168,11 @@ void Ipm::backwardError(const NewtonDir& delta) const {
       double num = std::abs(r3[i]);
       if (denom == 0.0) {
         if (num != 0.0) cw_back_err = std::numeric_limits<double>::max();
-      } else
-        cw_back_err = std::max(cw_back_err, num / denom);
+      } else {
+        const double temp = num / denom;
+        cw_back_err = std::max(cw_back_err, temp);
+        if (temp > large_thresh) large_components++;
+      }
     }
   }
   // fourth block
@@ -1166,8 +1183,11 @@ void Ipm::backwardError(const NewtonDir& delta) const {
     double num = std::abs(r4[i]);
     if (denom == 0.0) {
       if (num != 0.0) cw_back_err = std::numeric_limits<double>::max();
-    } else
-      cw_back_err = std::max(cw_back_err, num / denom);
+    } else {
+      const double temp = num / denom;
+      cw_back_err = std::max(cw_back_err, temp);
+      if (temp > large_thresh) large_components++;
+    }
   }
   // fifth and sixth block
   for (Int i = 0; i < n_; ++i) {
@@ -1177,8 +1197,11 @@ void Ipm::backwardError(const NewtonDir& delta) const {
       double num = std::abs(r5[i]);
       if (denom == 0.0) {
         if (num != 0.0) cw_back_err = std::numeric_limits<double>::max();
-      } else
-        cw_back_err = std::max(cw_back_err, num / denom);
+      } else {
+        const double temp = num / denom;
+        cw_back_err = std::max(cw_back_err, temp);
+        if (temp > large_thresh) large_components++;
+      }
     }
     if (model_.hasUb(i)) {
       double denom = zu[i] * std::abs(delta.xu[i]) +
@@ -1186,12 +1209,16 @@ void Ipm::backwardError(const NewtonDir& delta) const {
       double num = std::abs(r6[i]);
       if (denom == 0.0) {
         if (num != 0.0) cw_back_err = std::numeric_limits<double>::max();
-      } else
-        cw_back_err = std::max(cw_back_err, num / denom);
+      } else {
+        const double temp = num / denom;
+        cw_back_err = std::max(cw_back_err, temp);
+        if (temp > large_thresh) large_components++;
+      }
     }
   }
 
-  DataCollector::get()->setBackError(nw_back_err, cw_back_err);
+  DataCollector::get()->setBackError(nw_back_err, cw_back_err,
+                                     large_components);
 #endif
 }
 

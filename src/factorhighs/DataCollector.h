@@ -39,6 +39,7 @@ struct IterData {
   double omega{};
   double nw_back_err{};
   double cw_back_err{};
+  Int large_components_cw{};
   double M_norm1;
   double M_maxdiag;
   Int num_solves = 0;
@@ -112,7 +113,7 @@ class DataCollector {
   void setNorms(double norm1, double maxdiag);
   void setSigma(double sigma, bool affinescaling = false);
   void setCorrectors(Int correctors);
-  void setBackError(double nw, double cw);
+  void setBackError(double nw, double cw, Int large_components);
   void setExtremeTheta(const std::vector<double>& scaling);
   void setProducts(double min_prod, double max_prod, Int num_small,
                    Int num_large);

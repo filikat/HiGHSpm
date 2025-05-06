@@ -39,7 +39,11 @@ struct IpmIterate {
   double mu;
   std::vector<double> scaling;
 
+  // smallest value of mu seen so far
   double best_mu;
+
+  // number of small/large complementarity productsF
+  Int num_small, num_large;
 
   // ===================================================================================
   // Functions to construct, clear and check for nan or inf

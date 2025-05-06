@@ -155,7 +155,7 @@ Int Numeric::refine(const std::vector<double>& rhs,
     SH_->backwardSolve(res);
     DataCollector::get()->countSolves();
     ++solves_counter;
-    
+
 #ifdef FINE_TIMING
     DataCollector::get()->sumTime(kTimeSolveSolve, clock.stop());
     clock.start();
@@ -233,7 +233,7 @@ double Numeric::computeOmega(const std::vector<double>& b,
   for (Int i = 0; i < n; ++i) {
     // threshold 1000 * n * eps * (||Ai|| * ||x|| + |bi|)
     double tau =
-        1000 * n * 1e-16 * (inf_norm_cols_[i] * inf_norm_x + std::abs(b[i]));
+        1000.0 * n * 1e-16 * (inf_norm_cols_[i] * inf_norm_x + std::abs(b[i]));
 
     if (abs_prod[i] + std::abs(b[i]) > tau) {
       // case 1, denominator is large enough
