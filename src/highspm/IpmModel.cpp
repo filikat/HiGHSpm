@@ -169,8 +169,9 @@ void IpmModel::print() const {
   printf("Rows: %.1e\n", (double)m_);
   printf("Cols: %.1e\n", (double)n_);
   printf("Nnz : %.1e\n", (double)A_.numNz());
-  printf("Dense cols: %d\n", num_dense_cols_);
-  if (empty_rows_ > 0) printf("Removed %d empty rows\n", empty_rows_);
+  printf("Dense cols: %" HIGHSINT_FORMAT "\n", num_dense_cols_);
+  if (empty_rows_ > 0)
+    printf("Removed %" HIGHSINT_FORMAT " empty rows\n", empty_rows_);
 
   // compute max and min entry of A in absolute value
   double Amin = kHighsInf;

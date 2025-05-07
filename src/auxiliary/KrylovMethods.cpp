@@ -129,8 +129,6 @@ Int Gmres(const AbstractMatrix* M, const AbstractMatrix* P,
     applyRotation(H[i + ldh * i], H[i + 1 + ldh * i], cs[i], sn[i]);
     applyRotation(s[i], s[i + 1], cs[i], sn[i]);
 
-    // printf("%d: %e\n", i, std::abs(s[i + 1]));
-
     // check termination
     if (std::abs(s[i + 1]) < tol) break;
   }
@@ -183,7 +181,7 @@ Int Cg(const AbstractMatrix* M, const AbstractMatrix* P,
     ++iter;
 
     if (isNanVector(x)) {
-      printf("CG: x is nan at iter %d\n", iter);
+      printf("CG: x is nan at iter %" HIGHSINT_FORMAT "\n", iter);
       break;
     }
   }

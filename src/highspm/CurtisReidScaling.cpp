@@ -127,7 +127,7 @@ void CurtisReidScaling(const std::vector<Int>& ptr,
   CRscalingMatrix CRmat(row_entries, col_entries, ptr, rows);
   CRscalingPrec CRprec(row_entries, col_entries);
   Int cgiter = Cg(&CRmat, &CRprec, rhs, exponents, 1e-6, 1000);
-  printf("CR scaling required %d CG iterations\n", cgiter);
+  printf("CR scaling required %" HIGHSINT_FORMAT " CG iterations\n", cgiter);
 
   // unpack exponents into various components
   for (Int i = 0; i < m; ++i) rowexp[i] = -std::round(exponents[i]);

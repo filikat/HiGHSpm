@@ -951,7 +951,8 @@ void Analyse::relativeIndClique() {
       } else if (consecutive_sums_[sn][i] == 1) {
         consecutive_sums_[sn][i] = consecutive_sums_[sn][i + 1] + 1;
       } else {
-        printf("Error in consecutiveSums %d\n", consecutive_sums_[sn][i]);
+        printf("Error in consecutiveSums %" HIGHSINT_FORMAT "\n",
+               consecutive_sums_[sn][i]);
       }
     }
   }

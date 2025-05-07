@@ -215,15 +215,15 @@ int main(int argc, char** argv) {
     double run_time = clock0.stop();
 
     printf("\n");
-    printf("Ipm iterations    : %d\n", info.ipm_iter);
+    printf("Ipm iterations    : %" HIGHSINT_FORMAT "\n", info.ipm_iter);
     printf("Analyse NE time   : %.2f\n", info.analyse_NE_time);
     printf("Analyse AS time   : %.2f\n", info.analyse_AS_time);
     printf("Matrix time       : %.2f\n", info.matrix_time);
     printf("Factorisation time: %.2f\n", info.factor_time);
     printf("Solve time        : %.2f\n", info.solve_time);
-    printf("Factorisations    : %d\n", info.factor_number);
-    printf("Solves            : %d\n", info.solve_number);
-    printf("Correctors        : %d\n", info.correctors);
+    printf("Factorisations    : %" HIGHSINT_FORMAT "\n", info.factor_number);
+    printf("Solves            : %" HIGHSINT_FORMAT "\n", info.solve_number);
+    printf("Correctors        : %" HIGHSINT_FORMAT "\n", info.correctors);
 
     std::string status_string;
     switch (ipm_status) {

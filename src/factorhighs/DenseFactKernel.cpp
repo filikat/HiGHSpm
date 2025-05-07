@@ -194,8 +194,9 @@ double regularisePivot(double pivot, double thresh, const Int* sign,
     adjust = true;
     modified_pivot = true;
 #ifdef PRINT_REGULARISATION
-    printf("%2d, %2d, %2d: small pivot %e, with sign %d, set to %e\n", sn, bl,
-           j, old_pivot, sign[j], pivot);
+    printf("%2d, %2d, %2d: small pivot %e, with sign " HIGHSINT_FORMAT
+           ", set to %e\n",
+           sn, bl, j, old_pivot, sign[j], pivot);
 #endif
 
   } else if (spivot < -thresh && spivot >= -thresh * K) {
@@ -204,8 +205,9 @@ double regularisePivot(double pivot, double thresh, const Int* sign,
     adjust = true;
     modified_pivot = true;
 #ifdef PRINT_REGULARISATION
-    printf("%2d, %2d, %2d: wrong pivot %e, with sign %d, set to %e\n", sn, bl,
-           j, old_pivot, sign[j], pivot);
+    printf("%2d, %2d, %2d: wrong pivot %e, with sign %" HIGHSINT_FORMAT
+           ", set to %e\n",
+           sn, bl, j, old_pivot, sign[j], pivot);
 #endif
 
   } else if (spivot < -thresh * K) {
@@ -213,8 +215,9 @@ double regularisePivot(double pivot, double thresh, const Int* sign,
     pivot = s * 1e100;
     modified_pivot = true;
 #ifdef PRINT_REGULARISATION
-    printf("%2d, %2d, %2d: disaster pivot %e, with sign %d, set to %e\n", sn,
-           bl, j, old_pivot, sign[j], pivot);
+    printf("%2d, %2d, %2d: disaster pivot %e, with sign %" HIGHSINT_FORMAT
+           ", set to %e\n",
+           sn, bl, j, old_pivot, sign[j], pivot);
 #endif
   }
 

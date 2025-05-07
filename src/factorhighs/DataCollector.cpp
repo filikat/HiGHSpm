@@ -215,8 +215,8 @@ void DataCollector::printTimes() const {
 #endif
 
   printf("----------------------------------------------------\n");
-  printf("Solve time              \t%8.4f (%d calls)\n", times[kTimeSolve],
-         counter_data_.solves);
+  printf("Solve time              \t%8.4f (%" HIGHSINT_FORMAT " calls)\n",
+         times[kTimeSolve], counter_data_.solves);
 
 #ifdef FINE_TIMING
   printf("\tPrepare:                %8.4f (%4.1f%%)\n",
