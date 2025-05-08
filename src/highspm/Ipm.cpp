@@ -1085,19 +1085,25 @@ void Ipm::backwardError(const NewtonDir& delta) const {
   // infinity norm of big 6x6 matrix:
   // max( ||A||_inf, 2, 2+||A||_1, max_j(zl_j+xl_j), max_j(zu_j+xu_j) )
 
-  std::vector<double> norm_cols_A(n_);
-  std::vector<double> norm_rows_A(m_);
+  std::vector<double> one_norm_cols_A(n_);
+  std::vector<double> one_norm_rows_A(m_);
+  std::vector<double> inf_norm_rows_A(m_);
+  std::vector<double> inf_norm_cols_A(n_);
   for (Int col = 0; col < n_; ++col) {
     for (Int el = model_.A().start_[col]; el < model_.A().start_[col + 1];
          ++el) {
       Int row = model_.A().index_[el];
       double val = model_.A().value_[el];
-      norm_cols_A[col] += std::abs(val);
-      norm_rows_A[row] += std::abs(val);
+      one_norm_cols_A[col] += std::abs(val);
+      one_norm_rows_A[row] += std::abs(val);
+      inf_norm_rows_A[row] = std::max(inf_norm_rows_A[row], std::abs(val));
+      inf_norm_cols_A[col] = std::max(inf_norm_cols_A[col], std::abs(val));
     }
   }
-  double one_norm_A = *std::max_element(norm_cols_A.begin(), norm_cols_A.end());
-  double inf_norm_A = *std::max_element(norm_rows_A.begin(), norm_rows_A.end());
+  double one_norm_A =
+      *std::max_element(one_norm_cols_A.begin(), one_norm_cols_A.end());
+  double inf_norm_A =
+      *std::max_element(one_norm_rows_A.begin(), one_norm_rows_A.end());
 
   double inf_norm_matrix = inf_norm_A;
   inf_norm_matrix = std::max(inf_norm_matrix, one_norm_A + 2);
@@ -1132,6 +1138,9 @@ void Ipm::backwardError(const NewtonDir& delta) const {
 
   // componentwise backward error:
   // max |residual_i| / (|matrix| * |solution| + |rhs|)_i
+  // unless denominator is small. See "Solving sparse linear systems
+  // with sparse backward error", Arioli, Demmel, Duff.
+
   double cw_back_err{};
   Int large_components{};
   const double large_thresh = 1e-2;
@@ -1140,12 +1149,20 @@ void Ipm::backwardError(const NewtonDir& delta) const {
   for (Int i = 0; i < m_; ++i) {
     double denom = abs_prod_A[i] + std::abs(res1[i]);
     double num = std::abs(r1[i]);
+
+    const double tau =
+        1000 * (5 * n_ + m_) * 1e-16 *
+        (inf_norm_rows_A[i] * inf_norm_delta + std::abs(res1[i]));
+    if (denom <= tau) {
+      denom = abs_prod_A[i] + one_norm_rows_A[i] * inf_norm_delta;
+      ++large_components;
+    }
+
     if (denom == 0.0) {
       if (num != 0.0) cw_back_err = std::numeric_limits<double>::max();
     } else {
       const double temp = num / denom;
       cw_back_err = std::max(cw_back_err, temp);
-      if (temp > large_thresh) large_components++;
     }
   }
   // second and third block
@@ -1154,24 +1171,40 @@ void Ipm::backwardError(const NewtonDir& delta) const {
       double denom =
           std::abs(delta.x[i]) + std::abs(delta.xl[i]) + std::abs(res2[i]);
       double num = std::abs(r2[i]);
+
+      const double tau = 1000 * (5 * n_ + m_) * 1e-16 *
+                         (1.0 * inf_norm_delta + std::abs(res2[i]));
+      if (denom <= tau) {
+        denom =
+            std::abs(delta.x[i]) + std::abs(delta.xl[i]) + 2.0 * inf_norm_delta;
+        ++large_components;
+      }
+
       if (denom == 0.0) {
         if (num != 0.0) cw_back_err = std::numeric_limits<double>::max();
       } else {
         const double temp = num / denom;
         cw_back_err = std::max(cw_back_err, temp);
-        if (temp > large_thresh) large_components++;
       }
     }
     if (model_.hasUb(i)) {
       double denom =
           std::abs(delta.x[i]) + std::abs(delta.xu[i]) + std::abs(res3[i]);
       double num = std::abs(r3[i]);
+
+      const double tau = 1000 * (5 * n_ + m_) * 1e-16 *
+                         (1.0 * inf_norm_delta + std::abs(res3[i]));
+      if (denom <= tau) {
+        denom =
+            std::abs(delta.x[i]) + std::abs(delta.xu[i]) + 2.0 * inf_norm_delta;
+        ++large_components;
+      }
+
       if (denom == 0.0) {
         if (num != 0.0) cw_back_err = std::numeric_limits<double>::max();
       } else {
         const double temp = num / denom;
         cw_back_err = std::max(cw_back_err, temp);
-        if (temp > large_thresh) large_components++;
       }
     }
   }
@@ -1181,12 +1214,23 @@ void Ipm::backwardError(const NewtonDir& delta) const {
     if (model_.hasLb(i)) denom += std::abs(delta.zl[i]);
     if (model_.hasUb(i)) denom += std::abs(delta.zu[i]);
     double num = std::abs(r4[i]);
+
+    double inf_norm_row = std::max(inf_norm_cols_A[i], 1.0);
+    const double tau = 1000 * (5 * n_ + m_) * 1e-16 *
+                       (inf_norm_row * inf_norm_delta + std::abs(res4[i]));
+    if (denom <= tau) {
+      denom = abs_prod_At[i];
+      if (model_.hasLb(i)) denom += std::abs(delta.zl[i]);
+      if (model_.hasUb(i)) denom += std::abs(delta.zu[i]);
+      denom += (one_norm_cols_A[i] + 2.0) * inf_norm_delta;
+      ++large_components;
+    }
+
     if (denom == 0.0) {
       if (num != 0.0) cw_back_err = std::numeric_limits<double>::max();
     } else {
       const double temp = num / denom;
       cw_back_err = std::max(cw_back_err, temp);
-      if (temp > large_thresh) large_components++;
     }
   }
   // fifth and sixth block
@@ -1195,24 +1239,42 @@ void Ipm::backwardError(const NewtonDir& delta) const {
       double denom = zl[i] * std::abs(delta.xl[i]) +
                      xl[i] * std::abs(delta.zl[i]) + std::abs(res5[i]);
       double num = std::abs(r5[i]);
+
+      const double tau =
+          1000 * (5 * n_ + m_) * 1e-16 *
+          (std::max(xl[i], zl[i]) * inf_norm_delta + std::abs(res5[i]));
+      if (denom <= tau) {
+        denom = zl[i] * std::abs(delta.xl[i]) + xl[i] * std::abs(delta.zl[i]) +
+                (zl[i] + xl[i]) * inf_norm_delta;
+        ++large_components;
+      }
+
       if (denom == 0.0) {
         if (num != 0.0) cw_back_err = std::numeric_limits<double>::max();
       } else {
         const double temp = num / denom;
         cw_back_err = std::max(cw_back_err, temp);
-        if (temp > large_thresh) large_components++;
       }
     }
     if (model_.hasUb(i)) {
       double denom = zu[i] * std::abs(delta.xu[i]) +
                      xu[i] * std::abs(delta.zu[i]) + std::abs(res6[i]);
       double num = std::abs(r6[i]);
+
+      const double tau =
+          1000 * (5 * n_ + m_) * 1e-16 *
+          (std::max(xu[i], zu[i]) * inf_norm_delta + std::abs(res6[i]));
+      if (denom <= tau) {
+        denom = zu[i] * std::abs(delta.xu[i]) + xu[i] * std::abs(delta.zu[i]) +
+                (zu[i] + xu[i]) * inf_norm_delta;
+        ++large_components;
+      }
+
       if (denom == 0.0) {
         if (num != 0.0) cw_back_err = std::numeric_limits<double>::max();
       } else {
         const double temp = num / denom;
         cw_back_err = std::max(cw_back_err, temp);
-        if (temp > large_thresh) large_components++;
       }
     }
   }
