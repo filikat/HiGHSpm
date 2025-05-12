@@ -21,6 +21,10 @@ void HybridSolveHandler::forwardSolve(std::vector<double>& x) const {
 
   // supernode columns in format FH
 
+#if TIMING_LEVEL >= 2
+  Clock clock;
+#endif
+
   const Int nb = S_.blockSize();
 
   for (Int sn = 0; sn < S_.sn(); ++sn) {
@@ -54,11 +58,20 @@ void HybridSolveHandler::forwardSolve(std::vector<double>& x) const {
       const Int x_start = sn_start + nb * j;
 
 #ifdef PIVOTING
+#if TIMING_LEVEL >= 2
+      clock.start();
+#endif
       // apply swaps to portion of rhs that is affected
       const Int* current_swaps = &swaps_[sn][nb * j];
       permuteWithSwaps(&x[x_start], current_swaps, jb);
+#if TIMING_LEVEL >= 2
+      DataCollector::get()->sumTime(kTimeSolveSolve_swap, clock.stop());
+#endif
 #endif
 
+#if TIMING_LEVEL >= 2
+      clock.start();
+#endif
       callAndTime_dtrsv('U', 'T', 'U', jb, &sn_columns_[sn][SnCol_ind], jb,
                         &x[x_start], 1);
 
@@ -71,16 +84,31 @@ void HybridSolveHandler::forwardSolve(std::vector<double>& x) const {
       callAndTime_dgemv('T', jb, gemv_space, 1.0, &sn_columns_[sn][SnCol_ind],
                         jb, &x[x_start], 1, 0.0, y.data(), 1);
       SnCol_ind += jb * gemv_space;
+#if TIMING_LEVEL >= 2
+      DataCollector::get()->sumTime(kTimeSolveSolve_dense, clock.stop());
+#endif
 
+#if TIMING_LEVEL >= 2
+      clock.start();
+#endif
       // scatter solution of gemv
       for (Int i = 0; i < gemv_space; ++i) {
         const Int row = S_.rows(start_row + nb * j + jb + i);
         x[row] -= y[i];
       }
+#if TIMING_LEVEL >= 2
+      DataCollector::get()->sumTime(kTimeSolveSolve_sparse, clock.stop());
+#endif
 
 #ifdef PIVOTING
+#if TIMING_LEVEL >= 2
+      clock.start();
+#endif
       // apply inverse swaps
       permuteWithSwaps(&x[x_start], current_swaps, jb, true);
+#if TIMING_LEVEL >= 2
+      DataCollector::get()->sumTime(kTimeSolveSolve_swap, clock.stop());
+#endif
 #endif
     }
   }
@@ -91,6 +119,10 @@ void HybridSolveHandler::backwardSolve(std::vector<double>& x) const {
   // Blas calls: dtrsv, dgemv
 
   // supernode columns in format FH
+
+#if TIMING_LEVEL >= 2
+  Clock clock;
+#endif
 
   const Int nb = S_.blockSize();
 
@@ -127,21 +159,36 @@ void HybridSolveHandler::backwardSolve(std::vector<double>& x) const {
       const Int x_start = sn_start + nb * j;
 
 #ifdef PIVOTING
+#if TIMING_LEVEL >= 2
+      clock.start();
+#endif
       // apply swaps to portion of rhs that is affected
       const Int* current_swaps = &swaps_[sn][nb * j];
       permuteWithSwaps(&x[x_start], current_swaps, jb);
+#if TIMING_LEVEL >= 2
+      DataCollector::get()->sumTime(kTimeSolveSolve_swap, clock.stop());
+#endif
 #endif
 
       // temporary space for gemv
       const Int gemv_space = ldSn - nb * j - jb;
       std::vector<double> y(gemv_space);
 
+#if TIMING_LEVEL >= 2
+      clock.start();
+#endif
       // scatter entries into y
       for (Int i = 0; i < gemv_space; ++i) {
         const Int row = S_.rows(start_row + nb * j + jb + i);
         y[i] = x[row];
       }
+#if TIMING_LEVEL >= 2
+      DataCollector::get()->sumTime(kTimeSolveSolve_sparse, clock.stop());
+#endif
 
+#if TIMING_LEVEL >= 2
+      clock.start();
+#endif
       SnCol_ind -= jb * gemv_space;
       callAndTime_dgemv('N', jb, gemv_space, -1.0, &sn_columns_[sn][SnCol_ind],
                         jb, y.data(), 1, 1.0, &x[x_start], 1);
@@ -149,10 +196,19 @@ void HybridSolveHandler::backwardSolve(std::vector<double>& x) const {
       SnCol_ind -= diag_entries;
       callAndTime_dtrsv('U', 'N', 'U', jb, &sn_columns_[sn][SnCol_ind], jb,
                         &x[x_start], 1);
+#if TIMING_LEVEL >= 2
+      DataCollector::get()->sumTime(kTimeSolveSolve_dense, clock.stop());
+#endif
 
 #ifdef PIVOTING
+#if TIMING_LEVEL >= 2
+      clock.start();
+#endif
       // apply inverse swaps
       permuteWithSwaps(&x[x_start], current_swaps, jb, true);
+#if TIMING_LEVEL >= 2
+      DataCollector::get()->sumTime(kTimeSolveSolve_swap, clock.stop());
+#endif
 #endif
     }
   }
@@ -162,6 +218,10 @@ void HybridSolveHandler::diagSolve(std::vector<double>& x) const {
   // Diagonal solve
 
   // supernode columns in format FH
+
+#if TIMING_LEVEL >= 2
+  Clock clock;
+#endif
 
   const Int nb = S_.blockSize();
 
@@ -187,9 +247,19 @@ void HybridSolveHandler::diagSolve(std::vector<double>& x) const {
       const Int jb = std::min(nb, sn_size - nb * j);
 
 #ifdef PIVOTING
+#if TIMING_LEVEL >= 2
+      clock.start();
+#endif
       // apply swaps to portion of rhs that is affected
       const Int* current_swaps = &swaps_[sn][nb * j];
       permuteWithSwaps(&x[sn_start + nb * j], current_swaps, jb);
+#if TIMING_LEVEL >= 2
+      DataCollector::get()->sumTime(kTimeSolveSolve_swap, clock.stop());
+#endif
+#endif
+
+#if TIMING_LEVEL >= 2
+      clock.start();
 #endif
 
       const double* current_2x2 = &pivot_2x2_[sn][nb * j];
@@ -220,9 +290,19 @@ void HybridSolveHandler::diagSolve(std::vector<double>& x) const {
         }
       }
 
+#if TIMING_LEVEL >= 2
+      DataCollector::get()->sumTime(kTimeSolveSolve_dense, clock.stop());
+#endif
+
 #ifdef PIVOTING
+#if TIMING_LEVEL >= 2
+      clock.start();
+#endif
       // apply inverse swaps
       permuteWithSwaps(&x[sn_start + nb * j], current_swaps, jb, true);
+#if TIMING_LEVEL >= 2
+      DataCollector::get()->sumTime(kTimeSolveSolve_swap, clock.stop());
+#endif
 #endif
 
       // move diag_start forward by number of diagonal entries in block

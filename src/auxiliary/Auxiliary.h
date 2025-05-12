@@ -41,21 +41,15 @@ double getDiagStart(Int n, Int k, Int nb, Int n_blocks, std::vector<Int>& start,
 template <typename T>
 void permuteVector(std::vector<T>& v, const std::vector<Int>& perm) {
   // Permute vector v according to permutation perm.
-  std::vector<T> new_v(v.size());
-  for (Int i = 0; i < v.size(); ++i) {
-    new_v[i] = v[perm[i]];
-  }
-  v = std::move(new_v);
+  std::vector<T> temp_v(v);
+  for (Int i = 0; i < v.size(); ++i) v[i] = temp_v[perm[i]];
 }
 
 template <typename T>
 void permuteVectorInverse(std::vector<T>& v, const std::vector<Int>& iperm) {
   // Permute vector v according to inverse permutation iperm.
-  std::vector<T> new_v(v.size());
-  for (Int i = 0; i < v.size(); ++i) {
-    new_v[iperm[i]] = v[i];
-  }
-  v = std::move(new_v);
+  std::vector<T> temp_v(v);
+  for (Int i = 0; i < v.size(); ++i) v[iperm[i]] = temp_v[i];
 }
 
 template <typename T>

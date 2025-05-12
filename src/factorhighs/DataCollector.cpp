@@ -1,5 +1,7 @@
 #include "DataCollector.h"
 
+#include "FactorHiGHSSettings.h"
+
 namespace highspm {
 
 // instance of DataCollector
@@ -219,6 +221,9 @@ void DataCollector::printTimes() const {
          times[kTimeSolvePrepare] / times[kTimeSolve] * 100);
   printf("\tSolve:                  %8.4f (%4.1f%%)\n", times[kTimeSolveSolve],
          times[kTimeSolveSolve] / times[kTimeSolve] * 100);
+  printf("\t\tdense:          %8.4f\n", times[kTimeSolveSolve_dense]);
+  printf("\t\tsparse:         %8.4f\n", times[kTimeSolveSolve_sparse]);
+  printf("\t\tswap:           %8.4f\n", times[kTimeSolveSolve_swap]);
   printf("\tResidual:               %8.4f (%4.1f%%)\n",
          times[kTimeSolveResidual],
          times[kTimeSolveResidual] / times[kTimeSolve] * 100);

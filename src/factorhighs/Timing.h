@@ -27,6 +27,9 @@ enum TimeItems {
   kTimeSolve,                             // TIMING_LEVEL 1
   kTimeSolvePrepare,                      // TIMING_LEVEL 2
   kTimeSolveSolve,                        // TIMING_LEVEL 2
+  kTimeSolveSolve_dense,                  // TIMING_LEVEL 2
+  kTimeSolveSolve_sparse,                 // TIMING_LEVEL 2
+  kTimeSolveSolve_swap,                   // TIMING_LEVEL 2
   kTimeSolveResidual,                     // TIMING_LEVEL 2
   kTimeSolveOmega,                        // TIMING_LEVEL 2
   kTimeBlasStart,                         //
