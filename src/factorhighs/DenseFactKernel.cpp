@@ -287,7 +287,7 @@ Int denseFactK(char uplo, Int n, double* A, Int lda, Int* pivot_sign,
   // quick return
   if (n == 0) return kRetOk;
 
-#ifdef FINE_TIMING
+#if TIMING_LEVEL >= 2
   Clock clock;
 #endif
 
@@ -456,7 +456,7 @@ Int denseFactK(char uplo, Int n, double* A, Int lda, Int* pivot_sign,
     }
   }
 
-#ifdef FINE_TIMING
+#if TIMING_LEVEL >= 2
   DataCollector::get()->sumTime(kTimeDenseFact_kernel, clock.stop());
 #endif
 

@@ -999,7 +999,7 @@ bool Ipm::checkTimeLimit() {
 }
 
 void Ipm::backwardError(const NewtonDir& delta) const {
-#ifdef DEBUG
+#ifdef COLLECT_DATA
   std::vector<double>& x = it_->x;
   std::vector<double>& xl = it_->xl;
   std::vector<double>& xu = it_->xu;
@@ -1312,7 +1312,7 @@ void Ipm::printInfo() const {
   else
     printf("Running on %d threads\n", highs::parallel::num_threads());
 
-#ifdef DEBUG
+#ifdef COLLECT_DATA
   printf("Running in debug mode\n");
 #endif
 

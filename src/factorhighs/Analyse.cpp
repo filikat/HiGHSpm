@@ -1307,68 +1307,68 @@ Int Analyse::run() {
 
   if (!ready_) return kRetGeneric;
 
-#ifdef COARSE_TIMING
+#if TIMING_LEVEL >= 1
   Clock clock_total;
 #endif
 
-#ifdef FINE_TIMING
+#if TIMING_LEVEL >= 2
   Clock clock_items;
 #endif
   if (Int metis_status = getPermutation()) return kRetMetisError;
-#ifdef FINE_TIMING
+#if TIMING_LEVEL >= 2
   DataCollector::get()->sumTime(kTimeAnalyseMetis, clock_items.stop());
 #endif
 
-#ifdef FINE_TIMING
+#if TIMING_LEVEL >= 2
   clock_items.start();
 #endif
   permute(iperm_);
   eTree();
   postorder();
-#ifdef FINE_TIMING
+#if TIMING_LEVEL >= 2
   DataCollector::get()->sumTime(kTimeAnalyseTree, clock_items.stop());
 #endif
 
-#ifdef FINE_TIMING
+#if TIMING_LEVEL >= 2
   clock_items.start();
 #endif
   colCount();
-#ifdef FINE_TIMING
+#if TIMING_LEVEL >= 2
   DataCollector::get()->sumTime(kTimeAnalyseCount, clock_items.stop());
 #endif
 
-#ifdef FINE_TIMING
+#if TIMING_LEVEL >= 2
   clock_items.start();
 #endif
   fundamentalSupernodes();
   relaxSupernodes();
   afterRelaxSn();
-#ifdef FINE_TIMING
+#if TIMING_LEVEL >= 2
   DataCollector::get()->sumTime(kTimeAnalyseSn, clock_items.stop());
 #endif
 
-#ifdef FINE_TIMING
+#if TIMING_LEVEL >= 2
   clock_items.start();
 #endif
   reorderChildren();
-#ifdef FINE_TIMING
+#if TIMING_LEVEL >= 2
   DataCollector::get()->sumTime(kTimeAnalyseReorder, clock_items.stop());
 #endif
 
-#ifdef FINE_TIMING
+#if TIMING_LEVEL >= 2
   clock_items.start();
 #endif
   snPattern();
-#ifdef FINE_TIMING
+#if TIMING_LEVEL >= 2
   DataCollector::get()->sumTime(kTimeAnalysePattern, clock_items.stop());
 #endif
 
-#ifdef FINE_TIMING
+#if TIMING_LEVEL >= 2
   clock_items.start();
 #endif
   relativeIndCols();
   relativeIndClique();
-#ifdef FINE_TIMING
+#if TIMING_LEVEL >= 2
   DataCollector::get()->sumTime(kTimeAnalyseRelInd, clock_items.stop());
 #endif
 
@@ -1426,7 +1426,7 @@ Int Analyse::run() {
   S_.consecutive_sums_ = std::move(consecutive_sums_);
   S_.clique_block_start_ = std::move(clique_block_start_);
 
-#ifdef COARSE_TIMING
+#if TIMING_LEVEL >= 1
   DataCollector::get()->sumTime(kTimeAnalyse, clock_total.stop());
 #endif
 

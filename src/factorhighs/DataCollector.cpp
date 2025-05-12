@@ -6,27 +6,21 @@ namespace highspm {
 DataCollector* DataCollector::ptr_ = nullptr;
 
 DataCollector::DataCollector() {
-#ifdef DEBUG
   counter_data_.times.resize(kTimeSize);
   counter_data_.blas_calls.resize(kTimeBlasEnd - kTimeBlasStart + 1);
-#endif
 }
 
 DataCollector* DataCollector::get() { return ptr_; }
 
 void DataCollector::initialise() {
-#ifdef DEBUG
   if (!ptr_) ptr_ = new DataCollector();
-#endif
 }
 void DataCollector::terminate() {
-#ifdef DEBUG
   delete ptr_;
   ptr_ = nullptr;
-#endif
 }
 void DataCollector::append() {
-#ifdef DEBUG
+#ifdef COLLECT_DATA
   // add an empty IterData object to the record
   iter_data_record_.push_back(IterData());
 #endif
@@ -37,26 +31,27 @@ IterData& DataCollector::back() {
 }
 
 void DataCollector::sumTime(TimeItems i, double t) {
-#ifdef DEBUG
+#if TIMING_LEVEL > 0
   // Keep track of times and blas calls.
   std::lock_guard<std::mutex> lock(times_mutex_);
   counter_data_.times[i] += t;
-#ifdef BLAS_TIMING
+#if TIMING_LEVEL >= 3
   if (i >= kTimeBlasStart && i <= kTimeBlasEnd)
     ++counter_data_.blas_calls[i - kTimeBlasStart];
 #endif
 #endif
 }
 void DataCollector::countSolves() {
-#ifdef DEBUG
-  std::lock_guard<std::mutex> lock(times_mutex_);
+#if TIMING_LEVEL > 0
   ++counter_data_.solves;
+#endif
+#ifdef COLLECT_DATA
   ++back().num_solves;
 #endif
 }
 void DataCollector::setExtremeEntries(double minD, double maxD, double minoffD,
                                       double maxoffD) {
-#ifdef DEBUG
+#ifdef COLLECT_DATA
   // Store max and min entries of D and L.
   std::lock_guard<std::mutex> lock(iter_data_mutex_);
   back().minD = std::min(back().minD, minD);
@@ -66,33 +61,33 @@ void DataCollector::setExtremeEntries(double minD, double maxD, double minoffD,
 #endif
 }
 void DataCollector::countRegPiv() {
-#ifdef DEBUG
+#ifdef COLLECT_DATA
   // Increase the number of dynamically regularised pivots.
   std::lock_guard<std::mutex> lock(iter_data_mutex_);
   ++back().n_reg_piv;
 #endif
 }
 void DataCollector::countSwap() {
-#ifdef DEBUG
+#ifdef COLLECT_DATA
   std::lock_guard<std::mutex> lock(iter_data_mutex_);
   ++back().n_swap;
 #endif
 }
 void DataCollector::count2x2() {
-#ifdef DEBUG
+#ifdef COLLECT_DATA
   std::lock_guard<std::mutex> lock(iter_data_mutex_);
   ++back().n_2x2;
 #endif
 }
 void DataCollector::setWrongSign(double p) {
-#ifdef DEBUG
+#ifdef COLLECT_DATA
   std::lock_guard<std::mutex> lock(iter_data_mutex_);
   ++back().n_wrong_sign;
   back().max_wrong_sign = std::max(back().max_wrong_sign, std::abs(p));
 #endif
 }
 void DataCollector::setMaxReg(double new_reg) {
-#ifdef DEBUG
+#ifdef COLLECT_DATA
   // Keep track of maximum regularisation used.
   std::lock_guard<std::mutex> lock(iter_data_mutex_);
   back().max_reg = std::max(back().max_reg, new_reg);
@@ -100,18 +95,18 @@ void DataCollector::setMaxReg(double new_reg) {
 }
 
 void DataCollector::setOmega(double omega) {
-#ifdef DEBUG
+#ifdef COLLECT_DATA
   back().omega = std::max(back().omega, omega);
 #endif
 }
 void DataCollector::setNorms(double norm1, double maxdiag) {
-#ifdef DEBUG
+#ifdef COLLECT_DATA
   back().M_norm1 = norm1;
   back().M_maxdiag = maxdiag;
 #endif
 }
 void DataCollector::setSigma(double sigma, bool affinescaling) {
-#ifdef DEBUG
+#ifdef COLLECT_DATA
   if (affinescaling)
     back().sigma_aff = sigma;
   else
@@ -119,12 +114,12 @@ void DataCollector::setSigma(double sigma, bool affinescaling) {
 #endif
 }
 void DataCollector::setCorrectors(Int correctors) {
-#ifdef DEBUG
+#ifdef COLLECT_DATA
   back().correctors = correctors;
 #endif
 }
 void DataCollector::setBackError(double nw, double cw, Int large_components) {
-#ifdef DEBUG
+#ifdef COLLECT_DATA
   back().nw_back_err = std::max(back().nw_back_err, nw);
   back().cw_back_err = std::max(back().cw_back_err, cw);
   back().large_components_cw =
@@ -132,7 +127,7 @@ void DataCollector::setBackError(double nw, double cw, Int large_components) {
 #endif
 }
 void DataCollector::setExtremeTheta(const std::vector<double>& scaling) {
-#ifdef DEBUG
+#ifdef COLLECT_DATA
   back().min_theta = std::numeric_limits<double>::infinity();
   back().max_theta = 0.0;
   for (double d : scaling) {
@@ -145,7 +140,7 @@ void DataCollector::setExtremeTheta(const std::vector<double>& scaling) {
 }
 void DataCollector::setProducts(double min_prod, double max_prod, Int num_small,
                                 Int num_large) {
-#ifdef DEBUG
+#ifdef COLLECT_DATA
   back().min_prod = min_prod;
   back().max_prod = max_prod;
   back().num_small_prod = num_small;
@@ -154,14 +149,14 @@ void DataCollector::setProducts(double min_prod, double max_prod, Int num_small,
 }
 
 void DataCollector::printTimes() const {
-#ifdef COARSE_TIMING
+#if TIMING_LEVEL >= 1
 
   const std::vector<double>& times = counter_data_.times;
 
   printf("----------------------------------------------------\n");
   printf("Analyse time            \t%8.4f\n", times[kTimeAnalyse]);
 
-#ifdef FINE_TIMING
+#if TIMING_LEVEL >= 2
   printf("\tMetis:                  %8.4f (%4.1f%%)\n",
          times[kTimeAnalyseMetis],
          times[kTimeAnalyseMetis] / times[kTimeAnalyse] * 100);
@@ -186,7 +181,7 @@ void DataCollector::printTimes() const {
   printf("----------------------------------------------------\n");
   printf("Factorise time          \t%8.4f\n", times[kTimeFactorise]);
 
-#ifdef FINE_TIMING
+#if TIMING_LEVEL >= 2
   printf("\tPrepare:                %8.4f (%4.1f%%)\n",
          times[kTimeFactorisePrepare],
          times[kTimeFactorisePrepare] / times[kTimeFactorise] * 100);
@@ -218,7 +213,7 @@ void DataCollector::printTimes() const {
   printf("Solve time              \t%8.4f (%" HIGHSINT_FORMAT " calls)\n",
          times[kTimeSolve], counter_data_.solves);
 
-#ifdef FINE_TIMING
+#if TIMING_LEVEL >= 2
   printf("\tPrepare:                %8.4f (%4.1f%%)\n",
          times[kTimeSolvePrepare],
          times[kTimeSolvePrepare] / times[kTimeSolve] * 100);
@@ -232,7 +227,7 @@ void DataCollector::printTimes() const {
 #endif
   printf("----------------------------------------------------\n");
 
-#ifdef BLAS_TIMING
+#if TIMING_LEVEL >= 3
 
   const std::vector<Int>& blas_calls = counter_data_.blas_calls;
 
@@ -282,7 +277,7 @@ void DataCollector::printTimes() const {
 }
 
 void DataCollector::printIter() const {
-#ifdef DEBUG
+#ifdef COLLECT_DATA
   printf(
       "\niter |    min D     max D     min L     max L  |"
       "    reg   swap    2x2     ws | "

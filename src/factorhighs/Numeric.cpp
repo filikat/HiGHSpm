@@ -7,6 +7,7 @@
 #include "HybridSolveHandler.h"
 #include "PackedSolveHandler.h"
 #include "Timing.h"
+#include "FactorHiGHSSettings.h"
 #include "auxiliary/Auxiliary.h"
 #include "auxiliary/VectorOperations.h"
 #include "util/HighsCDouble.h"
@@ -33,11 +34,11 @@ Numeric::Numeric(const Symbolic& S) : S_{S} {
 Int Numeric::solve(std::vector<double>& x) const {
   // Return the number of solves performed
 
-#ifdef COARSE_TIMING
+#if TIMING_LEVEL >= 1
   Clock clock{};
 #endif
 
-#ifdef FINE_TIMING
+#if TIMING_LEVEL >= 2
   Clock clock_fine{};
 #endif
 
@@ -47,7 +48,7 @@ Int Numeric::solve(std::vector<double>& x) const {
   // make a copy of permuted rhs, for refinement
   const std::vector<double> rhs(x);
 
-#ifdef FINE_TIMING
+#if TIMING_LEVEL >= 2
   DataCollector::get()->sumTime(kTimeSolvePrepare, clock_fine.stop());
   clock_fine.start();
 #endif
@@ -58,25 +59,25 @@ Int Numeric::solve(std::vector<double>& x) const {
   SH_->backwardSolve(x);
   DataCollector::get()->countSolves();
 
-#ifdef FINE_TIMING
+#if TIMING_LEVEL >= 2
   DataCollector::get()->sumTime(kTimeSolveSolve, clock_fine.stop());
 #endif
 
   // iterative refinement
   Int refine_solves = refine(rhs, x);
 
-#ifdef FINE_TIMING
+#if TIMING_LEVEL >= 2
   clock_fine.start();
 #endif
 
   // unpermute solution
   permuteVector(x, S_.iperm());
 
-#ifdef FINE_TIMING
+#if TIMING_LEVEL >= 2
   DataCollector::get()->sumTime(kTimeSolvePrepare, clock_fine.stop());
 #endif
 
-#ifdef COARSE_TIMING
+#if TIMING_LEVEL >= 1
   DataCollector::get()->sumTime(kTimeSolve, clock.stop());
 #endif
 
@@ -118,21 +119,21 @@ Int Numeric::refine(const std::vector<double>& rhs,
   double old_omega{};
   Int solves_counter{};
 
-#ifdef FINE_TIMING
+#if TIMING_LEVEL >= 2
   Clock clock{};
 #endif
 
   // compute residual
   std::vector<double> res = residualQuad(rhs, x);
 
-#ifdef FINE_TIMING
+#if TIMING_LEVEL >= 2
   DataCollector::get()->sumTime(kTimeSolveResidual, clock.stop());
   clock.start();
 #endif
 
   double omega = computeOmega(rhs, x, res);
 
-#ifdef FINE_TIMING
+#if TIMING_LEVEL >= 2
   DataCollector::get()->sumTime(kTimeSolveOmega, clock.stop());
 #endif
 
@@ -145,7 +146,7 @@ Int Numeric::refine(const std::vector<double>& rhs,
     printf("%e  --> ", omega);
 #endif
 
-#ifdef FINE_TIMING
+#if TIMING_LEVEL >= 2
     clock.start();
 #endif
 
@@ -156,7 +157,7 @@ Int Numeric::refine(const std::vector<double>& rhs,
     DataCollector::get()->countSolves();
     ++solves_counter;
 
-#ifdef FINE_TIMING
+#if TIMING_LEVEL >= 2
     DataCollector::get()->sumTime(kTimeSolveSolve, clock.stop());
     clock.start();
 #endif
@@ -165,7 +166,7 @@ Int Numeric::refine(const std::vector<double>& rhs,
     std::vector<double> temp(x);
     vectorAdd(temp, res);
 
-#ifdef FINE_TIMING
+#if TIMING_LEVEL >= 2
     DataCollector::get()->sumTime(kTimeSolvePrepare, clock.stop());
     clock.start();
 #endif
@@ -173,7 +174,7 @@ Int Numeric::refine(const std::vector<double>& rhs,
     // compute new residual
     res = residualQuad(rhs, temp);
 
-#ifdef FINE_TIMING
+#if TIMING_LEVEL >= 2
     DataCollector::get()->sumTime(kTimeSolveResidual, clock.stop());
     clock.start();
 #endif
@@ -181,7 +182,7 @@ Int Numeric::refine(const std::vector<double>& rhs,
     old_omega = omega;
     omega = computeOmega(rhs, temp, res);
 
-#ifdef FINE_TIMING
+#if TIMING_LEVEL >= 2
     DataCollector::get()->sumTime(kTimeSolveOmega, clock.stop());
 #endif
 

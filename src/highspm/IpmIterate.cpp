@@ -2,6 +2,7 @@
 
 #include "IpmConst.h"
 #include "factorhighs/DataCollector.h"
+#include "factorhighs/FactorHiGHSSettings.h"
 
 namespace highspm {
 

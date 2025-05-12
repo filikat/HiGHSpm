@@ -22,7 +22,7 @@ Int denseFactFH(char format, Int n, Int k, Int nb, double* A, double* B,
   // BLAS calls: dcopy, dscal, daxpy, dgemm, dtrsm
   // ===========================================================================
 
-#ifdef FINE_TIMING
+#if TIMING_LEVEL >= 2
   Clock clock;
 #endif
 
@@ -185,7 +185,7 @@ Int denseFactFH(char format, Int n, Int k, Int nb, double* A, double* B,
         offset += jb * col_jj;
       }
 
-#ifdef FINE_TIMING
+#if TIMING_LEVEL >= 2
       DataCollector::get()->sumTime(kTimeDenseFact_main, clock.stop());
       clock.start();
 #endif
@@ -233,7 +233,7 @@ Int denseFactFH(char format, Int n, Int k, Int nb, double* A, double* B,
           offset += jb * ncol;
         }
       }
-#ifdef FINE_TIMING
+#if TIMING_LEVEL >= 2
       DataCollector::get()->sumTime(kTimeDenseFact_schur, clock.stop());
       clock.start();
 #endif
@@ -251,7 +251,7 @@ Int denseFactFP2FH(double* A, Int nrow, Int ncol, Int nb) {
   // BLAS calls: dcopy
   // ===========================================================================
 
-#ifdef FINE_TIMING
+#if TIMING_LEVEL >= 2
   Clock clock;
 #endif
 
@@ -280,7 +280,7 @@ Int denseFactFP2FH(double* A, Int nrow, Int ncol, Int nb) {
     }
   }
 
-#ifdef FINE_TIMING
+#if TIMING_LEVEL >= 2
   DataCollector::get()->sumTime(kTimeDenseFact_convert, clock.stop());
 #endif
 

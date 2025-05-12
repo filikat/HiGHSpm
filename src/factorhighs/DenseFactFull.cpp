@@ -20,7 +20,7 @@ Int denseFactF(Int n, Int k, Int nb, double* A, Int lda, double* B, Int ldb,
   // BLAS calls: dcopy, dscal, dsyrk, dgemm, dtrsm
   // ===========================================================================
 
-#ifdef FINE_TIMING
+#if TIMING_LEVEL >= 2
   Clock clock;
 #endif
 
@@ -86,7 +86,7 @@ Int denseFactF(Int n, Int k, Int nb, double* A, Int lda, double* B, Int ldb,
     }
   }
 
-#ifdef FINE_TIMING
+#if TIMING_LEVEL >= 2
   DataCollector::get()->sumTime(kTimeDenseFact_main, clock.stop());
   clock.start();
 #endif
@@ -141,7 +141,7 @@ Int denseFactF(Int n, Int k, Int nb, double* A, Int lda, double* B, Int ldb,
                       ldb);
   }
 
-#ifdef FINE_TIMING
+#if TIMING_LEVEL >= 2
   DataCollector::get()->sumTime(kTimeDenseFact_schur, clock.stop());
 #endif
 
@@ -157,7 +157,7 @@ Int denseFactFP(Int n, Int k, Int nb, double* A, double* B,
   // BLAS calls: dcopy, dscal, dgemm, dtrsm
   // ===========================================================================
 
-#ifdef FINE_TIMING
+#if TIMING_LEVEL >= 2
   Clock clock;
 #endif
 
@@ -249,7 +249,7 @@ Int denseFactFP(Int n, Int k, Int nb, double* A, double* B,
     }
   }
 
-#ifdef FINE_TIMING
+#if TIMING_LEVEL >= 2
   DataCollector::get()->sumTime(kTimeDenseFact_main, clock.stop());
   clock.start();
 #endif
@@ -318,7 +318,7 @@ Int denseFactFP(Int n, Int k, Int nb, double* A, double* B,
     }
   }
 
-#ifdef FINE_TIMING
+#if TIMING_LEVEL >= 2
   DataCollector::get()->sumTime(kTimeDenseFact_schur, clock.stop());
 #endif
 
