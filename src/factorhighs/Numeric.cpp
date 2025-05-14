@@ -2,12 +2,12 @@
 
 #include "CallAndTimeBlas.h"
 #include "DataCollector.h"
+#include "FactorHiGHSSettings.h"
 #include "FormatHandler.h"
 #include "FullSolveHandler.h"
 #include "HybridSolveHandler.h"
 #include "PackedSolveHandler.h"
 #include "Timing.h"
-#include "FactorHiGHSSettings.h"
 #include "auxiliary/Auxiliary.h"
 #include "auxiliary/VectorOperations.h"
 #include "util/HighsCDouble.h"
@@ -31,7 +31,7 @@ Numeric::Numeric(const Symbolic& S) : S_{S} {
   }
 }
 
-Int Numeric::solve(std::vector<double>& x) const {
+Int Numeric::solveRefine(std::vector<double>& x) const {
   // Return the number of solves performed
 
 #if TIMING_LEVEL >= 1
@@ -82,6 +82,38 @@ Int Numeric::solve(std::vector<double>& x) const {
 #endif
 
   return refine_solves + 1;
+}
+
+void Numeric::solve(std::vector<double>& x) const {
+#if TIMING_LEVEL >= 2
+  Clock clock{};
+#endif
+
+  // permute rhs
+  permuteVectorInverse(x, S_.iperm());
+
+#if TIMING_LEVEL >= 2
+  DataCollector::get()->sumTime(kTimeSolvePrepare, clock.stop());
+  clock.start();
+#endif
+
+  // solve
+  SH_->forwardSolve(x);
+  SH_->diagSolve(x);
+  SH_->backwardSolve(x);
+  DataCollector::get()->countSolves();
+
+#if TIMING_LEVEL >= 2
+  DataCollector::get()->sumTime(kTimeSolveSolve, clock.stop());
+  clock.start();
+#endif
+
+  // unpermute solution
+  permuteVector(x, S_.iperm());
+
+#if TIMING_LEVEL >= 2
+  DataCollector::get()->sumTime(kTimeSolvePrepare, clock.stop());
+#endif
 }
 
 std::vector<double> Numeric::residual(const std::vector<double>& rhs,
@@ -200,6 +232,123 @@ Int Numeric::refine(const std::vector<double>& rhs,
 #ifdef PRINT_ITER_REF
   printf("%e\n", omega);
 #endif
+
+  DataCollector::get()->setOmega(omega);
+
+  return solves_counter;
+}
+
+std::vector<double> Numeric::residual(const std::vector<double>& rhs,
+                                      const std::vector<double>& lhs,
+                                      const AbstractMatrix* A) const {
+  // Compute the residual rhs - A * lhs - Reg * lhs
+  std::vector<double> res(lhs);
+  A->apply(res);
+  for (Int i = 0; i < lhs.size(); ++i) {
+    res[i] = rhs[i] - res[i];
+
+    // rhs, lhs, res are in original ordering.
+    // total_reg is in permuted ordering.
+    // use inverse permutation to match the two orders
+    res[i] -= total_reg_[S_.iperm()[i]] * lhs[i];
+  }
+
+  return res;
+}
+std::vector<double> Numeric::residualQuad(const std::vector<double>& rhs,
+                                          const std::vector<double>& lhs,
+                                          const AbstractMatrix* A) const {
+  // Compute the residual rhs - A * lhs - Reg * lhs
+
+  std::vector<HighsCDouble> res(lhs.size());
+  for (Int i = 0; i < lhs.size(); ++i) res[i] = (HighsCDouble)lhs[i];
+
+  A->apply(res);
+
+  for (Int i = 0; i < lhs.size(); ++i) {
+    res[i] = (HighsCDouble)rhs[i] - res[i];
+
+    // rhs, lhs, res are in original ordering.
+    // total_reg is in permuted ordering.
+    // use inverse permutation to match the two orders
+    res[i] -= (HighsCDouble)total_reg_[S_.iperm()[i]] * (HighsCDouble)lhs[i];
+  }
+
+  std::vector<double> resd(res.size());
+  for (Int i = 0; i < res.size(); ++i) resd[i] = (double)res[i];
+
+  return resd;
+}
+
+Int Numeric::refine(const std::vector<double>& rhs, std::vector<double>& lhs,
+                    const AbstractMatrix* A) const {
+  // Return the number of solver performed
+
+  double old_omega{};
+  Int solves_counter{};
+
+#if TIMING_LEVEL >= 2
+  Clock clock{};
+#endif
+
+  // compute residual
+  std::vector<double> res = residualQuad(rhs, lhs, A);
+
+#if TIMING_LEVEL >= 2
+  DataCollector::get()->sumTime(kTimeSolveResidual, clock.stop());
+  clock.start();
+#endif
+
+  double omega = computeOmega(rhs, lhs, res);
+
+#if TIMING_LEVEL >= 2
+  DataCollector::get()->sumTime(kTimeSolveOmega, clock.stop());
+#endif
+
+  Int iter = 0;
+  for (; iter < kMaxRefinementIter; ++iter) {
+    // termination criterion
+    if (omega < kRefinementTolerance) break;
+
+    // compute correction
+    solve(res);
+    ++solves_counter;
+
+#if TIMING_LEVEL >= 2
+    clock.start();
+#endif
+
+    // add correction
+    std::vector<double> temp(lhs);
+    vectorAdd(temp, res);
+
+#if TIMING_LEVEL >= 2
+    DataCollector::get()->sumTime(kTimeSolvePrepare, clock.stop());
+    clock.start();
+#endif
+
+    // compute new residual
+    res = residualQuad(rhs, temp, A);
+
+#if TIMING_LEVEL >= 2
+    DataCollector::get()->sumTime(kTimeSolveResidual, clock.stop());
+    clock.start();
+#endif
+
+    old_omega = omega;
+    omega = computeOmega(rhs, temp, res);
+
+#if TIMING_LEVEL >= 2
+    DataCollector::get()->sumTime(kTimeSolveOmega, clock.stop());
+#endif
+
+    if (omega < old_omega) {
+      lhs = temp;
+    } else {
+      omega = old_omega;
+      break;
+    }
+  }
 
   DataCollector::get()->setOmega(omega);
 

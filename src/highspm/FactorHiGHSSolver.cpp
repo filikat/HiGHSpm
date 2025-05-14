@@ -12,8 +12,13 @@ Int computeLowerAThetaAT(
     HighsSparseMatrix& AAT,
     const int64_t max_num_nz = std::numeric_limits<Int>::max());
 
-FactorHiGHSSolver::FactorHiGHSSolver(const Options& options, IpmInfo* info)
-    : S_((FormatType)options.format), N_(S_), info_{info} {}
+FactorHiGHSSolver::FactorHiGHSSolver(Options& options, IpmInfo& info,
+                                     const IpmModel& model)
+    : S_((FormatType)options.format),
+      N_(S_),
+      options_{options},
+      info_{info},
+      model_{model} {}
 
 void FactorHiGHSSolver::clear() {
   valid_ = false;
@@ -72,9 +77,9 @@ Int getAS(const HighsSparseMatrix& A, std::vector<Int>& ptr,
   return kLinearSolverStatusOk;
 }
 
-Int FactorHiGHSSolver::setup(const IpmModel& model, Options& options) {
-  if (Int status = setNla(model, options)) return status;
-  setParallel(options);
+Int FactorHiGHSSolver::setup() {
+  if (Int status = setNla()) return status;
+  setParallel();
 
   S_.print(1);
   return kLinearSolverStatusOk;
@@ -123,16 +128,17 @@ Int FactorHiGHSSolver::factorAS(const HighsSparseMatrix& A,
     valLower[next++] = 0.0;
     ptrLower[nA + i + 1] = ptrLower[nA + i] + 1;
   }
-  if (info_) info_->matrix_time += clock.stop();
+  info_.matrix_time += clock.stop();
 
   // factorise matrix
   clock.start();
   Factorise factorise(S_, rowsLower, ptrLower, valLower);
   if (factorise.run(N_)) return kLinearSolverStatusErrorFactorise;
-  if (info_) {
-    info_->factor_time += clock.stop();
-    info_->factor_number++;
-  }
+  info_.factor_time += clock.stop();
+  info_.factor_number++;
+
+  // prepare object to perform matrix-vector product during refinement
+  M_.reset(new IpmMatrix(A, scaling, true));
 
   this->valid_ = true;
   use_as_ = true;
@@ -158,16 +164,18 @@ Int FactorHiGHSSolver::factorNE(const HighsSparseMatrix& A,
   // build full matrix
   HighsSparseMatrix AAt;
   Int status = computeLowerAThetaAT(A, scaling, AAt);
-  if (info_) info_->matrix_time += clock.stop();
+  info_.matrix_time += clock.stop();
 
   // factorise
   clock.start();
   Factorise factorise(S_, AAt.index_, AAt.start_, AAt.value_);
   if (factorise.run(N_)) return kLinearSolverStatusErrorFactorise;
-  if (info_) {
-    info_->factor_time += clock.stop();
-    info_->factor_number++;
-  }
+
+  info_.factor_time += clock.stop();
+  info_.factor_number++;
+
+  // prepare object to perform matrix-vector product during refinement
+  M_.reset(new IpmMatrix(A, scaling, false));
 
   this->valid_ = true;
   use_as_ = false;
@@ -183,11 +191,18 @@ Int FactorHiGHSSolver::solveNE(const std::vector<double>& rhs,
   lhs = rhs;
 
   Clock clock;
-  Int solves = N_.solve(lhs);
-  if (info_) {
-    info_->solve_time += clock.stop();
-    info_->solve_number += solves;
-  }
+#if TIMING_LEVEL >= 1
+  Clock clock2{};
+#endif
+  N_.solve(lhs);
+  Int solves = N_.refine(rhs, lhs, M_.get());
+#if TIMING_LEVEL >= 1
+  DataCollector::get()->sumTime(kTimeSolve, clock2.stop());
+#endif
+
+  // Int solves = N_.solveRefine(lhs);
+  info_.solve_time += clock.stop();
+  info_.solve_number += solves + 1;
 
   return kLinearSolverStatusOk;
 }
@@ -206,16 +221,26 @@ Int FactorHiGHSSolver::solveAS(const std::vector<double>& rhs_x,
   rhs.insert(rhs.end(), rhs_x.begin(), rhs_x.end());
   rhs.insert(rhs.end(), rhs_y.begin(), rhs_y.end());
 
+  std::vector<double> lhs(rhs);
+
   Clock clock;
-  Int solves = N_.solve(rhs);
-  if (info_) {
-    info_->solve_time += clock.stop();
-    info_->solve_number += solves;
-  }
+#if TIMING_LEVEL >= 1
+  Clock clock2{};
+#endif
+  N_.solve(lhs);
+  Int solves = N_.refine(rhs, lhs, M_.get());
+#if TIMING_LEVEL >= 1
+  DataCollector::get()->sumTime(kTimeSolve, clock2.stop());
+#endif
+
+  // Int solves = N_.solveRefine(rhs);
+
+  info_.solve_time += clock.stop();
+  info_.solve_number += solves + 1;
 
   // split lhs
-  lhs_x = std::vector<double>(rhs.begin(), rhs.begin() + n);
-  lhs_y = std::vector<double>(rhs.begin() + n, rhs.end());
+  lhs_x = std::vector<double>(lhs.begin(), lhs.begin() + n);
+  lhs_y = std::vector<double>(lhs.begin() + n, lhs.end());
 
   return kLinearSolverStatusOk;
 }
@@ -311,13 +336,13 @@ double FactorHiGHSSolver::flops() const { return S_.flops(); }
 double FactorHiGHSSolver::spops() const { return S_.spops(); }
 double FactorHiGHSSolver::nz() const { return (double)S_.nz(); }
 
-Int FactorHiGHSSolver::choose(const IpmModel& model, Options& options) {
+Int FactorHiGHSSolver::chooseNla() {
   // Choose whether to use augmented system or normal equations.
 
-  assert(options.nla == kOptionNlaChoose);
+  assert(options_.nla == kOptionNlaChoose);
 
-  Symbolic symb_NE((FormatType)options.format);
-  Symbolic symb_AS((FormatType)options.format);
+  Symbolic symb_NE((FormatType)options_.format);
+  Symbolic symb_AS((FormatType)options_.format);
   bool failure_NE = false;
   bool failure_AS = false;
 
@@ -326,18 +351,18 @@ Int FactorHiGHSSolver::choose(const IpmModel& model, Options& options) {
   // Perform analyse phase of augmented system
   {
     std::vector<Int> ptrLower, rowsLower;
-    getAS(model.A(), ptrLower, rowsLower);
+    getAS(model_.A(), ptrLower, rowsLower);
     clock.start();
-    Analyse analyse_AS(symb_AS, rowsLower, ptrLower, model.A().num_col_);
+    Analyse analyse_AS(symb_AS, rowsLower, ptrLower, model_.A().num_col_);
     Int AS_status = analyse_AS.run();
     if (AS_status) failure_AS = true;
-    if (info_) info_->analyse_AS_time = clock.stop();
+    info_.analyse_AS_time = clock.stop();
   }
 
   // Perform analyse phase of normal equations
   {
-    if (model.m() > kMinRowsForDensity &&
-        model.maxColDensity() > kDenseColThresh) {
+    if (model_.m() > kMinRowsForDensity &&
+        model_.maxColDensity() > kDenseColThresh) {
       // Normal equations would be too expensive because there are dense
       // columns, so skip it.
       failure_NE = true;
@@ -347,7 +372,7 @@ Int FactorHiGHSSolver::choose(const IpmModel& model, Options& options) {
       const int64_t NE_nz_limit = symb_AS.nz() * kSymbNzMult;
 
       std::vector<Int> ptrLower, rowsLower;
-      Int NE_status = getNE(model.A(), ptrLower, rowsLower, NE_nz_limit);
+      Int NE_status = getNE(model_.A(), ptrLower, rowsLower, NE_nz_limit);
       if (NE_status)
         failure_NE = true;
       else {
@@ -355,22 +380,22 @@ Int FactorHiGHSSolver::choose(const IpmModel& model, Options& options) {
         Analyse analyse_NE(symb_NE, rowsLower, ptrLower, 0);
         NE_status = analyse_NE.run();
         if (NE_status) failure_NE = true;
-        if (info_) info_->analyse_NE_time = clock.stop();
+        info_.analyse_NE_time = clock.stop();
       }
     }
 
-    info_->num_dense_cols = model.numDenseCols();
-    info_->max_col_density = model.maxColDensity();
+    info_.num_dense_cols = model_.numDenseCols();
+    info_.max_col_density = model_.maxColDensity();
   }
 
   Int status = kLinearSolverStatusOk;
 
   // Decision may be forced by failures
   if (failure_NE && !failure_AS) {
-    options.nla = kOptionNlaAugmented;
+    options_.nla = kOptionNlaAugmented;
     printf("Using augmented system because normal equations failed\n");
   } else if (failure_AS && !failure_NE) {
-    options.nla = kOptionNlaNormEq;
+    options_.nla = kOptionNlaNormEq;
     printf("Using normal equations because augmented system failed\n");
   } else if (failure_AS && failure_NE) {
     status = kLinearSolverStatusErrorAnalyse;
@@ -394,16 +419,16 @@ Int FactorHiGHSSolver::choose(const IpmModel& model, Options& options) {
 
     if (NE_much_more_expensive ||
         (sn_AS_larger_than_NE && AS_not_too_expensive)) {
-      options.nla = kOptionNlaAugmented;
+      options_.nla = kOptionNlaAugmented;
       printf("Using augmented system because it is preferrable\n");
     } else {
-      options.nla = kOptionNlaNormEq;
+      options_.nla = kOptionNlaNormEq;
       printf("Using normal equations because it is preferrable\n");
     }
   }
 
   if (status != kLinearSolverStatusErrorAnalyse) {
-    if (options.nla == kOptionNlaAugmented) {
+    if (options_.nla == kOptionNlaAugmented) {
       S_ = std::move(symb_AS);
     } else {
       S_ = std::move(symb_NE);
@@ -413,27 +438,27 @@ Int FactorHiGHSSolver::choose(const IpmModel& model, Options& options) {
   return status;
 }
 
-Int FactorHiGHSSolver::setNla(const IpmModel& model, Options& options) {
+Int FactorHiGHSSolver::setNla() {
   std::vector<Int> ptrLower, rowsLower;
   Clock clock;
 
   // Build the matrix
-  switch (options.nla) {
+  switch (options_.nla) {
     case kOptionNlaAugmented: {
-      getAS(model.A(), ptrLower, rowsLower);
+      getAS(model_.A(), ptrLower, rowsLower);
       clock.start();
-      Analyse analyse(S_, rowsLower, ptrLower, model.A().num_col_);
+      Analyse analyse(S_, rowsLower, ptrLower, model_.A().num_col_);
       if (analyse.run()) {
         printf("Analyse phase failed\n");
         return kLinearSolverStatusErrorAnalyse;
       }
-      if (info_) info_->analyse_AS_time = clock.stop();
+      info_.analyse_AS_time = clock.stop();
       printf("Using augmented system as requested\n");
       break;
     }
 
     case kOptionNlaNormEq: {
-      Int NE_status = getNE(model.A(), ptrLower, rowsLower);
+      Int NE_status = getNE(model_.A(), ptrLower, rowsLower);
       if (NE_status) {
         printf("Failure: AAt is too large\n");
         return kLinearSolverStatusErrorOom;
@@ -444,13 +469,13 @@ Int FactorHiGHSSolver::setNla(const IpmModel& model, Options& options) {
         printf("Analyse phase failed\n");
         return kLinearSolverStatusErrorAnalyse;
       }
-      if (info_) info_->analyse_NE_time = clock.stop();
+      info_.analyse_NE_time = clock.stop();
       printf("Using normal equations as requested\n");
       break;
     }
 
     case kOptionNlaChoose: {
-      if (choose(model, options)) return kLinearSolverStatusErrorAnalyse;
+      if (chooseNla()) return kLinearSolverStatusErrorAnalyse;
       break;
     }
   }
@@ -458,12 +483,12 @@ Int FactorHiGHSSolver::setNla(const IpmModel& model, Options& options) {
   return kLinearSolverStatusOk;
 }
 
-void FactorHiGHSSolver::setParallel(Options& options) {
+void FactorHiGHSSolver::setParallel() {
   // Set parallel options
   bool parallel_tree = false;
   bool parallel_node = false;
 
-  switch (options.parallel) {
+  switch (options_.parallel) {
     case kOptionParallelOff:
       printf("Using no parallelism as requested\n");
       break;
@@ -504,16 +529,16 @@ void FactorHiGHSSolver::setParallel(Options& options) {
 #endif
 
       if (parallel_tree && parallel_node) {
-        options.parallel = kOptionParallelOn;
+        options_.parallel = kOptionParallelOn;
         printf("Using full parallelism because it is preferrable\n");
       } else if (parallel_tree && !parallel_node) {
-        options.parallel = kOptionParallelTreeOnly;
+        options_.parallel = kOptionParallelTreeOnly;
         printf("Using only tree parallelism because it is preferrable\n");
       } else if (!parallel_tree && parallel_node) {
-        options.parallel = kOptionParallelNodeOnly;
+        options_.parallel = kOptionParallelNodeOnly;
         printf("Using only node parallelism because it is preferrable\n");
       } else {
-        options.parallel = kOptionParallelOff;
+        options_.parallel = kOptionParallelOff;
         printf("Using no parallelism because it is preferrable\n");
       }
 

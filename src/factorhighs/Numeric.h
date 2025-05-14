@@ -7,6 +7,7 @@
 #include "SolveHandler.h"
 #include "Symbolic.h"
 #include "auxiliary/IntConfig.h"
+#include "auxiliary/KrylovMethods.h"
 
 namespace highspm {
 
@@ -42,15 +43,23 @@ class Numeric {
 
   Numeric(const Symbolic& S);
 
-  // Full solve with refinement
-  Int solve(std::vector<double>& x) const;
+  void solve(std::vector<double>& x) const;
+  Int solveRefine(std::vector<double>& x) const;
 
   // Iterative refinement
+  Int refine(const std::vector<double>& rhs, std::vector<double>& lhs,
+             const AbstractMatrix* A) const;
   Int refine(const std::vector<double>& rhs, std::vector<double>& x) const;
   std::vector<double> residual(const std::vector<double>& rhs,
                                const std::vector<double>& x) const;
   std::vector<double> residualQuad(const std::vector<double>& rhs,
                                    const std::vector<double>& x) const;
+  std::vector<double> residual(const std::vector<double>& rhs,
+                               const std::vector<double>& lhs,
+                               const AbstractMatrix* A) const;
+  std::vector<double> residualQuad(const std::vector<double>& rhs,
+                                   const std::vector<double>& lhs,
+                                   const AbstractMatrix* A) const;
   double computeOmega(const std::vector<double>& b,
                       const std::vector<double>& x,
                       const std::vector<double>& res) const;

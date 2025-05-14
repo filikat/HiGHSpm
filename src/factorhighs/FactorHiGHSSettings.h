@@ -10,7 +10,7 @@
 // ===========================================================================
 
 #define PIVOTING
-// #define COLLECT_DATA
+ #define COLLECT_DATA
 
 // #define PRINT_ITER_REF
 // #define PRINT_REGULARISATION
@@ -21,7 +21,7 @@
 // - 1: basic timing
 // - 2: advanced timing
 // - 3: extreme timing (timing of each BLAS call, considerably slower)
-#define TIMING_LEVEL 0
+#define TIMING_LEVEL 2
 
 // ===========================================================================
 // PARAMETERS

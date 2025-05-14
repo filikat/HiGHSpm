@@ -4,6 +4,7 @@
 #include <algorithm>
 
 #include "IpmInfo.h"
+#include "IpmMatrix.h"
 #include "IpmModel.h"
 #include "LinearSolver.h"
 #include "auxiliary/IntConfig.h"
@@ -21,14 +22,18 @@ class FactorHiGHSSolver : public LinearSolver {
   // keep track of whether as or ne is being factorised
   bool use_as_ = true;
 
-  IpmInfo* info_ = nullptr;
+  std::unique_ptr<IpmMatrix> M_;
 
-  Int choose(const IpmModel& model, Options& options);
-  Int setNla(const IpmModel& model, Options& options);
-  void setParallel(Options& options);
+  Options& options_;
+  IpmInfo& info_;
+  const IpmModel& model_;
+
+  Int chooseNla();
+  Int setNla();
+  void setParallel();
 
  public:
-  FactorHiGHSSolver(const Options& options, IpmInfo* info);
+  FactorHiGHSSolver(Options& options, IpmInfo& info, const IpmModel& model);
 
   // Override functions
   Int factorAS(const HighsSparseMatrix& A,
@@ -40,7 +45,7 @@ class FactorHiGHSSolver : public LinearSolver {
   Int solveAS(const std::vector<double>& rhs_x,
               const std::vector<double>& rhs_y, std::vector<double>& lhs_x,
               std::vector<double>& lhs_y) override;
-  Int setup(const IpmModel& model, Options& options) override;
+  Int setup() override;
   void clear() override;
   double flops() const override;
   double spops() const override;

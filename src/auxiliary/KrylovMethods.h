@@ -4,13 +4,18 @@
 #include <vector>
 
 #include "auxiliary/IntConfig.h"
+#include "util/HighsCDouble.h"
 
 namespace highspm {
 
 // Abstract class for matrices inside of a Krylov method
 class AbstractMatrix {
  public:
-  virtual void apply(std::vector<double>& x) const = 0;
+  // virtual destructor
+  virtual ~AbstractMatrix() = default;
+
+  virtual void apply(std::vector<double>& x) const {};
+  virtual void apply(std::vector<HighsCDouble>& x) const {};
 };
 
 // =================

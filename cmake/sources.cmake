@@ -3,6 +3,7 @@ set(ipm_sources
     highspm/FactorHiGHSSolver.cpp 
     highspm/Ipm.cpp
     highspm/IpmIterate.cpp 
+    highspm/IpmMatrix.cpp
     highspm/IpmModel.cpp)
 
 set(ipm_headers
@@ -12,6 +13,7 @@ set(ipm_headers
     highspm/IpmConst.h
     highspm/IpmInfo.h
     highspm/IpmIterate.h
+    highspm/IpmMatrix.h
     highspm/IpmModel.h
     highspm/IpmOption.h
     highspm/IpmStatus.h
