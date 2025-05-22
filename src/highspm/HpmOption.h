@@ -1,7 +1,7 @@
-#ifndef HIGHSPM_IPM_OPTION_H
-#define HIGHSPM_IPM_OPTION_H
+#ifndef HIGHSPM_HPM_OPTION_H
+#define HIGHSPM_HPM_OPTION_H
 
-#include "IpmConst.h"
+#include "HpmConst.h"
 #include "io/HighsIO.h"
 
 namespace highspm {

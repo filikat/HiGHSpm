@@ -4,7 +4,7 @@
 #include <regex>
 
 #include "Highs.h"
-#include "highspm/Ipm.h"
+#include "highspm/HpmSolver.h"
 #include "io/Filereader.h"
 #include "ipm/IpxWrapper.h"
 #include "parallel/HighsParallel.h"
@@ -136,8 +136,8 @@ int main(int argc, char** argv) {
   // ===================================================================================
   clock.start();
 
-  // create instance of IPM
-  highspm::Ipm ipm{};
+  // create solver
+  highspm::HpmSolver hpm{};
 
   // scheduler should be already initialised, but no harm in doing it again
   // HighsTaskExecutor::shutdown(true);
@@ -147,19 +147,19 @@ int main(int argc, char** argv) {
   // options.refine_with_ipx = false;
   // options.time_limit = 1000;
   // options.display = 0;
-  ipm.setOptions(options);
+  hpm.setOptions(options);
 
   // load the problem
-  ipm.load(n, m, obj.data(), rhs.data(), lower.data(), upper.data(),
+  hpm.load(n, m, obj.data(), rhs.data(), lower.data(), upper.data(),
            Aptr.data(), Aind.data(), Aval.data(), constraints.data(), offset);
   double load_time = clock.stop();
 
   // solve LP
   clock.start();
-  ipm.solve();
+  hpm.solve();
   double optimize_time = clock.stop();
 
-  highspm::IpmInfo info = ipm.getInfo();
+  highspm::HpmInfo info = hpm.getInfo();
   highspm::IpmStatus ipm_status = info.ipm_status;
 
   double run_time = clock0.stop();

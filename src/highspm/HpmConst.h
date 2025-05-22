@@ -1,5 +1,5 @@
-#ifndef HIGHSPM_IPM_CONST_H
-#define HIGHSPM_IPM_CONST_H
+#ifndef HIGHSPM_HPM_CONST_H
+#define HIGHSPM_HPM_CONST_H
 
 #include "auxiliary/IntConfig.h"
 

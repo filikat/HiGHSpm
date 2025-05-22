@@ -1,11 +1,11 @@
-#include "IpmModel.h"
+#include "HpmModel.h"
 
-#include "IpmConst.h"
+#include "HpmConst.h"
 #include "auxiliary/HpmLog.h"
 
 namespace highspm {
 
-void IpmModel::init(const Int num_var, const Int num_con, const double* obj,
+void HpmModel::init(const Int num_var, const Int num_con, const double* obj,
                     const double* rhs, const double* lower, const double* upper,
                     const Int* A_ptr, const Int* A_rows, const double* A_vals,
                     const char* constraints, double offset) {
@@ -47,7 +47,7 @@ void IpmModel::init(const Int num_var, const Int num_con, const double* obj,
   ready_ = true;
 }
 
-void IpmModel::preprocess() {
+void HpmModel::preprocess() {
   // Perform some basic preprocessing, in case the problem is run without
   // presolve
 
@@ -104,7 +104,7 @@ void IpmModel::preprocess() {
   }
 }
 
-void IpmModel::postprocess(std::vector<double>& slack,
+void HpmModel::postprocess(std::vector<double>& slack,
                            std::vector<double>& y) const {
   // Add Lagrange multiplier for empty rows that were removed
   // Add slack for constraints that were removed
@@ -129,7 +129,7 @@ void IpmModel::postprocess(std::vector<double>& slack,
   slack = std::move(new_slack);
 }
 
-void IpmModel::reformulate() {
+void HpmModel::reformulate() {
   // put the model into correct formulation
 
   Int Annz = A_.numNz();
@@ -163,7 +163,7 @@ void IpmModel::reformulate() {
   }
 }
 
-void IpmModel::print() const {
+void HpmModel::print() const {
   Log::printf("Rows: %.1e\n", (double)m_);
   Log::printf("Cols: %.1e\n", (double)n_);
   Log::printf("Nnz : %.1e\n", (double)A_.numNz());
@@ -272,7 +272,7 @@ void IpmModel::print() const {
   Log::printf("\n");
 }
 
-void IpmModel::scale() {
+void HpmModel::scale() {
   // Apply Curtis-Reid scaling and scale the problem accordingly
 
   // check if scaling is needed
@@ -336,7 +336,7 @@ void IpmModel::scale() {
   }
 }
 
-void IpmModel::unscale(std::vector<double>& x, std::vector<double>& xl,
+void HpmModel::unscale(std::vector<double>& x, std::vector<double>& xl,
                        std::vector<double>& xu, std::vector<double>& slack,
                        std::vector<double>& y, std::vector<double>& zl,
                        std::vector<double>& zu) const {
@@ -369,7 +369,7 @@ void IpmModel::unscale(std::vector<double>& x, std::vector<double>& xl,
   }
 }
 
-void IpmModel::unscale(std::vector<double>& x, std::vector<double>& slack,
+void HpmModel::unscale(std::vector<double>& x, std::vector<double>& slack,
                        std::vector<double>& y, std::vector<double>& z) const {
   // Undo the scaling with format for crossover
 
@@ -385,7 +385,7 @@ void IpmModel::unscale(std::vector<double>& x, std::vector<double>& slack,
   }
 }
 
-void IpmModel::denseColumns() {
+void HpmModel::denseColumns() {
   // Compute the maximum density of any column of A and count the number of
   // dense columns.
 
@@ -400,7 +400,7 @@ void IpmModel::denseColumns() {
   }
 }
 
-double IpmModel::normScaledRhs() const {
+double HpmModel::normScaledRhs() const {
   double norm_rhs = infNorm(b_);
   for (double d : lower_)
     if (std::isfinite(d)) norm_rhs = std::max(norm_rhs, std::abs(d));
@@ -409,9 +409,9 @@ double IpmModel::normScaledRhs() const {
   return norm_rhs;
 }
 
-double IpmModel::normScaledObj() const { return infNorm(c_); }
+double HpmModel::normScaledObj() const { return infNorm(c_); }
 
-double IpmModel::normUnscaledObj() const {
+double HpmModel::normUnscaledObj() const {
   double norm_obj = 0.0;
   for (Int i = 0; i < n_; ++i) {
     double val = std::abs(c_[i]);
@@ -421,7 +421,7 @@ double IpmModel::normUnscaledObj() const {
   return norm_obj;
 }
 
-double IpmModel::normUnscaledRhs() const {
+double HpmModel::normUnscaledRhs() const {
   double norm_rhs = 0.0;
   for (Int i = 0; i < m_; ++i) {
     double val = std::abs(b_[i]);
@@ -443,7 +443,7 @@ double IpmModel::normUnscaledRhs() const {
   return norm_rhs;
 }
 
-Int IpmModel::loadIntoIpx(ipx::LpSolver& lps) const {
+Int HpmModel::loadIntoIpx(ipx::LpSolver& lps) const {
   Int load_status = lps.LoadModel(
       n_orig_, offset_, c_orig_, lower_orig_, upper_orig_, m_orig_, A_ptr_orig_,
       A_rows_orig_, A_vals_orig_, b_orig_, constraints_orig_);

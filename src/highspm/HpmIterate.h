@@ -3,7 +3,7 @@
 
 #include <vector>
 
-#include "IpmModel.h"
+#include "HpmModel.h"
 #include "auxiliary/IntConfig.h"
 
 namespace highspm {
@@ -20,9 +20,9 @@ struct NewtonDir {
   NewtonDir(Int m, Int n);
 };
 
-struct IpmIterate {
+struct HpmIterate {
   // lp model
-  const IpmModel* model;
+  const HpmModel* model;
 
   // ipm point
   std::vector<double> x, xl, xu, y, zl, zu;
@@ -48,7 +48,7 @@ struct IpmIterate {
   // ===================================================================================
   // Functions to construct, clear and check for nan or inf
   // ===================================================================================
-  IpmIterate(const IpmModel& model_input);
+  HpmIterate(const HpmModel& model_input);
 
   // clear existing data
   void clearIter();

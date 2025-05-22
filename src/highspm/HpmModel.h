@@ -1,5 +1,5 @@
-#ifndef HIGHSPM_IPM_MODEL_H
-#define HIGHSPM_IPM_MODEL_H
+#ifndef HIGHSPM_HPM_MODEL_H
+#define HIGHSPM_HPM_MODEL_H
 
 #include <limits>
 #include <string>
@@ -25,7 +25,7 @@ namespace highspm {
 // preconditioning", Math. Prog. Comput. 12, 2020
 //
 
-class IpmModel {
+class HpmModel {
  private:
   // data of original problem
   Int n_orig_{};

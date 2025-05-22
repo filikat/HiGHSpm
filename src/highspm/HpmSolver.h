@@ -4,12 +4,12 @@
 #include <string>
 
 #include "FactorHiGHSSolver.h"
-#include "IpmConst.h"
-#include "IpmInfo.h"
-#include "IpmIterate.h"
-#include "IpmModel.h"
-#include "IpmOption.h"
-#include "IpmStatus.h"
+#include "HpmConst.h"
+#include "HpmInfo.h"
+#include "HpmIterate.h"
+#include "HpmModel.h"
+#include "HpmOption.h"
+#include "HpmStatus.h"
 #include "LinearSolver.h"
 #include "auxiliary/Auxiliary.h"
 #include "auxiliary/IntConfig.h"
@@ -20,15 +20,15 @@
 
 namespace highspm {
 
-class Ipm {
+class HpmSolver {
   // LP model
-  IpmModel model_;
+  HpmModel model_;
 
   // Linear solver interface
   std::unique_ptr<LinearSolver> LS_;
 
   // Iterate object interface
-  std::unique_ptr<IpmIterate> it_;
+  std::unique_ptr<HpmIterate> it_;
 
   // Size of the problem
   Int m_{}, n_{};
@@ -43,7 +43,7 @@ class Ipm {
   double sigma_{}, sigma_affine_{};
 
   // General information
-  IpmInfo info_;
+  HpmInfo info_;
 
   // Run-time options
   Options options_{};
@@ -98,7 +98,7 @@ class Ipm {
                    std::vector<double>& zu) const;
   void getSolution(std::vector<double>& x, std::vector<double>& slack,
                    std::vector<double>& y, std::vector<double>& z) const;
-  const IpmInfo& getInfo() const;
+  const HpmInfo& getInfo() const;
 
  private:
   // Functions to run the various stages of the ipm

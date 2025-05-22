@@ -6,7 +6,7 @@
 #include <sstream>
 
 #include "Highs.h"
-#include "highspm/Ipm.h"
+#include "highspm/HpmSolver.h"
 #include "io/Filereader.h"
 #include "ipm/IpxWrapper.h"
 #include "parallel/HighsParallel.h"
@@ -121,8 +121,8 @@ int main(int argc, char** argv) {
     // ===================================================================================
     clock1.start();
 
-    // create instance of IPM
-    highspm::Ipm ipm{};
+    // create solver
+    highspm::HpmSolver hpm{};
 
     // ===================================================================================
     // Identify the option values and check their validity
@@ -175,19 +175,19 @@ int main(int argc, char** argv) {
     // options.max_iter = 5;
     // options.refine_with_ipx = false;
     // options.time_limit = 1000;
-    ipm.setOptions(options);
+    hpm.setOptions(options);
 
     // load the problem
-    ipm.load(n, m, obj.data(), rhs.data(), lower.data(), upper.data(),
+    hpm.load(n, m, obj.data(), rhs.data(), lower.data(), upper.data(),
              Aptr.data(), Aind.data(), Aval.data(), constraints.data(), offset);
     double load_time = clock1.stop();
 
     // solve LP
     clock1.start();
-    ipm.solve();
+    hpm.solve();
     double optimize_time = clock1.stop();
 
-    highspm::IpmInfo info = ipm.getInfo();
+    highspm::HpmInfo info = hpm.getInfo();
     highspm::IpmStatus ipm_status = info.ipm_status;
 
     if ((options.crossover && ipm_status == highspm::kIpmStatusBasic) ||

@@ -1,4 +1,4 @@
-#include "Ipm.h"
+#include "HpmSolver.h"
 
 #include <cassert>
 #include <cmath>
@@ -9,10 +9,11 @@
 
 namespace highspm {
 
-void Ipm::load(const Int num_var, const Int num_con, const double* obj,
-               const double* rhs, const double* lower, const double* upper,
-               const Int* A_ptr, const Int* A_rows, const double* A_vals,
-               const char* constraints, double offset) {
+void HpmSolver::load(const Int num_var, const Int num_con, const double* obj,
+                     const double* rhs, const double* lower,
+                     const double* upper, const Int* A_ptr, const Int* A_rows,
+                     const double* A_vals, const char* constraints,
+                     double offset) {
   if (!obj || !rhs || !lower || !upper || !A_ptr || !A_rows || !A_vals ||
       !constraints)
     return;
@@ -30,17 +31,18 @@ void Ipm::load(const Int num_var, const Int num_con, const double* obj,
   info_.n_original = num_var;
 }
 
-void Ipm::setOptions(const Options& options) {
+void HpmSolver::setOptions(const Options& options) {
   options_ = options;
   if (options_.display) Log::setOptions(options_.log_options);
 }
 
-void Ipm::solve() {
+void HpmSolver::solve() {
   if (!model_.ready()) {
     info_.ipm_status = kIpmStatusNotRun;
     return;
   }
 
+  clock_.start();
   DataCollector::initialise();
   printInfo();
 
@@ -52,7 +54,7 @@ void Ipm::solve() {
   DataCollector::terminate();
 }
 
-void Ipm::runIpm() {
+void HpmSolver::runIpm() {
   if (initialise()) return;
 
   while (iter_ < options_.max_iter) {
@@ -65,15 +67,12 @@ void Ipm::runIpm() {
   terminate();
 }
 
-bool Ipm::initialise() {
+bool HpmSolver::initialise() {
   // Prepare ipm for execution.
   // Return true if an error occurred.
 
-  // start timer
-  clock_.start();
-
   // initialise iterate object
-  it_.reset(new IpmIterate(model_));
+  it_.reset(new HpmIterate(model_));
 
   // initialise linear solver
   LS_.reset(new FactorHiGHSSolver(options_, &info_));
@@ -101,7 +100,7 @@ bool Ipm::initialise() {
   return false;
 }
 
-void Ipm::terminate() {
+void HpmSolver::terminate() {
   info_.ipm_iter = iter_;
   if (info_.ipm_status == kIpmStatusNotRun)
     info_.ipm_status = kIpmStatusMaxIter;
@@ -110,7 +109,7 @@ void Ipm::terminate() {
   info_.option_par = options_.parallel;
 }
 
-bool Ipm::prepareIter() {
+bool HpmSolver::prepareIter() {
   // Prepare next iteration.
   // Return true if Ipm main loop should be stopped
 
@@ -133,7 +132,7 @@ bool Ipm::prepareIter() {
   return false;
 }
 
-bool Ipm::predictor() {
+bool HpmSolver::predictor() {
   // Compute affine scaling direction.
   // Return true if an error occurred.
 
@@ -149,7 +148,7 @@ bool Ipm::predictor() {
   return false;
 }
 
-bool Ipm::correctors() {
+bool HpmSolver::correctors() {
   // Compute multiple centrality correctors.
   // Return true if an error occurred.
 
@@ -161,7 +160,7 @@ bool Ipm::correctors() {
   return false;
 }
 
-bool Ipm::prepareIpx() {
+bool HpmSolver::prepareIpx() {
   // Return true if an error occurred;
 
   ipx::Parameters ipx_param;
@@ -170,6 +169,8 @@ bool Ipm::prepareIpx() {
   ipx_param.run_crossover = options_.crossover;
   ipx_param.ipm_feasibility_tol = options_.feasibility_tol;
   ipx_param.ipm_optimality_tol = options_.optimality_tol;
+  ipx_param.start_crossover_tol = options_.crossover_tol;
+  ipx_param.time_limit = options_.time_limit - clock_.stop();
   ipx_lps_.SetParameters(ipx_param);
 
   Int load_status = model_.loadIntoIpx(ipx_lps_);
@@ -194,7 +195,7 @@ bool Ipm::prepareIpx() {
   return false;
 }
 
-void Ipm::refineWithIpx() {
+void HpmSolver::refineWithIpx() {
   if (statusIsStop() || checkTimeLimit()) return;
 
   if (!statusIsOptimal() && options_.refine_with_ipx) {
@@ -226,7 +227,7 @@ void Ipm::refineWithIpx() {
   info_.ipx_used = true;
 }
 
-void Ipm::runCrossover() {
+void HpmSolver::runCrossover() {
   prepareIpx();
 
   std::vector<double> x, slack, y, z;
@@ -239,7 +240,7 @@ void Ipm::runCrossover() {
   info_.ipx_used = true;
 }
 
-bool Ipm::solveNewtonSystem(NewtonDir& delta) {
+bool HpmSolver::solveNewtonSystem(NewtonDir& delta) {
   std::vector<double>& theta_inv = it_->scaling;
 
   std::vector<double> res7 = it_->residual7();
@@ -284,7 +285,7 @@ failure:
   return true;
 }
 
-bool Ipm::recoverDirection(NewtonDir& delta) {
+bool HpmSolver::recoverDirection(NewtonDir& delta) {
   // Recover components xl, xu, zl, zu of partial direction delta.
   std::vector<double>& xl = it_->xl;
   std::vector<double>& xu = it_->xu;
@@ -348,10 +349,10 @@ bool Ipm::recoverDirection(NewtonDir& delta) {
   return false;
 }
 
-double Ipm::stepToBoundary(const std::vector<double>& x,
-                           const std::vector<double>& dx,
-                           const std::vector<double>* cor, double weight,
-                           bool lo, Int* block) const {
+double HpmSolver::stepToBoundary(const std::vector<double>& x,
+                                 const std::vector<double>& dx,
+                                 const std::vector<double>* cor, double weight,
+                                 bool lo, Int* block) const {
   // Compute the largest alpha s.t. x + alpha * dx >= 0.
   // If cor is valid, consider x + alpha * (dx + w * cor) instead.
   // Use lo=1 for xl and zl, lo=0 for xu and zu.
@@ -375,9 +376,9 @@ double Ipm::stepToBoundary(const std::vector<double>& x,
   return alpha;
 }
 
-void Ipm::stepsToBoundary(double& alpha_primal, double& alpha_dual,
-                          const NewtonDir& delta, const NewtonDir* cor,
-                          double weight) const {
+void HpmSolver::stepsToBoundary(double& alpha_primal, double& alpha_dual,
+                                const NewtonDir& delta, const NewtonDir* cor,
+                                double weight) const {
   // compute primal and dual steps to boundary, given direction, corrector and
   // weight.
 
@@ -397,7 +398,7 @@ void Ipm::stepsToBoundary(double& alpha_primal, double& alpha_dual,
   alpha_dual = std::min(alpha_dual, 1.0);
 }
 
-void Ipm::stepSizes() {
+void HpmSolver::stepSizes() {
   // Compute primal and dual stepsizes.
   std::vector<double>& xl = it_->xl;
   std::vector<double>& xu = it_->xu;
@@ -483,7 +484,7 @@ void Ipm::stepSizes() {
          alpha_dual_ < 1);
 }
 
-void Ipm::makeStep() {
+void HpmSolver::makeStep() {
   stepSizes();
 
   // keep track of iterations with small stepsizes
@@ -508,7 +509,7 @@ void Ipm::makeStep() {
   printOutput();
 }
 
-void Ipm::startingPoint() {
+void HpmSolver::startingPoint() {
   std::vector<double>& x = it_->x;
   std::vector<double>& xl = it_->xl;
   std::vector<double>& xu = it_->xu;
@@ -700,13 +701,13 @@ failure:
   info_.ipm_status = kIpmStatusError;
 }
 
-void Ipm::sigmaAffine() {
+void HpmSolver::sigmaAffine() {
   sigma_ = kSigmaAffine;
 
   DataCollector::get()->setSigma(sigma_, true);
 }
 
-void Ipm::sigmaCorrectors() {
+void HpmSolver::sigmaCorrectors() {
   if ((alpha_primal_ > 0.5 && alpha_dual_ > 0.5) || iter_ == 1) {
     sigma_ = 0.01;
   } else if (alpha_primal_ > 0.2 && alpha_dual_ > 0.2) {
@@ -722,7 +723,7 @@ void Ipm::sigmaCorrectors() {
   DataCollector::get()->setSigma(sigma_);
 }
 
-void Ipm::residualsMcc() {
+void HpmSolver::residualsMcc() {
   // compute right-hand side for multiple centrality correctors
   std::vector<double>& xl = it_->xl;
   std::vector<double>& xu = it_->xu;
@@ -799,7 +800,7 @@ void Ipm::residualsMcc() {
   }
 }
 
-bool Ipm::centralityCorrectors() {
+bool HpmSolver::centralityCorrectors() {
   // compute stepsizes of current direction
   double alpha_p_old, alpha_d_old;
   stepsToBoundary(alpha_p_old, alpha_d_old, it_->delta);
@@ -854,9 +855,9 @@ bool Ipm::centralityCorrectors() {
   return false;
 }
 
-void Ipm::bestWeight(const NewtonDir& delta, const NewtonDir& corrector,
-                     double& wp, double& wd, double& alpha_p,
-                     double& alpha_d) const {
+void HpmSolver::bestWeight(const NewtonDir& delta, const NewtonDir& corrector,
+                           double& wp, double& wd, double& alpha_p,
+                           double& alpha_d) const {
   // Find the best primal and dual weights for the corrector in the interval
   // [alpha_p_old * alpha_d_old, 1].
   // Upon return, wp and wd are the optimal weights, alpha_p and alpha_d are the
@@ -889,7 +890,7 @@ void Ipm::bestWeight(const NewtonDir& delta, const NewtonDir& corrector,
   }
 }
 
-bool Ipm::checkIterate() {
+bool HpmSolver::checkIterate() {
   // Check that iterate is not NaN or Inf
   if (it_->isNan()) {
     Log::printe("\nIterate is nan\n");
@@ -915,7 +916,7 @@ bool Ipm::checkIterate() {
   return false;
 }
 
-bool Ipm::checkBadIter() {
+bool HpmSolver::checkBadIter() {
   bool terminate = false;
 
   // check for bad iterations
@@ -951,7 +952,7 @@ bool Ipm::checkBadIter() {
   return terminate;
 }
 
-bool Ipm::checkTermination() {
+bool HpmSolver::checkTermination() {
   bool feasible = it_->pinf < options_.feasibility_tol &&
                   it_->dinf < options_.feasibility_tol;
   bool optimal = it_->pdgap < options_.optimality_tol;
@@ -978,7 +979,7 @@ bool Ipm::checkTermination() {
   return terminate;
 }
 
-bool Ipm::checkTimeLimit() {
+bool HpmSolver::checkTimeLimit() {
   bool terminate = false;
   if (options_.time_limit > 0 && clock_.stop() > options_.time_limit) {
     terminate = true;
@@ -988,7 +989,7 @@ bool Ipm::checkTimeLimit() {
   return terminate;
 }
 
-void Ipm::backwardError(const NewtonDir& delta) const {
+void HpmSolver::backwardError(const NewtonDir& delta) const {
 #ifdef COLLECT_DATA
   std::vector<double>& x = it_->x;
   std::vector<double>& xl = it_->xl;
@@ -1274,7 +1275,7 @@ void Ipm::backwardError(const NewtonDir& delta) const {
 #endif
 }
 
-void Ipm::printHeader() const {
+void HpmSolver::printHeader() const {
   if (iter_ % 20 == 0) {
     Log::printf(
         " iter      primal obj        dual obj        pinf      dinf "
@@ -1282,7 +1283,7 @@ void Ipm::printHeader() const {
   }
 }
 
-void Ipm::printOutput() const {
+void HpmSolver::printOutput() const {
   printHeader();
 
   Log::printf(
@@ -1292,7 +1293,7 @@ void Ipm::printOutput() const {
       alpha_dual_, it_->pdgap, clock_.stop());
 }
 
-void Ipm::printInfo() const {
+void HpmSolver::printInfo() const {
   Log::printf("\n");
 
   if (options_.parallel == kOptionParallelOff)
@@ -1309,11 +1310,11 @@ void Ipm::printInfo() const {
   model_.print();
 }
 
-const IpmInfo& Ipm::getInfo() const { return info_; }
-void Ipm::getSolution(std::vector<double>& x, std::vector<double>& xl,
-                      std::vector<double>& xu, std::vector<double>& slack,
-                      std::vector<double>& y, std::vector<double>& zl,
-                      std::vector<double>& zu) const {
+const HpmInfo& HpmSolver::getInfo() const { return info_; }
+void HpmSolver::getSolution(std::vector<double>& x, std::vector<double>& xl,
+                            std::vector<double>& xu, std::vector<double>& slack,
+                            std::vector<double>& y, std::vector<double>& zl,
+                            std::vector<double>& zu) const {
   // prepare and return solution with internal format
 
   if (!info_.ipx_used) {
@@ -1326,8 +1327,9 @@ void Ipm::getSolution(std::vector<double>& x, std::vector<double>& xl,
   }
 }
 
-void Ipm::getSolution(std::vector<double>& x, std::vector<double>& slack,
-                      std::vector<double>& y, std::vector<double>& z) const {
+void HpmSolver::getSolution(std::vector<double>& x, std::vector<double>& slack,
+                            std::vector<double>& y,
+                            std::vector<double>& z) const {
   // prepare and return solution with format for crossover
 
   if (!info_.ipx_used) {
@@ -1340,7 +1342,7 @@ void Ipm::getSolution(std::vector<double>& x, std::vector<double>& slack,
   }
 }
 
-void Ipm::maxCorrectors() {
+void HpmSolver::maxCorrectors() {
   if (kMaxCorrectors > 0) {
     // Compute estimate of effort to factorise and solve
 
@@ -1377,10 +1379,10 @@ void Ipm::maxCorrectors() {
   }
 }
 
-bool Ipm::statusIsOptimal() const {
+bool HpmSolver::statusIsOptimal() const {
   return info_.ipm_status >= kIpmStatusOptimal;
 }
-bool Ipm::statusIsStop() const {
+bool HpmSolver::statusIsStop() const {
   return info_.ipm_status >= kIpmStatusStop &&
          info_.ipm_status < kIpmStatusOptimal;
 }

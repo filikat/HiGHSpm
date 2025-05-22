@@ -3,8 +3,8 @@
 
 #include <algorithm>
 
-#include "IpmInfo.h"
-#include "IpmModel.h"
+#include "HpmInfo.h"
+#include "HpmModel.h"
 #include "LinearSolver.h"
 #include "auxiliary/IntConfig.h"
 #include "factorhighs/FactorHiGHS.h"
@@ -21,14 +21,14 @@ class FactorHiGHSSolver : public LinearSolver {
   // keep track of whether as or ne is being factorised
   bool use_as_ = true;
 
-  IpmInfo* info_ = nullptr;
+  HpmInfo* info_ = nullptr;
 
-  Int choose(const IpmModel& model, Options& options);
-  Int setNla(const IpmModel& model, Options& options);
+  Int choose(const HpmModel& model, Options& options);
+  Int setNla(const HpmModel& model, Options& options);
   void setParallel(Options& options);
 
  public:
-  FactorHiGHSSolver(const Options& options, IpmInfo* info);
+  FactorHiGHSSolver(const Options& options, HpmInfo* info);
 
   // Override functions
   Int factorAS(const HighsSparseMatrix& A,
@@ -40,7 +40,7 @@ class FactorHiGHSSolver : public LinearSolver {
   Int solveAS(const std::vector<double>& rhs_x,
               const std::vector<double>& rhs_y, std::vector<double>& lhs_x,
               std::vector<double>& lhs_y) override;
-  Int setup(const IpmModel& model, Options& options) override;
+  Int setup(const HpmModel& model, Options& options) override;
   void clear() override;
   double flops() const override;
   double spops() const override;

@@ -3,8 +3,8 @@
 
 #include <vector>
 
-#include "IpmConst.h"
-#include "IpmOption.h"
+#include "HpmConst.h"
+#include "HpmOption.h"
 #include "auxiliary/IntConfig.h"
 #include "auxiliary/VectorOperations.h"
 #include "util/HighsSparseMatrix.h"
@@ -70,7 +70,7 @@ class LinearSolver {
   // Virtual functions.
   // These may be overridden by derived classes, if needed.
   // =================================================================
-  virtual Int setup(const IpmModel& model, Options& options) { return 0; }
+  virtual Int setup(const HpmModel& model, Options& options) { return 0; }
 
   virtual void refine(const HighsSparseMatrix& A,
                       const std::vector<double>& scaling,

@@ -2,7 +2,7 @@
 
 #include <limits>
 
-#include "IpmStatus.h"
+#include "HpmStatus.h"
 #include "auxiliary/Auxiliary.h"
 #include "auxiliary/HpmLog.h"
 
@@ -13,7 +13,7 @@ Int computeLowerAThetaAT(
     HighsSparseMatrix& AAT,
     const int64_t max_num_nz = std::numeric_limits<Int>::max());
 
-FactorHiGHSSolver::FactorHiGHSSolver(const Options& options, IpmInfo* info)
+FactorHiGHSSolver::FactorHiGHSSolver(const Options& options, HpmInfo* info)
     : S_{}, N_(S_), info_{info} {}
 
 void FactorHiGHSSolver::clear() {
@@ -73,7 +73,7 @@ Int getAS(const HighsSparseMatrix& A, std::vector<Int>& ptr,
   return kLinearSolverStatusOk;
 }
 
-Int FactorHiGHSSolver::setup(const IpmModel& model, Options& options) {
+Int FactorHiGHSSolver::setup(const HpmModel& model, Options& options) {
   if (Int status = setNla(model, options)) return status;
   setParallel(options);
 
@@ -312,7 +312,7 @@ double FactorHiGHSSolver::flops() const { return S_.flops(); }
 double FactorHiGHSSolver::spops() const { return S_.spops(); }
 double FactorHiGHSSolver::nz() const { return (double)S_.nz(); }
 
-Int FactorHiGHSSolver::choose(const IpmModel& model, Options& options) {
+Int FactorHiGHSSolver::choose(const HpmModel& model, Options& options) {
   // Choose whether to use augmented system or normal equations.
 
   assert(options.nla == kOptionNlaChoose);
@@ -414,7 +414,7 @@ Int FactorHiGHSSolver::choose(const IpmModel& model, Options& options) {
   return status;
 }
 
-Int FactorHiGHSSolver::setNla(const IpmModel& model, Options& options) {
+Int FactorHiGHSSolver::setNla(const HpmModel& model, Options& options) {
   std::vector<Int> ptrLower, rowsLower;
   Clock clock;
 

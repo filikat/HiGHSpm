@@ -1,14 +1,14 @@
-#ifndef HIGHSPM_IPM_INFO_H
-#define HIGHSPM_IPM_INFO_H
+#ifndef HIGHSPM_HPM_INFO_H
+#define HIGHSPM_HPM_INFO_H
 
-#include "IpmOption.h"
-#include "IpmStatus.h"
+#include "HpmOption.h"
+#include "HpmStatus.h"
 #include "auxiliary/IntConfig.h"
 #include "ipm/ipx/info.h"
 
 namespace highspm {
 
-struct IpmInfo {
+struct HpmInfo {
   // Size of problem, as seen by the solver
   Int m_solver, n_solver;
 
