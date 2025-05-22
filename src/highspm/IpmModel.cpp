@@ -8,8 +8,7 @@ namespace highspm {
 void IpmModel::init(const Int num_var, const Int num_con, const double* obj,
                     const double* rhs, const double* lower, const double* upper,
                     const Int* A_ptr, const Int* A_rows, const double* A_vals,
-                    const char* constraints, double offset,
-                    const std::string& pb_name) {
+                    const char* constraints, double offset) {
   // copy the input into the model
 
   n_orig_ = num_var;
@@ -39,8 +38,6 @@ void IpmModel::init(const Int num_var, const Int num_con, const double* obj,
   A_.value_ = std::vector<double>(A_vals, A_vals + Annz);
 
   constraints_ = std::vector<char>(constraints, constraints + m_);
-
-  pb_name_ = pb_name;
 
   preprocess();
   scale();
@@ -243,32 +240,32 @@ void IpmModel::print() const {
   // print ranges
   if (Amin != 0.0)
     Log::printf("Range of A      : [%5.1e, %5.1e], ratio %.1e\n", Amin, Amax,
-               Amax / Amin);
+                Amax / Amin);
   else
     Log::printf("Range of A      : [%5.1e, %5.1e], ratio -\n", Amin, Amax);
 
   if (bmin != 0.0)
     Log::printf("Range of b      : [%5.1e, %5.1e], ratio %.1e\n", bmin, bmax,
-               bmax / bmin);
+                bmax / bmin);
   else
     Log::printf("Range of b      : [%5.1e, %5.1e], ratio -\n", bmin, bmax);
 
   if (cmin != 0.0)
     Log::printf("Range of c      : [%5.1e, %5.1e], ratio %.1e\n", cmin, cmax,
-               cmax / cmin);
+                cmax / cmin);
   else
     Log::printf("Range of c      : [%5.1e, %5.1e], ratio -\n", cmin, cmax);
 
   if (boundmin != 0.0)
     Log::printf("Range of bounds : [%5.1e, %5.1e], ratio %.1e\n", boundmin,
-               boundmax, boundmax / boundmin);
+                boundmax, boundmax / boundmin);
   else
     Log::printf("Range of bounds : [%5.1e, %5.1e], ratio -\n", boundmin,
-               boundmax);
+                boundmax);
 
   if (scaled())
     Log::printf("Scaling coeff   : [%5.1e, %5.1e], ratio %.1e\n", scalemin,
-               scalemax, scalemax / scalemin);
+                scalemax, scalemax / scalemin);
   else
     Log::printf("Scaling coeff   : -\n");
 

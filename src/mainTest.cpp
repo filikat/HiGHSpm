@@ -183,12 +183,6 @@ int main(int argc, char** argv) {
       return 1;
     }
 
-    // extract problem name without mps
-    std::regex rgx("(.+)\\.(mps|lp)");
-    std::smatch match;
-    std::regex_search(pb_name, match, rgx);
-    pb_name = match[1];
-
     const HighsOptions& hOptions = highs.getOptions();
     options.log_options = &hOptions.log_options;
 
@@ -199,8 +193,7 @@ int main(int argc, char** argv) {
 
     // load the problem
     ipm.load(n, m, obj.data(), rhs.data(), lower.data(), upper.data(),
-             Aptr.data(), Aind.data(), Aval.data(), constraints.data(), offset,
-             pb_name);
+             Aptr.data(), Aind.data(), Aval.data(), constraints.data(), offset);
     double load_time = clock1.stop();
 
     // solve LP

@@ -12,14 +12,13 @@ namespace highspm {
 void Ipm::load(const Int num_var, const Int num_con, const double* obj,
                const double* rhs, const double* lower, const double* upper,
                const Int* A_ptr, const Int* A_rows, const double* A_vals,
-               const char* constraints, double offset,
-               const std::string& pb_name) {
+               const char* constraints, double offset) {
   if (!obj || !rhs || !lower || !upper || !A_ptr || !A_rows || !A_vals ||
       !constraints)
     return;
 
   model_.init(num_var, num_con, obj, rhs, lower, upper, A_ptr, A_rows, A_vals,
-              constraints, offset, pb_name);
+              constraints, offset);
 
   m_ = model_.m();
   n_ = model_.n();
@@ -1295,13 +1294,12 @@ void Ipm::printOutput() const {
 
 void Ipm::printInfo() const {
   Log::printf("\n");
-  Log::printf("Running HiGHSpm\n");
-  Log::printf("Problem %s\n", model_.name().c_str());
 
   if (options_.parallel == kOptionParallelOff)
-    Log::printf("Running on 1 thread\n");
+    Log::printf("Running HiGHSpm on 1 thread\n");
   else
-    Log::printf("Running on %d threads\n", highs::parallel::num_threads());
+    Log::printf("Running HiGHSpm on %d threads\n",
+                highs::parallel::num_threads());
 
 #ifdef COLLECT_DATA
   Log::printw("Running in debug mode\n");

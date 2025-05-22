@@ -66,18 +66,17 @@ class Ipm {
   //  <= : add slack    0 <= s_i <= +inf
   //  >= : add slack -inf <= s_i <=    0
   // ===================================================================================
-  void load(const Int num_var,          // number of variables
-            const Int num_con,          // number of constraints
-            const double* obj,          // objective function c
-            const double* rhs,          // rhs vector b
-            const double* lower,        // lower bound vector
-            const double* upper,        // upper bound vector
-            const Int* A_ptr,           // column pointers of A
-            const Int* A_rows,          // row indices of A
-            const double* A_vals,       // values of A
-            const char* constraints,    // type of constraints
-            double offset,              // offset from presolve
-            const std::string& pb_name  // problem name
+  void load(const Int num_var,        // number of variables
+            const Int num_con,        // number of constraints
+            const double* obj,        // objective function c
+            const double* rhs,        // rhs vector b
+            const double* lower,      // lower bound vector
+            const double* upper,      // upper bound vector
+            const Int* A_ptr,         // column pointers of A
+            const Int* A_rows,        // row indices of A
+            const double* A_vals,     // values of A
+            const char* constraints,  // type of constraints
+            double offset             // offset from presolve
   );
 
   // ===================================================================================

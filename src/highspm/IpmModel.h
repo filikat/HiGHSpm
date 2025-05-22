@@ -49,7 +49,6 @@ class IpmModel {
   std::vector<double> upper_{};
   HighsSparseMatrix A_{};
   std::vector<char> constraints_{};
-  std::string pb_name_{};
   Int num_dense_cols_{};
   double max_col_density_{};
 
@@ -78,7 +77,7 @@ class IpmModel {
   void init(const Int num_var, const Int num_con, const double* obj,
             const double* rhs, const double* lower, const double* upper,
             const Int* A_ptr, const Int* A_rows, const double* A_vals,
-            const char* constraints, double offset, const std::string& pb_name);
+            const char* constraints, double offset);
 
   // Print information of model
   void print() const;
@@ -110,7 +109,6 @@ class IpmModel {
   const std::vector<double>& c() const { return c_; }
   double lb(Int i) const { return lower_[i]; }
   double ub(Int i) const { return upper_[i]; }
-  const std::string& name() const { return pb_name_; }
   char constraint(Int i) const { return constraints_[i]; }
   double colScale(Int i) const { return colscale_[i]; }
   double rowScale(Int i) const { return rowscale_[i]; }
