@@ -3,6 +3,7 @@
 #include <iostream>
 
 #include "FactorHiGHSSettings.h"
+#include "auxiliary/HpmLog.h"
 
 namespace highspm {
 
@@ -48,41 +49,40 @@ const std::vector<Int>& Symbolic::pivotSign() const { return pivot_sign_; }
 
 void printMemory(double mem) {
   if (mem < 1024)
-    printf("%.1f B\n", mem);
+    Log::printf("serial memory   : %.1f B\n", mem);
   else if (mem < 1024 * 1024)
-    printf("%.1f KB\n", mem / 1024);
+    Log::printf("serial memory   : %.1f KB\n", mem / 1024);
   else if (mem < 1024 * 1024 * 1024)
-    printf("%.1f MB\n", mem / 1024 / 1024);
+    Log::printf("serial memory   : %.1f MB\n", mem / 1024 / 1024);
   else
-    printf("%.1f GB\n", mem / 1024 / 1024 / 1024);
+    Log::printf("serial memory   : %.1f GB\n", mem / 1024 / 1024 / 1024);
 }
 void Symbolic::print(bool verbose) const {
-  printf("\nSymbolic factorisation:\n");
-  printf("size            : %.2e\n", (double)n_);
-  printf("nnz             : %.2e\n", (double)nz_);
-  printf("fill-in         : %.2f\n", fillin_);
-  printf("serial memory   : ");
+  Log::printf("\nSymbolic factorisation:\n");
+  Log::printf("size            : %.2e\n", (double)n_);
+  Log::printf("nnz             : %.2e\n", (double)nz_);
+  Log::printf("fill-in         : %.2f\n", fillin_);
   printMemory(serial_storage_);
-  printf("flops           : %.1e\n", flops_);
+  Log::printf("flops           : %.1e\n", flops_);
 
   if (verbose) {
-    printf("sparse ops      : %.1e\n", spops_);
-    printf("critical ops    : %.1e\n", critops_);
-    printf("max tree speedup: %.2f\n", flops_ / critops_);
-    printf("artificial nz   : %.1e (%.1f%%)\n", (double)artificial_nz_,
-           (double)artificial_nz_ / nz_ * 100);
-    printf("artificial ops  : %.1e (%.1f%%)\n", artificial_ops_,
-           artificial_ops_ / flops_ * 100);
-    printf("largest front   : %5d\n", largest_front_);
-    printf("largest sn      : %5d\n", largest_sn_);
-    printf("supernodes      : %5d\n", sn_);
-    printf("sn size <=   1  : %5d\n", sn_size_1_);
-    printf("sn size <=  10  : %5d\n", sn_size_10_);
-    printf("sn size <= 100  : %5d\n", sn_size_100_);
-    printf("sn avg size     : %5.1f\n", (double)n_ / sn_);
+    Log::printf("sparse ops      : %.1e\n", spops_);
+    Log::printf("critical ops    : %.1e\n", critops_);
+    Log::printf("max tree speedup: %.2f\n", flops_ / critops_);
+    Log::printf("artificial nz   : %.1e (%.1f%%)\n", (double)artificial_nz_,
+               (double)artificial_nz_ / nz_ * 100);
+    Log::printf("artificial ops  : %.1e (%.1f%%)\n", artificial_ops_,
+               artificial_ops_ / flops_ * 100);
+    Log::printf("largest front   : %5d\n", largest_front_);
+    Log::printf("largest sn      : %5d\n", largest_sn_);
+    Log::printf("supernodes      : %5d\n", sn_);
+    Log::printf("sn size <=   1  : %5d\n", sn_size_1_);
+    Log::printf("sn size <=  10  : %5d\n", sn_size_10_);
+    Log::printf("sn size <= 100  : %5d\n", sn_size_100_);
+    Log::printf("sn avg size     : %5.1f\n", (double)n_ / sn_);
   }
 
-  printf("\n");
+  Log::printf("\n");
 }
 
 }  // namespace highspm

@@ -12,10 +12,6 @@
 #define PIVOTING
 // #define COLLECT_DATA
 
-// #define PRINT_ITER_REF
-// #define PRINT_REGULARISATION
-// #define PRINT_CORRECTORS
-
 // choose level of timing:
 // - 0: no timing
 // - 1: basic timing

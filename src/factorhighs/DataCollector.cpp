@@ -1,6 +1,7 @@
 #include "DataCollector.h"
 
 #include "FactorHiGHSSettings.h"
+#include "auxiliary/HpmLog.h"
 
 namespace highspm {
 
@@ -155,82 +156,87 @@ void DataCollector::printTimes() const {
 
   const std::vector<double>& times = counter_data_.times;
 
-  printf("----------------------------------------------------\n");
-  printf("Analyse time            \t%8.4f\n", times[kTimeAnalyse]);
+  Log::printf("----------------------------------------------------\n");
+  Log::printf("Analyse time            \t%8.4f\n", times[kTimeAnalyse]);
 
 #if TIMING_LEVEL >= 2
-  printf("\tMetis:                  %8.4f (%4.1f%%)\n",
-         times[kTimeAnalyseMetis],
-         times[kTimeAnalyseMetis] / times[kTimeAnalyse] * 100);
-  printf("\tTree:                   %8.4f (%4.1f%%)\n", times[kTimeAnalyseTree],
-         times[kTimeAnalyseTree] / times[kTimeAnalyse] * 100);
-  printf("\tCounts:                 %8.4f (%4.1f%%)\n",
-         times[kTimeAnalyseCount],
-         times[kTimeAnalyseCount] / times[kTimeAnalyse] * 100);
-  printf("\tSupernodes:             %8.4f (%4.1f%%)\n", times[kTimeAnalyseSn],
-         times[kTimeAnalyseSn] / times[kTimeAnalyse] * 100);
-  printf("\tReorder:                %8.4f (%4.1f%%)\n",
-         times[kTimeAnalyseReorder],
-         times[kTimeAnalyseReorder] / times[kTimeAnalyse] * 100);
-  printf("\tSn sparsity pattern:    %8.4f (%4.1f%%)\n",
-         times[kTimeAnalysePattern],
-         times[kTimeAnalysePattern] / times[kTimeAnalyse] * 100);
-  printf("\tRelative indices:       %8.4f (%4.1f%%)\n",
-         times[kTimeAnalyseRelInd],
-         times[kTimeAnalyseRelInd] / times[kTimeAnalyse] * 100);
+  Log::printf("\tMetis:                  %8.4f (%4.1f%%)\n",
+             times[kTimeAnalyseMetis],
+             times[kTimeAnalyseMetis] / times[kTimeAnalyse] * 100);
+  Log::printf("\tTree:                   %8.4f (%4.1f%%)\n",
+             times[kTimeAnalyseTree],
+             times[kTimeAnalyseTree] / times[kTimeAnalyse] * 100);
+  Log::printf("\tCounts:                 %8.4f (%4.1f%%)\n",
+             times[kTimeAnalyseCount],
+             times[kTimeAnalyseCount] / times[kTimeAnalyse] * 100);
+  Log::printf("\tSupernodes:             %8.4f (%4.1f%%)\n",
+             times[kTimeAnalyseSn],
+             times[kTimeAnalyseSn] / times[kTimeAnalyse] * 100);
+  Log::printf("\tReorder:                %8.4f (%4.1f%%)\n",
+             times[kTimeAnalyseReorder],
+             times[kTimeAnalyseReorder] / times[kTimeAnalyse] * 100);
+  Log::printf("\tSn sparsity pattern:    %8.4f (%4.1f%%)\n",
+             times[kTimeAnalysePattern],
+             times[kTimeAnalysePattern] / times[kTimeAnalyse] * 100);
+  Log::printf("\tRelative indices:       %8.4f (%4.1f%%)\n",
+             times[kTimeAnalyseRelInd],
+             times[kTimeAnalyseRelInd] / times[kTimeAnalyse] * 100);
 #endif
 
-  printf("----------------------------------------------------\n");
-  printf("Factorise time          \t%8.4f\n", times[kTimeFactorise]);
+  Log::printf("----------------------------------------------------\n");
+  Log::printf("Factorise time          \t%8.4f\n", times[kTimeFactorise]);
 
 #if TIMING_LEVEL >= 2
-  printf("\tPrepare:                %8.4f (%4.1f%%)\n",
-         times[kTimeFactorisePrepare],
-         times[kTimeFactorisePrepare] / times[kTimeFactorise] * 100);
-  printf("\tAssembly original:      %8.4f (%4.1f%%)\n",
-         times[kTimeFactoriseAssembleOriginal],
-         times[kTimeFactoriseAssembleOriginal] / times[kTimeFactorise] * 100);
-  printf("\tAssemble children in F: %8.4f (%4.1f%%)\n",
-         times[kTimeFactoriseAssembleChildrenFrontal],
-         times[kTimeFactoriseAssembleChildrenFrontal] / times[kTimeFactorise] *
-             100);
-  printf("\tAssemble children in C: %8.4f (%4.1f%%)\n",
-         times[kTimeFactoriseAssembleChildrenClique],
-         times[kTimeFactoriseAssembleChildrenClique] / times[kTimeFactorise] *
-             100);
-  printf("\tDense factorisation:    %8.4f (%4.1f%%)\n",
-         times[kTimeFactoriseDenseFact],
-         times[kTimeFactoriseDenseFact] / times[kTimeFactorise] * 100);
-  printf("\t\tmain:           %8.4f\n", times[kTimeDenseFact_main]);
-  printf("\t\tSchur:          %8.4f\n", times[kTimeDenseFact_schur]);
-  printf("\t\tkernel:         %8.4f\n", times[kTimeDenseFact_kernel]);
-  printf("\t\tconvert:        %8.4f\n", times[kTimeDenseFact_convert]);
-  printf("\t\tpivoting:       %8.4f\n", times[kTimeDenseFact_pivoting]);
-  printf("\tTerminate:              %8.4f (%4.1f%%)\n",
-         times[kTimeFactoriseTerminate],
-         times[kTimeFactoriseTerminate] / times[kTimeFactorise] * 100);
+  Log::printf("\tPrepare:                %8.4f (%4.1f%%)\n",
+             times[kTimeFactorisePrepare],
+             times[kTimeFactorisePrepare] / times[kTimeFactorise] * 100);
+  Log::printf(
+      "\tAssembly original:      %8.4f (%4.1f%%)\n",
+      times[kTimeFactoriseAssembleOriginal],
+      times[kTimeFactoriseAssembleOriginal] / times[kTimeFactorise] * 100);
+  Log::printf("\tAssemble children in F: %8.4f (%4.1f%%)\n",
+             times[kTimeFactoriseAssembleChildrenFrontal],
+             times[kTimeFactoriseAssembleChildrenFrontal] /
+                 times[kTimeFactorise] * 100);
+  Log::printf("\tAssemble children in C: %8.4f (%4.1f%%)\n",
+             times[kTimeFactoriseAssembleChildrenClique],
+             times[kTimeFactoriseAssembleChildrenClique] /
+                 times[kTimeFactorise] * 100);
+  Log::printf("\tDense factorisation:    %8.4f (%4.1f%%)\n",
+             times[kTimeFactoriseDenseFact],
+             times[kTimeFactoriseDenseFact] / times[kTimeFactorise] * 100);
+  Log::printf("\t\tmain:           %8.4f\n", times[kTimeDenseFact_main]);
+  Log::printf("\t\tSchur:          %8.4f\n", times[kTimeDenseFact_schur]);
+  Log::printf("\t\tkernel:         %8.4f\n", times[kTimeDenseFact_kernel]);
+  Log::printf("\t\tconvert:        %8.4f\n", times[kTimeDenseFact_convert]);
+  Log::printf("\t\tpivoting:       %8.4f\n", times[kTimeDenseFact_pivoting]);
+  Log::printf("\tTerminate:              %8.4f (%4.1f%%)\n",
+             times[kTimeFactoriseTerminate],
+             times[kTimeFactoriseTerminate] / times[kTimeFactorise] * 100);
 #endif
 
-  printf("----------------------------------------------------\n");
-  printf("Solve time              \t%8.4f (%" HIGHSINT_FORMAT " calls)\n",
-         times[kTimeSolve], counter_data_.solves);
+  Log::printf("----------------------------------------------------\n");
+  Log::printf("Solve time              \t%8.4f (%" HIGHSINT_FORMAT " calls)\n",
+             times[kTimeSolve], counter_data_.solves);
 
 #if TIMING_LEVEL >= 2
-  printf("\tPrepare:                %8.4f (%4.1f%%)\n",
-         times[kTimeSolvePrepare],
-         times[kTimeSolvePrepare] / times[kTimeSolve] * 100);
-  printf("\tSolve:                  %8.4f (%4.1f%%)\n", times[kTimeSolveSolve],
-         times[kTimeSolveSolve] / times[kTimeSolve] * 100);
-  printf("\t\tdense:          %8.4f\n", times[kTimeSolveSolve_dense]);
-  printf("\t\tsparse:         %8.4f\n", times[kTimeSolveSolve_sparse]);
-  printf("\t\tswap:           %8.4f\n", times[kTimeSolveSolve_swap]);
-  printf("\tResidual:               %8.4f (%4.1f%%)\n",
-         times[kTimeSolveResidual],
-         times[kTimeSolveResidual] / times[kTimeSolve] * 100);
-  printf("\tOmega:                  %8.4f (%4.1f%%)\n", times[kTimeSolveOmega],
-         times[kTimeSolveOmega] / times[kTimeSolve] * 100);
+  Log::printf("\tPrepare:                %8.4f (%4.1f%%)\n",
+             times[kTimeSolvePrepare],
+             times[kTimeSolvePrepare] / times[kTimeSolve] * 100);
+  Log::printf("\tSolve:                  %8.4f (%4.1f%%)\n",
+             times[kTimeSolveSolve],
+             times[kTimeSolveSolve] / times[kTimeSolve] * 100);
+  Log::printf("\t\tdense:          %8.4f\n", times[kTimeSolveSolve_dense]);
+  Log::printf("\t\tsparse:         %8.4f\n", times[kTimeSolveSolve_sparse]);
+  Log::printf("\t\tswap:           %8.4f\n", times[kTimeSolveSolve_swap]);
+  Log::printf("\tResidual:               %8.4f (%4.1f%%)\n",
+             times[kTimeSolveResidual],
+             times[kTimeSolveResidual] / times[kTimeSolve] * 100);
+  Log::printf("\tOmega:                  %8.4f (%4.1f%%)\n",
+             times[kTimeSolveOmega],
+             times[kTimeSolveOmega] / times[kTimeSolve] * 100);
 #endif
-  printf("----------------------------------------------------\n");
+  Log::printf("----------------------------------------------------\n");
 
 #if TIMING_LEVEL >= 3
 
@@ -242,77 +248,82 @@ void DataCollector::printTimes() const {
       times[kTimeBlas_tpsv] + times[kTimeBlas_ger] + times[kTimeBlas_trsm] +
       times[kTimeBlas_syrk] + times[kTimeBlas_gemm];
 
-  printf("BLAS time               \t%8.4f\n", total_blas_time);
-  printf("\tcopy:           \t%8.4f (%4.1f%%) in %10d calls\n",
-         times[kTimeBlas_copy], times[kTimeBlas_copy] / total_blas_time * 100,
-         blas_calls[kTimeBlas_copy - kTimeBlasStart]);
-  printf("\taxpy:           \t%8.4f (%4.1f%%) in %10d calls\n",
-         times[kTimeBlas_axpy], times[kTimeBlas_axpy] / total_blas_time * 100,
-         blas_calls[kTimeBlas_axpy - kTimeBlasStart]);
-  printf("\tscal:           \t%8.4f (%4.1f%%) in %10d calls\n",
-         times[kTimeBlas_scal], times[kTimeBlas_scal] / total_blas_time * 100,
-         blas_calls[kTimeBlas_scal - kTimeBlasStart]);
-  printf("\tswap:           \t%8.4f (%4.1f%%) in %10d calls\n",
-         times[kTimeBlas_swap], times[kTimeBlas_swap] / total_blas_time * 100,
-         blas_calls[kTimeBlas_swap - kTimeBlasStart]);
-  printf("\tgemv:           \t%8.4f (%4.1f%%) in %10d calls\n",
-         times[kTimeBlas_gemv], times[kTimeBlas_gemv] / total_blas_time * 100,
-         blas_calls[kTimeBlas_gemv - kTimeBlasStart]);
-  printf("\ttrsv:           \t%8.4f (%4.1f%%) in %10d calls\n",
-         times[kTimeBlas_trsv], times[kTimeBlas_trsv] / total_blas_time * 100,
-         blas_calls[kTimeBlas_trsv - kTimeBlasStart]);
-  printf("\ttpsv:           \t%8.4f (%4.1f%%) in %10d calls\n",
-         times[kTimeBlas_tpsv], times[kTimeBlas_tpsv] / total_blas_time * 100,
-         blas_calls[kTimeBlas_tpsv - kTimeBlasStart]);
-  printf("\tger:            \t%8.4f (%4.1f%%) in %10d calls\n",
-         times[kTimeBlas_ger], times[kTimeBlas_ger] / total_blas_time * 100,
-         blas_calls[kTimeBlas_ger - kTimeBlasStart]);
-  printf("\ttrsm:           \t%8.4f (%4.1f%%) in %10d calls\n",
-         times[kTimeBlas_trsm], times[kTimeBlas_trsm] / total_blas_time * 100,
-         blas_calls[kTimeBlas_trsm - kTimeBlasStart]);
-  printf("\tsyrk:           \t%8.4f (%4.1f%%) in %10d calls\n",
-         times[kTimeBlas_syrk], times[kTimeBlas_syrk] / total_blas_time * 100,
-         blas_calls[kTimeBlas_syrk - kTimeBlasStart]);
-  printf("\tgemm:           \t%8.4f (%4.1f%%) in %10d calls\n",
-         times[kTimeBlas_gemm], times[kTimeBlas_gemm] / total_blas_time * 100,
-         blas_calls[kTimeBlas_gemm - kTimeBlasStart]);
-  printf("----------------------------------------------------\n");
+  Log::printf("BLAS time               \t%8.4f\n", total_blas_time);
+  Log::printf("\tcopy:           \t%8.4f (%4.1f%%) in %10d calls\n",
+             times[kTimeBlas_copy],
+             times[kTimeBlas_copy] / total_blas_time * 100,
+             blas_calls[kTimeBlas_copy - kTimeBlasStart]);
+  Log::printf("\taxpy:           \t%8.4f (%4.1f%%) in %10d calls\n",
+             times[kTimeBlas_axpy],
+             times[kTimeBlas_axpy] / total_blas_time * 100,
+             blas_calls[kTimeBlas_axpy - kTimeBlasStart]);
+  Log::printf("\tscal:           \t%8.4f (%4.1f%%) in %10d calls\n",
+             times[kTimeBlas_scal],
+             times[kTimeBlas_scal] / total_blas_time * 100,
+             blas_calls[kTimeBlas_scal - kTimeBlasStart]);
+  Log::printf("\tswap:           \t%8.4f (%4.1f%%) in %10d calls\n",
+             times[kTimeBlas_swap],
+             times[kTimeBlas_swap] / total_blas_time * 100,
+             blas_calls[kTimeBlas_swap - kTimeBlasStart]);
+  Log::printf("\tgemv:           \t%8.4f (%4.1f%%) in %10d calls\n",
+             times[kTimeBlas_gemv],
+             times[kTimeBlas_gemv] / total_blas_time * 100,
+             blas_calls[kTimeBlas_gemv - kTimeBlasStart]);
+  Log::printf("\ttrsv:           \t%8.4f (%4.1f%%) in %10d calls\n",
+             times[kTimeBlas_trsv],
+             times[kTimeBlas_trsv] / total_blas_time * 100,
+             blas_calls[kTimeBlas_trsv - kTimeBlasStart]);
+  Log::printf("\ttpsv:           \t%8.4f (%4.1f%%) in %10d calls\n",
+             times[kTimeBlas_tpsv],
+             times[kTimeBlas_tpsv] / total_blas_time * 100,
+             blas_calls[kTimeBlas_tpsv - kTimeBlasStart]);
+  Log::printf("\tger:            \t%8.4f (%4.1f%%) in %10d calls\n",
+             times[kTimeBlas_ger], times[kTimeBlas_ger] / total_blas_time * 100,
+             blas_calls[kTimeBlas_ger - kTimeBlasStart]);
+  Log::printf("\ttrsm:           \t%8.4f (%4.1f%%) in %10d calls\n",
+             times[kTimeBlas_trsm],
+             times[kTimeBlas_trsm] / total_blas_time * 100,
+             blas_calls[kTimeBlas_trsm - kTimeBlasStart]);
+  Log::printf("\tsyrk:           \t%8.4f (%4.1f%%) in %10d calls\n",
+             times[kTimeBlas_syrk],
+             times[kTimeBlas_syrk] / total_blas_time * 100,
+             blas_calls[kTimeBlas_syrk - kTimeBlasStart]);
+  Log::printf("\tgemm:           \t%8.4f (%4.1f%%) in %10d calls\n",
+             times[kTimeBlas_gemm],
+             times[kTimeBlas_gemm] / total_blas_time * 100,
+             blas_calls[kTimeBlas_gemm - kTimeBlasStart]);
+  Log::printf("----------------------------------------------------\n");
 #endif
 #endif
 }
 
 void DataCollector::printIter() const {
 #ifdef COLLECT_DATA
-  printf(
+  Log::printf(
       "\niter |    min D     max D     min L     max L  |"
       "    reg   swap    2x2     ws | "
       "  max_reg  solv   omega     nw_be     cw_be     cw_large  max_ws |\n");
   for (Int i = 0; i < iter_data_record_.size(); ++i) {
     const IterData& iter = iter_data_record_[i];
-    printf(
+    Log::printf(
         "%3d  |"
         " %9.1e %9.1e %9.1e %9.1e |"
         " %6d %6d %6d %6d |"
-        " %9.1e %4d %9.1e %9.1e %9.1e %9d",
+        " %9.1e %4d %9.1e %9.1e %9.1e %9d %9.1e |\n",
         i, iter.minD, iter.maxD, iter.minL, iter.maxL, iter.n_reg_piv,
         iter.n_swap, iter.n_2x2, iter.n_wrong_sign, iter.max_reg,
         iter.num_solves, iter.omega, iter.nw_back_err, iter.cw_back_err,
-        iter.large_components_cw);
-
-    if (iter.max_wrong_sign > 0.0)
-      printf(" %9.1e |\n", iter.max_wrong_sign);
-    else
-      printf(" %9s |\n", "-");
+        iter.large_components_cw, iter.max_wrong_sign);
   }
 
-  printf(
+  Log::printf(
       "\niter |    norm1    maxdiag |"
       "    min T     max T  |"
       "     x_j * z_j / mu    small/large |"
       " corr   sigma af/co |\n");
   for (Int i = 0; i < iter_data_record_.size(); ++i) {
     const IterData& iter = iter_data_record_[i];
-    printf(
+    Log::printf(
         "%3d  | %9.1e %9.1e |"
         " %9.1e %9.1e |"
         " %9.1e %9.1e %6d %5d  |"

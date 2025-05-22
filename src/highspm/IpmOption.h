@@ -2,6 +2,7 @@
 #define HIGHSPM_IPM_OPTION_H
 
 #include "IpmConst.h"
+#include "io/HighsIO.h"
 
 namespace highspm {
 
@@ -54,6 +55,8 @@ struct Options {
   double crossover_tol = kIpmTolDefault;
   bool refine_with_ipx = true;
   double time_limit = -1.0;
+  const HighsLogOptions* log_options;
+  bool display = true;
 };
 
 }  // namespace highspm

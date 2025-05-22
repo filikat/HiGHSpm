@@ -13,6 +13,7 @@
 #include "ReturnValues.h"
 #include "SymScaling.h"
 #include "auxiliary/Auxiliary.h"
+#include "auxiliary/HpmLog.h"
 #include "parallel/HighsParallel.h"
 
 namespace highspm {
@@ -30,7 +31,7 @@ Factorise::Factorise(const Symbolic& S, const std::vector<Int>& rowsA,
   n_ = ptrA.size() - 1;
 
   if (n_ != S_.size()) {
-    printf(
+    Log::printe(
         "Matrix provided to Factorise has size incompatible with symbolic "
         "object.\n");
     return;
@@ -262,7 +263,7 @@ void Factorise::processSupernode(Int sn) {
       if (flag_stop_) return;
 
       if (child_clique.size() == 0) {
-        printf("Missing child supernode contribution\n");
+        Log::printe("Missing child supernode contribution\n");
         flag_stop_ = true;
         return;
       }

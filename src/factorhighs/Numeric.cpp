@@ -2,12 +2,12 @@
 
 #include "CallAndTimeBlas.h"
 #include "DataCollector.h"
+#include "FactorHiGHSSettings.h"
 #include "FormatHandler.h"
 #include "FullSolveHandler.h"
 #include "HybridSolveHandler.h"
 #include "PackedSolveHandler.h"
 #include "Timing.h"
-#include "FactorHiGHSSettings.h"
 #include "auxiliary/Auxiliary.h"
 #include "auxiliary/VectorOperations.h"
 #include "util/HighsCDouble.h"
@@ -142,10 +142,6 @@ Int Numeric::refine(const std::vector<double>& rhs,
     // termination criterion
     if (omega < kRefinementTolerance) break;
 
-#ifdef PRINT_ITER_REF
-    printf("%e  --> ", omega);
-#endif
-
 #if TIMING_LEVEL >= 2
     clock.start();
 #endif
@@ -189,17 +185,10 @@ Int Numeric::refine(const std::vector<double>& rhs,
     if (omega < old_omega) {
       x = temp;
     } else {
-#ifdef PRINT_ITER_REF
-      printf(" xxx ");
-#endif
       omega = old_omega;
       break;
     }
   }
-
-#ifdef PRINT_ITER_REF
-  printf("%e\n", omega);
-#endif
 
   DataCollector::get()->setOmega(omega);
 

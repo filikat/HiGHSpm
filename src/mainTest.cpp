@@ -189,16 +189,19 @@ int main(int argc, char** argv) {
     std::regex_search(pb_name, match, rgx);
     pb_name = match[1];
 
-    // load the problem
-    ipm.load(n, m, obj.data(), rhs.data(), lower.data(), upper.data(),
-             Aptr.data(), Aind.data(), Aval.data(), constraints.data(), offset,
-             pb_name);
-    double load_time = clock1.stop();
+    const HighsOptions& hOptions = highs.getOptions();
+    options.log_options = &hOptions.log_options;
 
     // options.max_iter = 5;
     // options.refine_with_ipx = false;
     // options.time_limit = 1000;
     ipm.setOptions(options);
+
+    // load the problem
+    ipm.load(n, m, obj.data(), rhs.data(), lower.data(), upper.data(),
+             Aptr.data(), Aind.data(), Aval.data(), constraints.data(), offset,
+             pb_name);
+    double load_time = clock1.stop();
 
     // solve LP
     clock1.start();

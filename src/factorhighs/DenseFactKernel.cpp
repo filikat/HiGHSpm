@@ -4,6 +4,7 @@
 #include "ReturnValues.h"
 #include "Swaps.h"
 #include "auxiliary/Auxiliary.h"
+#include "auxiliary/HpmLog.h"
 #include "util/HighsRandom.h"
 
 namespace highspm {
@@ -280,7 +281,7 @@ Int denseFactK(char uplo, Int n, double* A, Int lda, Int* pivot_sign,
 
   // check input
   if (n < 0 || !A || lda < n) {
-    printf("\ndenseFactK: invalid input\n");
+    Log::printe("\ndenseFactK: invalid input\n");
     return kRetInvalidInput;
   }
 
@@ -305,7 +306,7 @@ Int denseFactK(char uplo, Int n, double* A, Int lda, Int* pivot_sign,
       double Ajj = A[j + lda * j];
 
       if (std::isnan(Ajj)) {
-        printf("\ndenseFactK: invalid pivot %e\n", Ajj);
+        Log::printe("\ndenseFactK: invalid pivot %e\n", Ajj);
         return kRetInvalidPivot;
       }
 
@@ -339,7 +340,7 @@ Int denseFactK(char uplo, Int n, double* A, Int lda, Int* pivot_sign,
   // ===========================================================================
   else {
     if (!swaps || !pivot_2x2) {
-      printf("\ndenseFactK: invalid input\n");
+      Log::printe("\ndenseFactK: invalid input\n");
       return kRetInvalidInput;
     }
 
@@ -371,7 +372,7 @@ Int denseFactK(char uplo, Int n, double* A, Int lda, Int* pivot_sign,
         double Ajj = A[j + lda * j];
 
         if (std::isnan(Ajj)) {
-          printf("\ndenseFactK: invalid pivot %e\n", Ajj);
+          Log::printe("\ndenseFactK: invalid pivot %e\n", Ajj);
           return kRetInvalidPivot;
         }
 
@@ -408,7 +409,7 @@ Int denseFactK(char uplo, Int n, double* A, Int lda, Int* pivot_sign,
         const double d2 = A[j + 1 + lda * (j + 1)];
 
         if (std::isnan(d1) || std::isnan(d2)) {
-          printf("\ndenseFactK: invalid pivot %e %e\n", d1, d2);
+          Log::printe("\ndenseFactK: invalid pivot %e %e\n", d1, d2);
           return kRetInvalidPivot;
         }
 

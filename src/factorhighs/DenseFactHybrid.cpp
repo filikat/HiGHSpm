@@ -6,6 +6,7 @@
 #include "ReturnValues.h"
 #include "Swaps.h"
 #include "auxiliary/Auxiliary.h"
+#include "auxiliary/HpmLog.h"
 
 namespace highspm {
 
@@ -28,7 +29,7 @@ Int denseFactFH(char format, Int n, Int k, Int nb, double* A, double* B,
 
   // check input
   if (n < 0 || k < 0 || !A || (k < n && !B)) {
-    printf("\ndenseFactH: invalid input\n");
+    Log::printe("\ndenseFactH: invalid input\n");
     return kRetInvalidInput;
   }
 

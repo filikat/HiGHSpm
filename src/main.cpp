@@ -150,6 +150,9 @@ int main(int argc, char** argv) {
   std::regex_search(model_file, match, rgx);
   pb_name = match[1];
 
+  const HighsOptions& hOptions = highs.getOptions();
+  options.log_options = &hOptions.log_options;
+
   // ===================================================================================
   // LOAD AND SOLVE THE PROBLEM
   // ===================================================================================
@@ -162,13 +165,17 @@ int main(int argc, char** argv) {
   // HighsTaskExecutor::shutdown(true);
   highs::parallel::initialize_scheduler();
 
+  // options.max_iter = 5;
+  // options.refine_with_ipx = false;
+  // options.time_limit = 1000;
+  // options.display = 0;
+  ipm.setOptions(options);
+
   // load the problem
   ipm.load(n, m, obj.data(), rhs.data(), lower.data(), upper.data(),
            Aptr.data(), Aind.data(), Aval.data(), constraints.data(), offset,
            pb_name);
   double load_time = clock.stop();
-
-  ipm.setOptions(options);
 
   // solve LP
   clock.start();

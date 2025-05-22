@@ -5,6 +5,7 @@
 #include "DenseFact.h"
 #include "ReturnValues.h"
 #include "auxiliary/Auxiliary.h"
+#include "auxiliary/HpmLog.h"
 
 namespace highspm {
 
@@ -26,7 +27,7 @@ Int denseFactF(Int n, Int k, Int nb, double* A, Int lda, double* B, Int ldb,
 
   // check input
   if (n < 0 || k < 0 || !A || lda < n || (k < n && (!B || ldb < n - k))) {
-    printf("\ndenseFactF: invalid input\n");
+    Log::printe("\ndenseFactF: invalid input\n");
     return kRetInvalidInput;
   }
 
@@ -163,7 +164,7 @@ Int denseFactFP(Int n, Int k, Int nb, double* A, double* B,
 
   // check input
   if (n < 0 || k < 0 || !A || (k < n && !B)) {
-    printf("\ndenseFactFP: invalid input\n");
+    Log::printe("\ndenseFactFP: invalid input\n");
     return kRetInvalidInput;
   }
 

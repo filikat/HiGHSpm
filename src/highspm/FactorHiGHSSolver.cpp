@@ -4,6 +4,7 @@
 
 #include "IpmStatus.h"
 #include "auxiliary/Auxiliary.h"
+#include "auxiliary/HpmLog.h"
 
 namespace highspm {
 
@@ -368,13 +369,13 @@ Int FactorHiGHSSolver::choose(const IpmModel& model, Options& options) {
   // Decision may be forced by failures
   if (failure_NE && !failure_AS) {
     options.nla = kOptionNlaAugmented;
-    printf("Using augmented system because normal equations failed\n");
+    Log::printf("Using augmented system because normal equations failed\n");
   } else if (failure_AS && !failure_NE) {
     options.nla = kOptionNlaNormEq;
-    printf("Using normal equations because augmented system failed\n");
+    Log::printf("Using normal equations because augmented system failed\n");
   } else if (failure_AS && failure_NE) {
     status = kLinearSolverStatusErrorAnalyse;
-    printf("Failure: both approaches failed analyse phase\n");
+    Log::printe("Both approaches failed analyse phase\n");
   } else {
     // Total number of operations, given by dense flops and sparse indexing
     // operations, weighted with an empirical factor
@@ -395,10 +396,10 @@ Int FactorHiGHSSolver::choose(const IpmModel& model, Options& options) {
     if (NE_much_more_expensive ||
         (sn_AS_larger_than_NE && AS_not_too_expensive)) {
       options.nla = kOptionNlaAugmented;
-      printf("Using augmented system because it is preferrable\n");
+      Log::printf("Using augmented system because it is preferrable\n");
     } else {
       options.nla = kOptionNlaNormEq;
-      printf("Using normal equations because it is preferrable\n");
+      Log::printf("Using normal equations because it is preferrable\n");
     }
   }
 
@@ -424,28 +425,28 @@ Int FactorHiGHSSolver::setNla(const IpmModel& model, Options& options) {
       clock.start();
       Analyse analyse(S_, rowsLower, ptrLower, model.A().num_col_);
       if (analyse.run()) {
-        printf("Analyse phase failed\n");
+        Log::printe("Analyse phase failed\n");
         return kLinearSolverStatusErrorAnalyse;
       }
       if (info_) info_->analyse_AS_time = clock.stop();
-      printf("Using augmented system as requested\n");
+      Log::printf("Using augmented system as requested\n");
       break;
     }
 
     case kOptionNlaNormEq: {
       Int NE_status = getNE(model.A(), ptrLower, rowsLower);
       if (NE_status) {
-        printf("Failure: AAt is too large\n");
+        Log::printe("Failure: AAt is too large\n");
         return kLinearSolverStatusErrorOom;
       }
       clock.start();
       Analyse analyse(S_, rowsLower, ptrLower, 0);
       if (analyse.run()) {
-        printf("Analyse phase failed\n");
+        Log::printe("Analyse phase failed\n");
         return kLinearSolverStatusErrorAnalyse;
       }
       if (info_) info_->analyse_NE_time = clock.stop();
-      printf("Using normal equations as requested\n");
+      Log::printf("Using normal equations as requested\n");
       break;
     }
 
@@ -465,12 +466,12 @@ void FactorHiGHSSolver::setParallel(Options& options) {
 
   switch (options.parallel) {
     case kOptionParallelOff:
-      printf("Using no parallelism as requested\n");
+      Log::printf("Using no parallelism as requested\n");
       break;
     case kOptionParallelOn:
       parallel_tree = true;
       parallel_node = true;
-      printf("Using full parallelism as requested\n");
+      Log::printf("Using full parallelism as requested\n");
       break;
     case kOptionParallelChoose: {
 #ifdef FRAMEWORK_ACCELERATE
@@ -505,27 +506,27 @@ void FactorHiGHSSolver::setParallel(Options& options) {
 
       if (parallel_tree && parallel_node) {
         options.parallel = kOptionParallelOn;
-        printf("Using full parallelism because it is preferrable\n");
+        Log::printf("Using full parallelism because it is preferrable\n");
       } else if (parallel_tree && !parallel_node) {
         options.parallel = kOptionParallelTreeOnly;
-        printf("Using only tree parallelism because it is preferrable\n");
+        Log::printf("Using only tree parallelism because it is preferrable\n");
       } else if (!parallel_tree && parallel_node) {
         options.parallel = kOptionParallelNodeOnly;
-        printf("Using only node parallelism because it is preferrable\n");
+        Log::printf("Using only node parallelism because it is preferrable\n");
       } else {
         options.parallel = kOptionParallelOff;
-        printf("Using no parallelism because it is preferrable\n");
+        Log::printf("Using no parallelism because it is preferrable\n");
       }
 
       break;
     }
     case kOptionParallelTreeOnly:
       parallel_tree = true;
-      printf("Using only tree parallelism as requested\n");
+      Log::printf("Using only tree parallelism as requested\n");
       break;
     case kOptionParallelNodeOnly:
       parallel_node = true;
-      printf("Using only node parallelism as requested\n");
+      Log::printf("Using only node parallelism as requested\n");
       break;
   }
 

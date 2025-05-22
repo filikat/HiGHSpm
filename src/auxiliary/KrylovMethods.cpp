@@ -4,6 +4,7 @@
 #include <iostream>
 
 #include "VectorOperations.h"
+#include "auxiliary/HpmLog.h"
 
 namespace highspm {
 
@@ -181,7 +182,7 @@ Int Cg(const AbstractMatrix* M, const AbstractMatrix* P,
     ++iter;
 
     if (isNanVector(x)) {
-      printf("CG: x is nan at iter %" HIGHSINT_FORMAT "\n", iter);
+      Log::printe("CG: x is nan at iter %" HIGHSINT_FORMAT "\n", iter);
       break;
     }
   }

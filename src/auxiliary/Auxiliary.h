@@ -53,10 +53,10 @@ void permuteVectorInverse(std::vector<T>& v, const std::vector<Int>& iperm) {
 }
 
 template <typename T>
-void print(const std::vector<T>& v, const std::string s) {
+void printTest(const std::vector<T>& v, const std::string s) {
   std::ofstream out_file;
   char name[80];
-  snprintf(name, 80, "../FactorHiGHS/matlab/%s.txt", s.c_str());
+  snprintf(name, 80, "%s.txt", s.c_str());
   out_file.open(name);
   for (T i : v) {
     out_file << std::setprecision(16) << i << '\n';

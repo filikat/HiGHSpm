@@ -4,6 +4,7 @@
 #include <cmath>
 #include <iostream>
 
+#include "auxiliary/HpmLog.h"
 #include "parallel/HighsParallel.h"
 
 namespace highspm {
@@ -30,7 +31,10 @@ void Ipm::load(const Int num_var, const Int num_con, const double* obj,
   info_.n_original = num_var;
 }
 
-void Ipm::setOptions(const Options& options) { options_ = options; }
+void Ipm::setOptions(const Options& options) {
+  options_ = options;
+  if (options_.display) Log::setOptions(options_.log_options);
+}
 
 void Ipm::solve() {
   if (!model_.ready()) {
@@ -162,7 +166,7 @@ bool Ipm::prepareIpx() {
   // Return true if an error occurred;
 
   ipx::Parameters ipx_param;
-  ipx_param.display = 1;
+  ipx_param.display = options_.display;
   ipx_param.dualize = 0;
   ipx_param.run_crossover = options_.crossover;
   ipx_param.ipm_feasibility_tol = options_.feasibility_tol;
@@ -172,7 +176,7 @@ bool Ipm::prepareIpx() {
   Int load_status = model_.loadIntoIpx(ipx_lps_);
 
   if (load_status) {
-    printf("Error loading model into IPX\n");
+    Log::printe("Error loading model into IPX\n");
     return true;
   }
 
@@ -184,7 +188,7 @@ bool Ipm::prepareIpx() {
       zu.data());
 
   if (start_point_status) {
-    printf("Error loading starting point into IPX\n");
+    Log::printe("Error loading starting point into IPX\n");
     return true;
   }
 
@@ -195,12 +199,13 @@ void Ipm::refineWithIpx() {
   if (statusIsStop() || checkTimeLimit()) return;
 
   if (!statusIsOptimal() && options_.refine_with_ipx) {
-    printf("\nIpm did not converge, restarting with IPX\n\n");
+    Log::printf("\nIpm did not converge, restarting with IPX\n");
   } else if (options_.crossover == kOptionCrossoverOn) {
-    printf("\nIpm converged, running crossover with IPX\n\n");
+    Log::printf("\nIpm converged, running crossover with IPX\n");
   } else {
     return;
   }
+  Log::printf("\n");
 
   if (prepareIpx()) return;
 
@@ -275,7 +280,7 @@ bool Ipm::solveNewtonSystem(NewtonDir& delta) {
 
 // Failure occured in factorisation or solve
 failure:
-  std::cerr << "Error while solving Newton system\n";
+  Log::printe("Error while solving Newton system\n");
   info_.ipm_status = kIpmStatusError;
   return true;
 }
@@ -333,11 +338,11 @@ bool Ipm::recoverDirection(NewtonDir& delta) {
 
   // Check for NaN of Inf
   if (it_->isDirNan()) {
-    std::cerr << "Direction is nan\n";
+    Log::printe("Direction is nan\n");
     info_.ipm_status = kIpmStatusError;
     return true;
   } else if (it_->isDirInf()) {
-    std::cerr << "Direction is inf\n";
+    Log::printe("Direction is inf\n");
     info_.ipm_status = kIpmStatusError;
     return true;
   }
@@ -692,7 +697,7 @@ void Ipm::startingPoint() {
   return;
 
 failure:
-  std::cerr << "Error while computing starting point\n";
+  Log::printe("Error while computing starting point\n");
   info_.ipm_status = kIpmStatusError;
 }
 
@@ -800,10 +805,6 @@ bool Ipm::centralityCorrectors() {
   double alpha_p_old, alpha_d_old;
   stepsToBoundary(alpha_p_old, alpha_d_old, it_->delta);
 
-#ifdef PRINT_CORRECTORS
-  printf("(%.2f,%.2f) -> ", alpha_p_old, alpha_d_old);
-#endif
-
   Int cor;
   for (cor = 0; cor < info_.correctors; ++cor) {
     // compute rhs for corrector
@@ -819,16 +820,9 @@ bool Ipm::centralityCorrectors() {
     double wd = wp;
     bestWeight(it_->delta, corr, wp, wd, alpha_p, alpha_d);
 
-#ifdef PRINT_CORRECTORS
-    printf("(%.2f,%.2f) -> ", alpha_p, alpha_d);
-#endif
-
     if (alpha_p < alpha_p_old + kMccIncreaseAlpha * kMccIncreaseMin &&
         alpha_d < alpha_d_old + kMccIncreaseAlpha * kMccIncreaseMin) {
       // reject corrector
-#ifdef PRINT_CORRECTORS
-      printf(" x");
-#endif
       break;
     }
 
@@ -855,9 +849,6 @@ bool Ipm::centralityCorrectors() {
 
     // else, keep computing correctors
   }
-#ifdef PRINT_CORRECTORS
-  printf("\n");
-#endif
 
   DataCollector::get()->setCorrectors(cor);
 
@@ -902,11 +893,11 @@ void Ipm::bestWeight(const NewtonDir& delta, const NewtonDir& corrector,
 bool Ipm::checkIterate() {
   // Check that iterate is not NaN or Inf
   if (it_->isNan()) {
-    printf("\nIterate is nan\n");
+    Log::printe("\nIterate is nan\n");
     info_.ipm_status = kIpmStatusError;
     return true;
   } else if (it_->isInf()) {
-    printf("\nIterate is inf\n");
+    Log::printe("\nIterate is inf\n");
     info_.ipm_status = kIpmStatusError;
     return true;
   }
@@ -917,7 +908,7 @@ bool Ipm::checkIterate() {
         (model_.hasLb(i) && it_->zl[i] < 0) ||
         (model_.hasUb(i) && it_->xu[i] < 0) ||
         (model_.hasUb(i) && it_->zu[i] < 0)) {
-      printf("\nIterate has negative component\n");
+      Log::printe("\nIterate has negative component\n");
       return true;
     }
   }
@@ -942,17 +933,17 @@ bool Ipm::checkBadIter() {
   if (too_many_bad_iter || mu_is_large) {
     if (pobj_is_large) {
       // problem is likely to be primal unbounded, i.e. dual infeasible
-      printf("=== Dual infeasible\n");
+      Log::printf("=== Dual infeasible\n");
       info_.ipm_status = kIpmStatusDualInfeasible;
       terminate = true;
     } else if (dobj_is_large) {
       // problem is likely to be dual unbounded, i.e. primal infeasible
-      printf("=== Primal infeasible\n");
+      Log::printf("=== Primal infeasible\n");
       info_.ipm_status = kIpmStatusPrimalInfeasible;
       terminate = true;
     } else {
       // Too many bad iterations in a row, abort the solver
-      printf("=== No progress\n");
+      Log::printf("=== No progress\n");
       info_.ipm_status = kIpmStatusNoProgress;
       terminate = true;
     }
@@ -970,7 +961,7 @@ bool Ipm::checkTermination() {
 
   if (feasible && optimal) {
     if (info_.ipm_status != kIpmStatusPDFeas)
-      printf("=== Primal-dual feasible point found\n");
+      Log::printf("=== Primal-dual feasible point found\n");
 
     info_.ipm_status = kIpmStatusPDFeas;
 
@@ -978,7 +969,7 @@ bool Ipm::checkTermination() {
       bool ready_for_crossover =
           it_->infeasAfterDropping() < options_.crossover_tol;
       if (ready_for_crossover) {
-        printf("=== Ready for crossover\n");
+        Log::printf("=== Ready for crossover\n");
         terminate = true;
       }
     } else {
@@ -993,7 +984,7 @@ bool Ipm::checkTimeLimit() {
   if (options_.time_limit > 0 && clock_.stop() > options_.time_limit) {
     terminate = true;
     info_.ipm_status = kIpmStatusTimeLimit;
-    printf("Reached time limit of %.1f seconds\n", options_.time_limit);
+    Log::printw("Reached time limit of %.1f seconds\n", options_.time_limit);
   }
   return terminate;
 }
@@ -1286,7 +1277,7 @@ void Ipm::backwardError(const NewtonDir& delta) const {
 
 void Ipm::printHeader() const {
   if (iter_ % 20 == 0) {
-    printf(
+    Log::printf(
         " iter      primal obj        dual obj        pinf      dinf "
         "       mu      alpha p/d    p/d gap    time\n");
   }
@@ -1295,7 +1286,7 @@ void Ipm::printHeader() const {
 void Ipm::printOutput() const {
   printHeader();
 
-  printf(
+  Log::printf(
       "%5d %16.8e %16.8e %10.2e %10.2e %10.2e %6.2f %5.2f %9.2e "
       "%7.1f\n",
       iter_, it_->pobj, it_->dobj, it_->pinf, it_->dinf, it_->mu, alpha_primal_,
@@ -1303,17 +1294,17 @@ void Ipm::printOutput() const {
 }
 
 void Ipm::printInfo() const {
-  printf("\n");
-  printf("Running HiGHSpm\n");
-  printf("Problem %s\n", model_.name().c_str());
+  Log::printf("\n");
+  Log::printf("Running HiGHSpm\n");
+  Log::printf("Problem %s\n", model_.name().c_str());
 
   if (options_.parallel == kOptionParallelOff)
-    printf("Running on 1 thread\n");
+    Log::printf("Running on 1 thread\n");
   else
-    printf("Running on %d threads\n", highs::parallel::num_threads());
+    Log::printf("Running on %d threads\n", highs::parallel::num_threads());
 
 #ifdef COLLECT_DATA
-  printf("Running in debug mode\n");
+  Log::printw("Running in debug mode\n");
 #endif
 
   // print range of coefficients

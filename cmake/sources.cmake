@@ -70,12 +70,14 @@ set(factor_highs_headers
 set(util_sources
     auxiliary/Auxiliary.cpp
     auxiliary/KrylovMethods.cpp
+    auxiliary/HpmLog.cpp
     auxiliary/VectorOperations.cpp)
 
 set(util_headers
     auxiliary/Auxiliary.h
     auxiliary/IntConfig.h
     auxiliary/KrylovMethods.h
+    auxiliary/HpmLog.h
     auxiliary/mycblas.h
     auxiliary/VectorOperations.h)
 

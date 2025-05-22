@@ -1,6 +1,7 @@
 #include "IpmModel.h"
 
 #include "IpmConst.h"
+#include "auxiliary/HpmLog.h"
 
 namespace highspm {
 
@@ -166,12 +167,12 @@ void IpmModel::reformulate() {
 }
 
 void IpmModel::print() const {
-  printf("Rows: %.1e\n", (double)m_);
-  printf("Cols: %.1e\n", (double)n_);
-  printf("Nnz : %.1e\n", (double)A_.numNz());
-  printf("Dense cols: %" HIGHSINT_FORMAT "\n", num_dense_cols_);
+  Log::printf("Rows: %.1e\n", (double)m_);
+  Log::printf("Cols: %.1e\n", (double)n_);
+  Log::printf("Nnz : %.1e\n", (double)A_.numNz());
+  Log::printf("Dense cols: %" HIGHSINT_FORMAT "\n", num_dense_cols_);
   if (empty_rows_ > 0)
-    printf("Removed %" HIGHSINT_FORMAT " empty rows\n", empty_rows_);
+    Log::printf("Removed %" HIGHSINT_FORMAT " empty rows\n", empty_rows_);
 
   // compute max and min entry of A in absolute value
   double Amin = kHighsInf;
@@ -240,19 +241,38 @@ void IpmModel::print() const {
   if (std::isinf(scalemin)) scalemin = 0.0;
 
   // print ranges
-  printf("Range of A      : [%5.1e, %5.1e], ratio ", Amin, Amax);
-  Amin == 0.0 ? printf("-\n") : printf("%.1e\n", Amax / Amin);
-  printf("Range of b      : [%5.1e, %5.1e], ratio ", bmin, bmax);
-  bmin == 0.0 ? printf("-\n") : printf("%.1e\n", bmax / bmin);
-  printf("Range of c      : [%5.1e, %5.1e], ratio ", cmin, cmax);
-  cmin == 0.0 ? printf("-\n") : printf("%.1e\n", cmax / cmin);
-  printf("Range of bounds : [%5.1e, %5.1e], ratio ", boundmin, boundmax);
-  boundmin == 0.0 ? printf("-\n") : printf("%.1e\n", boundmax / boundmin);
-  printf("Scaling coeff   : ");
-  scaled() ? printf("[%5.1e, %5.1e], ratio %.1e\n", scalemin, scalemax,
-                    scalemax / scalemin)
-           : printf("-\n");
-  printf("\n");
+  if (Amin != 0.0)
+    Log::printf("Range of A      : [%5.1e, %5.1e], ratio %.1e\n", Amin, Amax,
+               Amax / Amin);
+  else
+    Log::printf("Range of A      : [%5.1e, %5.1e], ratio -\n", Amin, Amax);
+
+  if (bmin != 0.0)
+    Log::printf("Range of b      : [%5.1e, %5.1e], ratio %.1e\n", bmin, bmax,
+               bmax / bmin);
+  else
+    Log::printf("Range of b      : [%5.1e, %5.1e], ratio -\n", bmin, bmax);
+
+  if (cmin != 0.0)
+    Log::printf("Range of c      : [%5.1e, %5.1e], ratio %.1e\n", cmin, cmax,
+               cmax / cmin);
+  else
+    Log::printf("Range of c      : [%5.1e, %5.1e], ratio -\n", cmin, cmax);
+
+  if (boundmin != 0.0)
+    Log::printf("Range of bounds : [%5.1e, %5.1e], ratio %.1e\n", boundmin,
+               boundmax, boundmax / boundmin);
+  else
+    Log::printf("Range of bounds : [%5.1e, %5.1e], ratio -\n", boundmin,
+               boundmax);
+
+  if (scaled())
+    Log::printf("Scaling coeff   : [%5.1e, %5.1e], ratio %.1e\n", scalemin,
+               scalemax, scalemax / scalemin);
+  else
+    Log::printf("Scaling coeff   : -\n");
+
+  Log::printf("\n");
 }
 
 void IpmModel::scale() {

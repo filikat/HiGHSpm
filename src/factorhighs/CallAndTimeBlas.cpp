@@ -5,6 +5,7 @@
 #include "Timing.h"
 #include "auxiliary/Auxiliary.h"
 #include "auxiliary/mycblas.h"
+#include "FactorHiGHSSettings.h"
 
 namespace highspm {
 

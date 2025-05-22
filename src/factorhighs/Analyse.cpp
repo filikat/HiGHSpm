@@ -11,6 +11,7 @@
 #include "GKlib.h"
 #include "ReturnValues.h"
 #include "auxiliary/Auxiliary.h"
+#include "auxiliary/HpmLog.h"
 #include "metis.h"
 
 namespace highspm {
@@ -112,7 +113,7 @@ Int Analyse::getPermutation() {
   Int status = METIS_NodeND(&n_, temp_ptr.data(), temp_rows.data(), NULL,
                             options, perm_.data(), iperm_.data());
   if (status != METIS_OK) {
-    printf("Error with Metis\n");
+    Log::printe("Error with Metis\n");
     return kRetMetisError;
   }
 
@@ -951,8 +952,8 @@ void Analyse::relativeIndClique() {
       } else if (consecutive_sums_[sn][i] == 1) {
         consecutive_sums_[sn][i] = consecutive_sums_[sn][i + 1] + 1;
       } else {
-        printf("Error in consecutiveSums %" HIGHSINT_FORMAT "\n",
-               consecutive_sums_[sn][i]);
+        Log::printe("Error in consecutiveSums %" HIGHSINT_FORMAT "\n",
+                   consecutive_sums_[sn][i]);
       }
     }
   }
