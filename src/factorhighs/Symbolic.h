@@ -7,16 +7,8 @@
 
 namespace highspm {
 
-// Frontal and Clique can be stored in Full format, Hybrid format, of Packed
-// format (with full diagonal blocks).
-// (see report for details)
-enum class FormatType { Full, HybridPacked, HybridHybrid, PackedPacked };
-
 // Symbolic factorisation object
 class Symbolic {
-  // Format
-  FormatType format_type_;
-
   // Options for parallelism
   bool parallel_tree_ = false;
   bool parallel_node_ = false;
@@ -104,11 +96,10 @@ class Symbolic {
   friend class Analyse;
 
  public:
-  Symbolic(FormatType format_type);
+  Symbolic();
   void setParallel(bool par_tree, bool par_node);
 
   // provide const access to symbolic factorisation
-  FormatType formatType() const;
   int64_t nz() const;
   double flops() const;
   double spops() const;

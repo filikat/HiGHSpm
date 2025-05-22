@@ -15,7 +15,6 @@ enum ArgC {
   kMinArgC = 2,
   kDirectoryPath = 1,
   kOptionNlaArg,
-  kOptionFormatArg,
   kOptionCrossoverArg,
   kOptionParallelArg,
   kMaxArgC
@@ -26,13 +25,13 @@ int main(int argc, char** argv) {
 
   if (argc < kMinArgC || argc > kMaxArgC) {
     std::cerr << "======= How to use: ./test problems_path nla_option "
-                 "format_option crossover_option =======\n";
+                 "crossover_option parallel_option =======\n";
     std::cerr << "problems_path    : path to directory, it must contain "
                  "names.txt and subdirectory data/\n";
     std::cerr << "nla_option       : 0 aug sys, 1 norm eq\n";
-    std::cerr << "format_option    : 0 full, 1 hybrid packed, 2 hybrid hybrid, "
-                 "3 packed packed\n";
     std::cerr << "crossover_option : 0 off, 1 on\n";
+    std::cerr << "parallel_option : 0 off, 1 on, 2 choose, 3 tree only, 4 node "
+                 "only\n";
     return 1;
   }
 
@@ -139,19 +138,6 @@ int main(int argc, char** argv) {
       std::cerr << "Illegal value of " << options.nla
                 << " for option_nla: must be in [" << highspm::kOptionNlaMin
                 << ", " << highspm::kOptionNlaMax << "]\n";
-      return 1;
-    }
-
-    // option to choose storage format inside FactorHiGHS
-    options.format = argc > kOptionFormatArg
-                         ? (highspm::OptionFormat)atoi(argv[kOptionFormatArg])
-                         : highspm::kOptionFormatDefault;
-    if (options.format < highspm::kOptionFormatMin ||
-        options.format > highspm::kOptionFormatMax) {
-      std::cerr << "Illegal value of " << options.format
-                << " for option_format: must be in ["
-                << highspm::kOptionFormatMin << ", "
-                << highspm::kOptionFormatMax << "]\n";
       return 1;
     }
 

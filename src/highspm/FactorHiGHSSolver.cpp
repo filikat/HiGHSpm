@@ -14,7 +14,7 @@ Int computeLowerAThetaAT(
     const int64_t max_num_nz = std::numeric_limits<Int>::max());
 
 FactorHiGHSSolver::FactorHiGHSSolver(const Options& options, IpmInfo* info)
-    : S_((FormatType)options.format), N_(S_), info_{info} {}
+    : S_{}, N_(S_), info_{info} {}
 
 void FactorHiGHSSolver::clear() {
   valid_ = false;
@@ -317,8 +317,8 @@ Int FactorHiGHSSolver::choose(const IpmModel& model, Options& options) {
 
   assert(options.nla == kOptionNlaChoose);
 
-  Symbolic symb_NE((FormatType)options.format);
-  Symbolic symb_AS((FormatType)options.format);
+  Symbolic symb_NE{};
+  Symbolic symb_AS{};
   bool failure_NE = false;
   bool failure_AS = false;
 

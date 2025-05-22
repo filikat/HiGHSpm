@@ -15,16 +15,6 @@ enum OptionNla {
   kOptionNlaDefault = kOptionNlaChoose
 };
 
-enum OptionFormat {
-  kOptionFormatMin = 0,
-  kOptionFormatFull = kOptionFormatMin,
-  kOptionFormatHybridPacked,
-  kOptionFormatHybridHybrid,
-  kOptionFormatPackedPacked,
-  kOptionFormatMax = kOptionFormatPackedPacked,
-  kOptionFormatDefault = kOptionFormatHybridHybrid
-};
-
 enum OptionCrossover {
   kOptionCrossoverMin = 0,
   kOptionCrossoverOff = kOptionCrossoverMin,
@@ -45,16 +35,20 @@ enum OptionParallel {
 };
 
 struct Options {
+  // Solver options
   OptionNla nla = kOptionNlaDefault;
-  OptionFormat format = kOptionFormatDefault;
   OptionCrossover crossover = kOptionCrossoverDefault;
   OptionParallel parallel = kOptionParallelDefault;
+
+  // Ipm parameters
   Int max_iter = kMaxIterDefault;
   double feasibility_tol = kIpmTolDefault;
   double optimality_tol = kIpmTolDefault;
   double crossover_tol = kIpmTolDefault;
   bool refine_with_ipx = true;
   double time_limit = -1.0;
+
+  // Logging
   const HighsLogOptions* log_options;
   bool display = true;
 };

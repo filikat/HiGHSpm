@@ -17,18 +17,7 @@ namespace highspm {
 
 Numeric::Numeric(const Symbolic& S) : S_{S} {
   // initialise solve handler
-  switch (S_.formatType()) {
-    case FormatType::Full:
-      SH_.reset(new FullSolveHandler(S_, sn_columns_));
-      break;
-    case FormatType::HybridPacked:
-    case FormatType::HybridHybrid:
-      SH_.reset(new HybridSolveHandler(S_, sn_columns_, swaps_, pivot_2x2_));
-      break;
-    case FormatType::PackedPacked:
-      SH_.reset(new PackedSolveHandler(S_, sn_columns_));
-      break;
-  }
+  SH_.reset(new HybridSolveHandler(S_, sn_columns_, swaps_, pivot_2x2_));
 }
 
 Int Numeric::solve(std::vector<double>& x) const {

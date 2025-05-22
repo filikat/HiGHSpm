@@ -170,20 +170,7 @@ void Factorise::permute(const std::vector<Int>& iperm) {
 
 std::unique_ptr<FormatHandler> getFormatHandler(const Symbolic& S, Int sn) {
   std::unique_ptr<FormatHandler> ptr;
-  switch (S.formatType()) {
-    case FormatType::Full:
-      ptr.reset(new FullFormatHandler(S, sn));
-      break;
-    case FormatType::HybridPacked:
-      ptr.reset(new HybridPackedFormatHandler(S, sn));
-      break;
-    case FormatType::HybridHybrid:
-      ptr.reset(new HybridHybridFormatHandler(S, sn));
-      break;
-    case FormatType::PackedPacked:
-      ptr.reset(new PackedPackedFormatHandler(S, sn));
-      break;
-  }
+  ptr.reset(new HybridHybridFormatHandler(S, sn));
   return ptr;
 }
 

@@ -953,7 +953,7 @@ void Analyse::relativeIndClique() {
         consecutive_sums_[sn][i] = consecutive_sums_[sn][i + 1] + 1;
       } else {
         Log::printe("Error in consecutiveSums %" HIGHSINT_FORMAT "\n",
-                   consecutive_sums_[sn][i]);
+                    consecutive_sums_[sn][i]);
       }
     }
   }
@@ -964,33 +964,20 @@ void Analyse::computeStorage(Int fr, Int sz, double& fr_entries,
   // compute storage required by frontal and clique, based on the format used
 
   const Int cl = fr - sz;
-  switch (S_.formatType()) {
-    case FormatType::Full: {
-      // full format stores a rectangle for each
-      fr_entries = (double)fr * sz;
-      cl_entries = (double)cl * cl;
-      break;
-    }
 
-    case FormatType::HybridPacked:
-    case FormatType::HybridHybrid:
-    case FormatType::PackedPacked: {
-      const Int nb = S_.blockSize();
-      Int n_blocks = (sz - 1) / nb + 1;
-      std::vector<Int> temp;
-      fr_entries = getDiagStart(fr, sz, nb, n_blocks, temp);
+  const Int nb = S_.blockSize();
+  Int n_blocks = (sz - 1) / nb + 1;
+  std::vector<Int> temp;
+  fr_entries = getDiagStart(fr, sz, nb, n_blocks, temp);
 
-      // clique is stored as a collection of rectangles
-      n_blocks = (cl - 1) / nb + 1;
-      double schur_size{};
-      for (Int j = 0; j < n_blocks; ++j) {
-        const Int jb = std::min(nb, cl - j * nb);
-        schur_size += (double)(cl - j * nb) * jb;
-      }
-      cl_entries = schur_size;
-      break;
-    }
+  // clique is stored as a collection of rectangles
+  n_blocks = (cl - 1) / nb + 1;
+  double schur_size{};
+  for (Int j = 0; j < n_blocks; ++j) {
+    const Int jb = std::min(nb, cl - j * nb);
+    schur_size += (double)(cl - j * nb) * jb;
   }
+  cl_entries = schur_size;
 }
 
 void Analyse::computeStorage() {
@@ -1277,28 +1264,19 @@ void Analyse::reorderChildren() {
 }
 
 void Analyse::computeBlockStart() {
-  switch (S_.formatType()) {
-    case FormatType::Full:
-      // clique_block_start_ not needed for full format
-      return;
-    case FormatType::HybridPacked:
-    case FormatType::HybridHybrid:
-    case FormatType::PackedPacked:
-      clique_block_start_.resize(sn_count_);
-      // compute starting position of each block of columns in the clique, for
-      // each supernode
-      for (Int sn = 0; sn < sn_count_; ++sn) {
-        const Int sn_size = sn_start_[sn + 1] - sn_start_[sn];
-        const Int ldf = ptr_sn_[sn + 1] - ptr_sn_[sn];
-        const Int ldc = ldf - sn_size;
-        const Int nb = S_.blockSize();
-        const Int n_blocks = (ldc - 1) / nb + 1;
+  clique_block_start_.resize(sn_count_);
+  // compute starting position of each block of columns in the clique, for
+  // each supernode
+  for (Int sn = 0; sn < sn_count_; ++sn) {
+    const Int sn_size = sn_start_[sn + 1] - sn_start_[sn];
+    const Int ldf = ptr_sn_[sn + 1] - ptr_sn_[sn];
+    const Int ldc = ldf - sn_size;
+    const Int nb = S_.blockSize();
+    const Int n_blocks = (ldc - 1) / nb + 1;
 
-        Int schur_size =
-            getDiagStart(ldc, ldc, nb, n_blocks, clique_block_start_[sn]);
-        clique_block_start_[sn].push_back(schur_size);
-      }
-      break;
+    Int schur_size =
+        getDiagStart(ldc, ldc, nb, n_blocks, clique_block_start_[sn]);
+    clique_block_start_[sn].push_back(schur_size);
   }
 }
 

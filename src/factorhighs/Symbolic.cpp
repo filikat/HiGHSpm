@@ -7,15 +7,13 @@
 
 namespace highspm {
 
-Symbolic::Symbolic(FormatType format_type)
-    : format_type_{format_type}, block_size_{kBlockSize} {}
+Symbolic::Symbolic() : block_size_{kBlockSize} {}
 
 void Symbolic::setParallel(bool par_tree, bool par_node) {
   parallel_tree_ = par_tree;
   parallel_node_ = par_node;
 }
 
-FormatType Symbolic::formatType() const { return format_type_; }
 int64_t Symbolic::nz() const { return nz_; }
 double Symbolic::flops() const { return flops_; }
 double Symbolic::spops() const { return spops_; }
@@ -70,9 +68,9 @@ void Symbolic::print(bool verbose) const {
     Log::printf("critical ops    : %.1e\n", critops_);
     Log::printf("max tree speedup: %.2f\n", flops_ / critops_);
     Log::printf("artificial nz   : %.1e (%.1f%%)\n", (double)artificial_nz_,
-               (double)artificial_nz_ / nz_ * 100);
+                (double)artificial_nz_ / nz_ * 100);
     Log::printf("artificial ops  : %.1e (%.1f%%)\n", artificial_ops_,
-               artificial_ops_ / flops_ * 100);
+                artificial_ops_ / flops_ * 100);
     Log::printf("largest front   : %5d\n", largest_front_);
     Log::printf("largest sn      : %5d\n", largest_sn_);
     Log::printf("supernodes      : %5d\n", sn_);

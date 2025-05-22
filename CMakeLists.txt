@@ -34,18 +34,18 @@ target_include_directories(run_test PRIVATE "${HIGHS_PATH}/src" "${HIGHS_PATH}/b
 # tests
 enable_testing()
 
-add_test(NAME test_ne COMMAND ipm ../instances/afiro.mps 1 2 0)
+add_test(NAME test_ne COMMAND ipm ../instances/afiro.mps 1 0)
 set_tests_properties(test_ne PROPERTIES 
                     PASS_REGULAR_EXPRESSION "Primal-dual feasible point found")
 
-add_test(NAME test_as COMMAND ipm ../instances/afiro.mps 0 2 0)
+add_test(NAME test_as COMMAND ipm ../instances/afiro.mps 0 0)
 set_tests_properties(test_as PROPERTIES 
                     PASS_REGULAR_EXPRESSION "Primal-dual feasible point found")
 
-add_test(NAME test_ne_crossover COMMAND ipm ../instances/afiro.mps 1 2 1)
+add_test(NAME test_ne_crossover COMMAND ipm ../instances/afiro.mps 1 1)
 set_tests_properties(test_ne_crossover PROPERTIES
                     PASS_REGULAR_EXPRESSION "Status crossover: +optimal")
 
-add_test(NAME test_as_crossover COMMAND ipm ../instances/afiro.mps 0 2 1)
+add_test(NAME test_as_crossover COMMAND ipm ../instances/afiro.mps 0 1)
 set_tests_properties(test_as_crossover PROPERTIES
                     PASS_REGULAR_EXPRESSION "Status crossover: +optimal")                 
