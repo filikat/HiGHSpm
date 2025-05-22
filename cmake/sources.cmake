@@ -21,21 +21,15 @@ set(factor_highs_sources
     factorhighs/Analyse.cpp
     factorhighs/CallAndTimeBlas.cpp
     factorhighs/DataCollector.cpp
-    factorhighs/DenseFactFull.cpp
     factorhighs/DenseFactHybrid.cpp
     factorhighs/DenseFactKernel.cpp
     factorhighs/DgemmParallel.cpp
     factorhighs/Factorise.cpp
     factorhighs/FormatHandler.cpp
-    factorhighs/FullFormatHandler.cpp
-    factorhighs/FullSolveHandler.cpp
     factorhighs/HybridHybridFormatHandler.cpp
-    factorhighs/HybridPackedFormatHandler.cpp
     factorhighs/HybridSolveHandler.cpp
     factorhighs/KrylovMethodsIpm.cpp
     factorhighs/Numeric.cpp
-    factorhighs/PackedPackedFormatHandler.cpp
-    factorhighs/PackedSolveHandler.cpp
     factorhighs/SolveHandler.cpp
     factorhighs/Swaps.cpp
     factorhighs/SymScaling.cpp
@@ -51,15 +45,10 @@ set(factor_highs_headers
     factorhighs/FactorHiGHSSettings.h
     factorhighs/Factorise.h
     factorhighs/FormatHandler.h
-    factorhighs/FullFormatHandler.h
-    factorhighs/FullSolveHandler.h
     factorhighs/HybridHybridFormatHandler.h
-    factorhighs/HybridPackedFormatHandler.h
     factorhighs/HybridSolveHandler.h
     factorhighs/KrylovMethodsIpm.h
     factorhighs/Numeric.h
-    factorhighs/PackedPackedFormatHandler.h
-    factorhighs/PackedSolveHandler.h
     factorhighs/ReturnValues.h
     factorhighs/SolveHandler.h
     factorhighs/Swaps.h

@@ -1,12 +1,8 @@
 #include "Numeric.h"
 
-#include "CallAndTimeBlas.h"
 #include "DataCollector.h"
 #include "FactorHiGHSSettings.h"
-#include "FormatHandler.h"
-#include "FullSolveHandler.h"
 #include "HybridSolveHandler.h"
-#include "PackedSolveHandler.h"
 #include "Timing.h"
 #include "auxiliary/Auxiliary.h"
 #include "auxiliary/VectorOperations.h"
