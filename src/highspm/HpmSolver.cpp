@@ -31,9 +31,14 @@ void HpmSolver::load(const Int num_var, const Int num_con, const double* obj,
   info_.n_original = num_var;
 }
 
-void HpmSolver::setOptions(const Options& options) {
+void HpmSolver::set(const HpmOptions& options,
+                    const HighsLogOptions& log_options, HighsCallback& callback,
+                    const HighsTimer& timer) {
   options_ = options;
-  if (options_.display) Log::setOptions(options_.log_options);
+  if (options_.display) Log::setOptions(log_options);
+  control_.setCallback(callback);
+  control_.setTimer(timer);
+  control_.setOptions(options);
 }
 
 void HpmSolver::solve() {
@@ -42,7 +47,11 @@ void HpmSolver::solve() {
     return;
   }
 
-  clock_.start();
+  if (Int status = control_.interruptCheck(iter_)) {
+    info_.ipm_status = (IpmStatus)status;
+    return;
+  }
+
   DataCollector::initialise();
   printInfo();
 
@@ -82,7 +91,10 @@ bool HpmSolver::initialise() {
   }
   LS_->clear();
 
-  if (checkTimeLimit()) return true;
+  if (Int status = control_.interruptCheck(iter_)) {
+    info_.ipm_status = (IpmStatus)status;
+    return true;
+  }
 
   // decide number of correctors to use
   maxCorrectors();
@@ -95,7 +107,10 @@ bool HpmSolver::initialise() {
 
   printOutput();
 
-  if (checkTimeLimit()) return true;
+  if (Int status = control_.interruptCheck(iter_)) {
+    info_.ipm_status = (IpmStatus)status;
+    return true;
+  }
 
   return false;
 }
@@ -116,7 +131,10 @@ bool HpmSolver::prepareIter() {
   if (checkIterate()) return true;
   if (checkBadIter()) return true;
   if (checkTermination()) return true;
-  if (checkTimeLimit()) return true;
+  if (Int status = control_.interruptCheck(iter_)) {
+    info_.ipm_status = (IpmStatus)status;
+    return true;
+  }
 
   ++iter_;
 
@@ -136,7 +154,10 @@ bool HpmSolver::predictor() {
   // Compute affine scaling direction.
   // Return true if an error occurred.
 
-  if (checkTimeLimit()) return true;
+  if (Int status = control_.interruptCheck(iter_)) {
+    info_.ipm_status = (IpmStatus)status;
+    return true;
+  }
 
   // compute sigma and residuals for affine scaling direction
   sigmaAffine();
@@ -152,7 +173,10 @@ bool HpmSolver::correctors() {
   // Compute multiple centrality correctors.
   // Return true if an error occurred.
 
-  if (checkTimeLimit()) return true;
+  if (Int status = control_.interruptCheck(iter_)) {
+    info_.ipm_status = (IpmStatus)status;
+    return true;
+  }
 
   sigmaCorrectors();
   if (centralityCorrectors()) return true;
@@ -170,7 +194,7 @@ bool HpmSolver::prepareIpx() {
   ipx_param.ipm_feasibility_tol = options_.feasibility_tol;
   ipx_param.ipm_optimality_tol = options_.optimality_tol;
   ipx_param.start_crossover_tol = options_.crossover_tol;
-  ipx_param.time_limit = options_.time_limit - clock_.stop();
+  ipx_param.time_limit = options_.time_limit - control_.elapsed();
   ipx_lps_.SetParameters(ipx_param);
 
   Int load_status = model_.loadIntoIpx(ipx_lps_);
@@ -196,12 +220,17 @@ bool HpmSolver::prepareIpx() {
 }
 
 void HpmSolver::refineWithIpx() {
-  if (statusIsStop() || checkTimeLimit()) return;
+  if (statusIsStop()) return;
+
+  if (Int status = control_.interruptCheck(iter_)) {
+    info_.ipm_status = (IpmStatus)status;
+    return;
+  }
 
   if (!statusIsOptimal() && options_.refine_with_ipx) {
-    Log::printf("\nIpm did not converge, restarting with IPX\n");
+    Log::printf("\nHiGHSpm did not converge, restarting with IPX\n");
   } else if (options_.crossover == kOptionCrossoverOn) {
-    Log::printf("\nIpm converged, running crossover with IPX\n");
+    Log::printf("\nHiGHSpm converged, running crossover with IPX\n");
   } else {
     return;
   }
@@ -979,16 +1008,6 @@ bool HpmSolver::checkTermination() {
   return terminate;
 }
 
-bool HpmSolver::checkTimeLimit() {
-  bool terminate = false;
-  if (options_.time_limit > 0 && clock_.stop() > options_.time_limit) {
-    terminate = true;
-    info_.ipm_status = kIpmStatusTimeLimit;
-    Log::printw("Reached time limit of %.1f seconds\n", options_.time_limit);
-  }
-  return terminate;
-}
-
 void HpmSolver::backwardError(const NewtonDir& delta) const {
 #ifdef COLLECT_DATA
   std::vector<double>& x = it_->x;
@@ -1290,7 +1309,7 @@ void HpmSolver::printOutput() const {
       "%5d %16.8e %16.8e %10.2e %10.2e %10.2e %6.2f %5.2f %9.2e "
       "%7.1f\n",
       iter_, it_->pobj, it_->dobj, it_->pinf, it_->dinf, it_->mu, alpha_primal_,
-      alpha_dual_, it_->pdgap, clock_.stop());
+      alpha_dual_, it_->pdgap, control_.elapsed());
 }
 
 void HpmSolver::printInfo() const {

@@ -34,7 +34,7 @@ enum OptionParallel {
   kOptionParallelDefault = kOptionParallelChoose
 };
 
-struct Options {
+struct HpmOptions {
   // Solver options
   OptionNla nla = kOptionNlaDefault;
   OptionCrossover crossover = kOptionCrossoverDefault;
@@ -49,7 +49,6 @@ struct Options {
   double time_limit = -1.0;
 
   // Logging
-  const HighsLogOptions* log_options;
   bool display = true;
 };
 

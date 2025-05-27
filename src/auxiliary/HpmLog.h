@@ -5,7 +5,7 @@
 
 #include "io/HighsIO.h"
 
-// Object to interface to Highs logging.
+// Interface to Highs logging.
 // Call Log::setOptions to set the HighsLogOptions.
 // Call Log::printf for normal printing, same syntax as printf.
 // Call Log::printw for warnings, Log::printe for errors.
@@ -21,7 +21,7 @@ class Log {
   ~Log() = default;
 
  public:
-  static void setOptions(const HighsLogOptions* log_options);
+  static void setOptions(const HighsLogOptions& log_options);
 
   // normal printing
   template <typename... Args>

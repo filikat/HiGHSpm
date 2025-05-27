@@ -1,19 +1,21 @@
 set(ipm_sources 
     highspm/CurtisReidScaling.cpp 
     highspm/FactorHiGHSSolver.cpp 
-    highspm/HpmSolver.cpp
+    highspm/HpmControl.cpp
     highspm/HpmIterate.cpp 
-    highspm/HpmModel.cpp)
+    highspm/HpmModel.cpp
+    highspm/HpmSolver.cpp)
 
 set(ipm_headers
     highspm/CurtisReidScaling.h
     highspm/FactorHiGHSSolver.h
-    highspm/HpmSolver.h
     highspm/HpmConst.h
+    highspm/HpmControl.h
     highspm/HpmInfo.h
     highspm/HpmIterate.h
     highspm/HpmModel.h
     highspm/HpmOption.h
+    highspm/HpmSolver.h
     highspm/HpmStatus.h
     highspm/LinearSolver.h)
 

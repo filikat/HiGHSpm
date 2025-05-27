@@ -70,7 +70,7 @@ class LinearSolver {
   // Virtual functions.
   // These may be overridden by derived classes, if needed.
   // =================================================================
-  virtual Int setup(const HpmModel& model, Options& options) { return 0; }
+  virtual Int setup(const HpmModel& model, HpmOptions& options) { return 0; }
 
   virtual void refine(const HighsSparseMatrix& A,
                       const std::vector<double>& scaling,

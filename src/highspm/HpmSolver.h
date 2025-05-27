@@ -1,10 +1,11 @@
-#ifndef HIGHSPM_IPM_H
-#define HIGHSPM_IPM_H
+#ifndef HIGHSPM_SOLVER_H
+#define HIGHSPM_SOLVER_H
 
 #include <string>
 
 #include "FactorHiGHSSolver.h"
 #include "HpmConst.h"
+#include "HpmControl.h"
 #include "HpmInfo.h"
 #include "HpmIterate.h"
 #include "HpmModel.h"
@@ -16,7 +17,9 @@
 #include "auxiliary/VectorOperations.h"
 #include "factorhighs/FactorHiGHS.h"
 #include "ipm/ipx/lp_solver.h"
+#include "lp_data/HighsCallback.h"
 #include "util/HighsSparseMatrix.h"
+#include "util/HighsTimer.h"
 
 namespace highspm {
 
@@ -45,11 +48,10 @@ class HpmSolver {
   // General information
   HpmInfo info_;
 
-  // Run-time options
-  Options options_{};
+  HpmControl control_;
 
-  // Timer for iterations
-  Clock clock_;
+  // Run-time options
+  HpmOptions options_{};
 
   // Interface to ipx
   ipx::LpSolver ipx_lps_;
@@ -82,7 +84,8 @@ class HpmSolver {
   // ===================================================================================
   // Specify values of options. If not called, options have default values.
   // ===================================================================================
-  void setOptions(const Options& options);
+  void set(const HpmOptions& options, const HighsLogOptions& log_options,
+           HighsCallback& callback, const HighsTimer& timer);
 
   // ===================================================================================
   // Solve the LP
@@ -281,11 +284,6 @@ class HpmSolver {
   //  - relative dual gap    < tolerance
   // ===================================================================================
   bool checkTermination();
-
-  // ===================================================================================
-  // If a time limit is set, check if it is already reached.
-  // ===================================================================================
-  bool checkTimeLimit();
 
   // ===================================================================================
   // Check if the current ipm status belongs to the optimal group (i.e., solver

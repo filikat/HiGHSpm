@@ -13,6 +13,7 @@ enum IpmStatus {
   kIpmStatusStop,
   kIpmStatusError,
   kIpmStatusTimeLimit,
+  kIpmStatusUserInterrupt,
   kIpmStatusPrimalInfeasible,
   kIpmStatusDualInfeasible,
 

@@ -127,7 +127,7 @@ int main(int argc, char** argv) {
     // ===================================================================================
     // Identify the option values and check their validity
     // ===================================================================================
-    highspm::Options options{};
+    highspm::HpmOptions options{};
 
     // option to choose normal equations or augmented system
     options.nla = argc > kOptionNlaArg
@@ -169,13 +169,21 @@ int main(int argc, char** argv) {
       return 1;
     }
 
+    // Get information from highs object. I added some of these functions to
+    // highs on purpose to extract the data. They will not be needed when hpm
+    // will be built together with highs.
     const HighsOptions& hOptions = highs.getOptions();
-    options.log_options = &hOptions.log_options;
+    HighsCallback& hCallback = highs.getCallback();
+    HighsTimer& hTimer = highs.getTimer();
+
+    // start the highs timer, not needed once solver is built together with
+    // highs.
+    hTimer.start();
 
     // options.max_iter = 5;
     // options.refine_with_ipx = false;
     // options.time_limit = 1000;
-    hpm.setOptions(options);
+    hpm.set(options, hOptions.log_options, hCallback, hTimer);
 
     // load the problem
     hpm.load(n, m, obj.data(), rhs.data(), lower.data(), upper.data(),

@@ -23,12 +23,12 @@ class FactorHiGHSSolver : public LinearSolver {
 
   HpmInfo* info_ = nullptr;
 
-  Int choose(const HpmModel& model, Options& options);
-  Int setNla(const HpmModel& model, Options& options);
-  void setParallel(Options& options);
+  Int choose(const HpmModel& model, HpmOptions& options);
+  Int setNla(const HpmModel& model, HpmOptions& options);
+  void setParallel(HpmOptions& options);
 
  public:
-  FactorHiGHSSolver(const Options& options, HpmInfo* info);
+  FactorHiGHSSolver(const HpmOptions& options, HpmInfo* info);
 
   // Override functions
   Int factorAS(const HighsSparseMatrix& A,
@@ -40,7 +40,7 @@ class FactorHiGHSSolver : public LinearSolver {
   Int solveAS(const std::vector<double>& rhs_x,
               const std::vector<double>& rhs_y, std::vector<double>& lhs_x,
               std::vector<double>& lhs_y) override;
-  Int setup(const HpmModel& model, Options& options) override;
+  Int setup(const HpmModel& model, HpmOptions& options) override;
   void clear() override;
   double flops() const override;
   double spops() const override;
