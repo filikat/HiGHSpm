@@ -1,8 +1,9 @@
 #ifndef HIGHSPM_LOG_H
 #define HIGHSPM_LOG_H
 
-#include <string>
+#include <sstream>
 
+#include "auxiliary/IntConfig.h"
 #include "io/HighsIO.h"
 
 // Interface to Highs logging.
@@ -30,6 +31,8 @@ class Log {
       highsLogUser(*log_options_, HighsLogType::kInfo, format, args...);
   }
 
+  static void print(std::stringstream& ss);
+
   // print warnings
   template <typename... Args>
   static void printw(const char* format, Args... args) {
@@ -44,6 +47,17 @@ class Log {
       highsLogUser(*log_options_, HighsLogType::kError, format, args...);
   }
 };
+
+// Functions to print using streams, taken from IPX.
+std::string format(double d, Int width, Int prec,
+                   std::ios_base::fmtflags floatfield);
+std::string format(Int i, Int width);
+inline std::string sci(double d, Int width, Int prec) {
+  return format(d, width, prec, std::ios_base::scientific);
+}
+inline std::string fix(double d, Int width, Int prec) {
+  return format(d, width, prec, std::ios_base::fixed);
+}
 
 }  // namespace highspm
 

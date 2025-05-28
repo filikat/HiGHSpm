@@ -178,7 +178,7 @@ bool HpmSolver::prepareIpx() {
   ipx_param.start_crossover_tol = options_.crossover_tol;
   ipx_param.time_limit = options_.time_limit - control_.elapsed();
   ipx_lps_.SetParameters(ipx_param);
-  
+
   ipx_lps_.SetCallback(control_.callback());
 
   Int load_status = model_.loadIntoIpx(ipx_lps_);
@@ -1287,20 +1287,32 @@ void HpmSolver::backwardError(const NewtonDir& delta) const {
 
 void HpmSolver::printHeader() const {
   if (iter_ % 20 == 0) {
-    Log::printf(
-        " iter      primal obj        dual obj        pinf      dinf "
-        "       mu      alpha p/d    p/d gap    time\n");
+    std::stringstream log_stream;
+    log_stream << " iter      primal obj        dual obj        pinf      dinf "
+                  "       mu       alpha p/d    pd gap";
+    if (!options_.timeless_log) log_stream << "     time";
+    log_stream << "\n";
+    Log::print(log_stream);
   }
 }
 
 void HpmSolver::printOutput() const {
   printHeader();
 
-  Log::printf(
-      "%5d %16.8e %16.8e %10.2e %10.2e %10.2e %6.2f %5.2f %9.2e "
-      "%7.1f\n",
-      iter_, it_->pobj, it_->dobj, it_->pinf, it_->dinf, it_->mu, alpha_primal_,
-      alpha_dual_, it_->pdgap, control_.elapsed());
+  std::stringstream log_stream;
+  log_stream << format(iter_, 5);
+  log_stream << " " << sci(it_->pobj, 16, 8);
+  log_stream << " " << sci(it_->dobj, 16, 8);
+  log_stream << " " << sci(it_->pinf, 10, 2);
+  log_stream << " " << sci(it_->dinf, 10, 2);
+  log_stream << " " << sci(it_->mu, 10, 2);
+  log_stream << " " << fix(alpha_primal_, 6, 2);
+  log_stream << " " << fix(alpha_dual_, 6, 2);
+  log_stream << " " << sci(it_->pdgap, 9, 2);
+  if (!options_.timeless_log)
+    log_stream << " " << fix(control_.elapsed(), 7, 1);
+  log_stream << "\n";
+  Log::print(log_stream);
 }
 
 void HpmSolver::printInfo() const {

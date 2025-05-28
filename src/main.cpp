@@ -154,6 +154,7 @@ int main(int argc, char** argv) {
   // options.refine_with_ipx = false;
   // options.time_limit = 1000;
   // options.display = 0;
+  // options.timeless_log = true;
   hpm.set(options, hOptions.log_options, hCallback, hTimer);
 
   // load the problem

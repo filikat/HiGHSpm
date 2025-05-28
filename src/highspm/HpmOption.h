@@ -50,6 +50,7 @@ struct HpmOptions {
 
   // Logging
   bool display = true;
+  bool timeless_log = false;
 };
 
 }  // namespace highspm
