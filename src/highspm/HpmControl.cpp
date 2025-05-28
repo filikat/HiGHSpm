@@ -11,6 +11,8 @@ void HpmControl::setCallback(HighsCallback& callback) { callback_ = &callback; }
 void HpmControl::setTimer(const HighsTimer& timer) { timer_ = &timer; }
 void HpmControl::setOptions(const HpmOptions& options) { options_ = &options; }
 
+HighsCallback* HpmControl::callback() const { return callback_; }
+
 double HpmControl::elapsed() const { return timer_ ? timer_->read() : -1.0; }
 
 Int HpmControl::interruptCheck(const Int ipm_iteration_count) const {

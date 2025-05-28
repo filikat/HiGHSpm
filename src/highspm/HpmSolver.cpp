@@ -47,10 +47,7 @@ void HpmSolver::solve() {
     return;
   }
 
-  if (Int status = control_.interruptCheck(iter_)) {
-    info_.ipm_status = (IpmStatus)status;
-    return;
-  }
+  if (checkInterrupt()) return;
 
   DataCollector::initialise();
   printInfo();
@@ -91,10 +88,7 @@ bool HpmSolver::initialise() {
   }
   LS_->clear();
 
-  if (Int status = control_.interruptCheck(iter_)) {
-    info_.ipm_status = (IpmStatus)status;
-    return true;
-  }
+  if (checkInterrupt()) return true;
 
   // decide number of correctors to use
   maxCorrectors();
@@ -107,10 +101,7 @@ bool HpmSolver::initialise() {
 
   printOutput();
 
-  if (Int status = control_.interruptCheck(iter_)) {
-    info_.ipm_status = (IpmStatus)status;
-    return true;
-  }
+  if (checkInterrupt()) return true;
 
   return false;
 }
@@ -131,10 +122,7 @@ bool HpmSolver::prepareIter() {
   if (checkIterate()) return true;
   if (checkBadIter()) return true;
   if (checkTermination()) return true;
-  if (Int status = control_.interruptCheck(iter_)) {
-    info_.ipm_status = (IpmStatus)status;
-    return true;
-  }
+  if (checkInterrupt()) return true;
 
   ++iter_;
 
@@ -154,10 +142,7 @@ bool HpmSolver::predictor() {
   // Compute affine scaling direction.
   // Return true if an error occurred.
 
-  if (Int status = control_.interruptCheck(iter_)) {
-    info_.ipm_status = (IpmStatus)status;
-    return true;
-  }
+  if (checkInterrupt()) return true;
 
   // compute sigma and residuals for affine scaling direction
   sigmaAffine();
@@ -173,10 +158,7 @@ bool HpmSolver::correctors() {
   // Compute multiple centrality correctors.
   // Return true if an error occurred.
 
-  if (Int status = control_.interruptCheck(iter_)) {
-    info_.ipm_status = (IpmStatus)status;
-    return true;
-  }
+  if (checkInterrupt()) return true;
 
   sigmaCorrectors();
   if (centralityCorrectors()) return true;
@@ -196,6 +178,8 @@ bool HpmSolver::prepareIpx() {
   ipx_param.start_crossover_tol = options_.crossover_tol;
   ipx_param.time_limit = options_.time_limit - control_.elapsed();
   ipx_lps_.SetParameters(ipx_param);
+  
+  ipx_lps_.SetCallback(control_.callback());
 
   Int load_status = model_.loadIntoIpx(ipx_lps_);
 
@@ -222,10 +206,7 @@ bool HpmSolver::prepareIpx() {
 void HpmSolver::refineWithIpx() {
   if (statusIsStop()) return;
 
-  if (Int status = control_.interruptCheck(iter_)) {
-    info_.ipm_status = (IpmStatus)status;
-    return;
-  }
+  if (checkInterrupt()) return;
 
   if (!statusIsOptimal() && options_.refine_with_ipx) {
     Log::printf("\nHiGHSpm did not converge, restarting with IPX\n");
@@ -1004,6 +985,16 @@ bool HpmSolver::checkTermination() {
     } else {
       terminate = true;
     }
+  }
+  return terminate;
+}
+
+bool HpmSolver::checkInterrupt() {
+  bool terminate = false;
+  Int status = control_.interruptCheck(iter_);
+  if (status) {
+    info_.ipm_status = (IpmStatus)status;
+    terminate = true;
   }
   return terminate;
 }

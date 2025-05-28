@@ -82,7 +82,7 @@ class HpmSolver {
   );
 
   // ===================================================================================
-  // Specify values of options. If not called, options have default values.
+  // Specify options, callback and timer.
   // ===================================================================================
   void set(const HpmOptions& options, const HighsLogOptions& log_options,
            HighsCallback& callback, const HighsTimer& timer);
@@ -284,6 +284,11 @@ class HpmSolver {
   //  - relative dual gap    < tolerance
   // ===================================================================================
   bool checkTermination();
+
+  // ===================================================================================
+  // Check for user interrupt or time limit
+  // ===================================================================================
+  bool checkInterrupt();
 
   // ===================================================================================
   // Check if the current ipm status belongs to the optimal group (i.e., solver

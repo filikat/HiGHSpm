@@ -30,6 +30,8 @@ class HpmControl {
   void setTimer(const HighsTimer& timer);
   void setOptions(const HpmOptions& options);
 
+  HighsCallback* callback() const;
+
   double elapsed() const;
   Int interruptCheck(const Int ipm_iteration_count = -1) const;
 };
