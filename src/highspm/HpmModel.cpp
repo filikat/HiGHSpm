@@ -164,12 +164,15 @@ void HpmModel::reformulate() {
 }
 
 void HpmModel::print() const {
-  Log::printf("Rows: %.1e\n", (double)m_);
-  Log::printf("Cols: %.1e\n", (double)n_);
-  Log::printf("Nnz : %.1e\n", (double)A_.numNz());
-  Log::printf("Dense cols: %" HIGHSINT_FORMAT "\n", num_dense_cols_);
+  std::stringstream log_stream;
+
+  log_stream << textline("Rows:") << sci(m_, 0, 1) << '\n';
+  log_stream << textline("Cols:") << sci(n_, 0, 1) << '\n';
+  log_stream << textline("Nnz:") << sci(A_.numNz(), 0, 1) << '\n';
+  if (num_dense_cols_ > 0)
+    log_stream << textline("Dense cols:") << format(num_dense_cols_, 0) << '\n';
   if (empty_rows_ > 0)
-    Log::printf("Removed %" HIGHSINT_FORMAT " empty rows\n", empty_rows_);
+    log_stream << "Removed " << empty_rows_ << " empty rows\n";
 
   // compute max and min entry of A in absolute value
   double Amin = kHighsInf;
@@ -238,38 +241,44 @@ void HpmModel::print() const {
   if (std::isinf(scalemin)) scalemin = 0.0;
 
   // print ranges
+  log_stream << textline("Range of A:") << "[" << sci(Amin, 5, 1) << ", "
+             << sci(Amax, 5, 1) << "], ratio ";
   if (Amin != 0.0)
-    Log::printf("Range of A      : [%5.1e, %5.1e], ratio %.1e\n", Amin, Amax,
-                Amax / Amin);
+    log_stream << sci(Amax / Amin, 0, 1) << '\n';
   else
-    Log::printf("Range of A      : [%5.1e, %5.1e], ratio -\n", Amin, Amax);
+    log_stream << "-\n";
 
+  log_stream << textline("Range of b:") << "[" << sci(bmin, 5, 1) << ", "
+             << sci(bmax, 5, 1) << "], ratio ";
   if (bmin != 0.0)
-    Log::printf("Range of b      : [%5.1e, %5.1e], ratio %.1e\n", bmin, bmax,
-                bmax / bmin);
+    log_stream << sci(bmax / bmin, 0, 1) << '\n';
   else
-    Log::printf("Range of b      : [%5.1e, %5.1e], ratio -\n", bmin, bmax);
+    log_stream << "-\n";
 
+  log_stream << textline("Range of c:") << "[" << sci(cmin, 5, 1) << ", "
+             << sci(cmax, 5, 1) << "], ratio ";
   if (cmin != 0.0)
-    Log::printf("Range of c      : [%5.1e, %5.1e], ratio %.1e\n", cmin, cmax,
-                cmax / cmin);
+    log_stream << sci(cmax / cmin, 0, 1) << '\n';
   else
-    Log::printf("Range of c      : [%5.1e, %5.1e], ratio -\n", cmin, cmax);
+    log_stream << "-\n";
 
+  log_stream << textline("Range of bounds:") << "[" << sci(boundmin, 5, 1)
+             << ", " << sci(boundmax, 5, 1) << "], ratio ";
   if (boundmin != 0.0)
-    Log::printf("Range of bounds : [%5.1e, %5.1e], ratio %.1e\n", boundmin,
-                boundmax, boundmax / boundmin);
+    log_stream << sci(boundmax / boundmin, 0, 1) << '\n';
   else
-    Log::printf("Range of bounds : [%5.1e, %5.1e], ratio -\n", boundmin,
-                boundmax);
+    log_stream << "-\n";
 
-  if (scaled())
-    Log::printf("Scaling coeff   : [%5.1e, %5.1e], ratio %.1e\n", scalemin,
-                scalemax, scalemax / scalemin);
+  log_stream << textline("Scaling coefficients:") << "[" << sci(scalemin, 5, 1)
+             << ", " << sci(scalemax, 5, 1) << "], ratio ";
+  if (scalemin != 0.0)
+    log_stream << sci(scalemax / scalemin, 0, 1) << '\n';
   else
-    Log::printf("Scaling coeff   : -\n");
+    log_stream << "-\n";
 
-  Log::printf("\n");
+  log_stream << '\n';
+
+  Log::print(log_stream);
 }
 
 void HpmModel::scale() {

@@ -55,6 +55,8 @@ void HpmSolver::solve() {
   runIpm();
   refineWithIpx();
 
+  printSummary();
+
   DataCollector::get()->printTimes();
   DataCollector::get()->printIter();
   DataCollector::terminate();
@@ -76,6 +78,8 @@ void HpmSolver::runIpm() {
 bool HpmSolver::initialise() {
   // Prepare ipm for execution.
   // Return true if an error occurred.
+
+  start_time_ = control_.elapsed();
 
   // initialise iterate object
   it_.reset(new HpmIterate(model_));
@@ -170,7 +174,7 @@ bool HpmSolver::prepareIpx() {
   // Return true if an error occurred;
 
   ipx::Parameters ipx_param;
-  ipx_param.display = options_.display;
+  ipx_param.display = options_.display_ipx;
   ipx_param.dualize = 0;
   ipx_param.run_crossover = options_.crossover;
   ipx_param.ipm_feasibility_tol = options_.feasibility_tol;
@@ -215,7 +219,6 @@ void HpmSolver::refineWithIpx() {
   } else {
     return;
   }
-  Log::printf("\n");
 
   if (prepareIpx()) return;
 
@@ -1316,13 +1319,14 @@ void HpmSolver::printOutput() const {
 }
 
 void HpmSolver::printInfo() const {
-  Log::printf("\n");
-
+  std::stringstream log_stream;
+  log_stream << "\nRunning HiGHSpm\n";
   if (options_.parallel == kOptionParallelOff)
-    Log::printf("Running HiGHSpm on 1 thread\n");
+    log_stream << textline("Threads:") << 1 << '\n';
   else
-    Log::printf("Running HiGHSpm on %d threads\n",
-                highs::parallel::num_threads());
+    log_stream << textline("Threads:") << highs::parallel::num_threads()
+               << '\n';
+  Log::print(log_stream);
 
 #ifdef COLLECT_DATA
   Log::printw("Running in debug mode\n");
@@ -1330,6 +1334,23 @@ void HpmSolver::printInfo() const {
 
   // print range of coefficients
   model_.print();
+}
+
+void HpmSolver::printSummary() const {
+  std::stringstream log_stream;
+
+  log_stream << "\nSummary\n";
+  if (!options_.timeless_log)
+    log_stream << textline("HiGHSpm runtime:")
+               << fix(control_.elapsed() - start_time_, 0, 2) << "\n";
+
+  log_stream << textline("Status:") << statusString(info_.ipm_status) << "\n";
+  log_stream << textline("iterations:") << format(iter_, 0) << "\n";
+  if (info_.ipx_used)
+    log_stream << textline("IPX iterations:") << format(info_.ipx_info.iter, 0)
+               << "\n";
+
+  Log::print(log_stream);
 }
 
 const HpmInfo& HpmSolver::getInfo() const { return info_; }

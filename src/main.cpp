@@ -29,9 +29,6 @@ int main(int argc, char** argv) {
     return 1;
   }
 
-  highspm::Clock clock0;
-  highspm::Clock clock;
-
   // ===================================================================================
   // READ PROBLEM
   // ===================================================================================
@@ -43,19 +40,14 @@ int main(int argc, char** argv) {
   std::string model = extractModelName(model_file);
   HighsStatus status = highs.readModel(model_file);
   assert(status == HighsStatus::kOk);
-  double read_time = clock.stop();
   const bool presolve = true;
   HighsLp lp;
-  double presolve_time = -1;
   if (presolve) {
-    clock.start();
     status = highs.presolve();
     assert(status == HighsStatus::kOk);
     lp = highs.getPresolvedLp();
-    presolve_time = clock.stop();
   } else {
     lp = highs.getLp();
-    presolve_time = 0;
   }
 
   // ===================================================================================
@@ -70,7 +62,6 @@ int main(int argc, char** argv) {
   //  constraints[i] is : =, <, >
   // ===================================================================================
 
-  clock.start();
   highspm::Int n, m;
   std::vector<double> obj, rhs, lower, upper, Aval;
   std::vector<highspm::Int> Aptr, Aind;
@@ -79,8 +70,6 @@ int main(int argc, char** argv) {
 
   fillInIpxData(lp, n, m, offset, obj, lower, upper, Aptr, Aind, Aval, rhs,
                 constraints);
-
-  double setup_time = clock.stop();
 
   // ===================================================================================
   // IDENTIFY OPTIONS
@@ -141,7 +130,6 @@ int main(int argc, char** argv) {
   // ===================================================================================
   // LOAD AND SOLVE THE PROBLEM
   // ===================================================================================
-  clock.start();
 
   // create solver
   highspm::HpmSolver hpm{};
@@ -160,36 +148,11 @@ int main(int argc, char** argv) {
   // load the problem
   hpm.load(n, m, obj.data(), rhs.data(), lower.data(), upper.data(),
            Aptr.data(), Aind.data(), Aval.data(), constraints.data(), offset);
-  double load_time = clock.stop();
 
-  // solve LP
-  clock.start();
   hpm.solve();
-  double optimize_time = clock.stop();
 
   highspm::HpmInfo info = hpm.getInfo();
   highspm::IpmStatus ipm_status = info.ipm_status;
-
-  double run_time = clock0.stop();
-
-  if (run_time > 1e-3) {
-    double sum_time =
-        read_time + presolve_time + setup_time + load_time + optimize_time;
-    printf("\nTime profile\n");
-    printf("Read      %5.2f (%5.1f%% sum)\n", read_time,
-           100 * read_time / sum_time);
-    printf("Presolve  %5.2f (%5.1f%% sum)\n", presolve_time,
-           100 * presolve_time / sum_time);
-    printf("Setup     %5.2f (%5.1f%% sum)\n", setup_time,
-           100 * setup_time / sum_time);
-    printf("Load      %5.2f (%5.1f%% sum)\n", load_time,
-           100 * load_time / sum_time);
-    printf("Optimize  %5.2f (%5.1f%% sum)\n", optimize_time,
-           100 * optimize_time / sum_time);
-    printf("Sum       %5.2f (%5.1f%% run)\n", sum_time,
-           100 * sum_time / run_time);
-    printf("Run       %5.2f\n", run_time);
-  }
 
   printf("\n");
   printf("Ipm iterations    : %" HIGHSINT_FORMAT "\n", info.ipm_iter);

@@ -56,6 +56,8 @@ class HpmSolver {
   // Interface to ipx
   ipx::LpSolver ipx_lps_;
 
+  double start_time_;
+
  public:
   // ===================================================================================
   // Load an LP:
@@ -310,6 +312,7 @@ class HpmSolver {
   void printInfo() const;
   void printHeader() const;
   void printOutput() const;
+  void printSummary() const;
 };
 
 }  // namespace highspm

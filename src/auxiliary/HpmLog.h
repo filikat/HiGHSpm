@@ -59,6 +59,15 @@ inline std::string fix(double d, Int width, Int prec) {
   return format(d, width, prec, std::ios_base::fixed);
 }
 
+template <typename T>
+std::string textline(const T& text) {
+  std::ostringstream s;
+  s.setf(std::ios_base::left);
+  s.width(32);
+  s << text;
+  return s.str();
+}
+
 }  // namespace highspm
 
 #endif

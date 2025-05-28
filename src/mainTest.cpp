@@ -57,7 +57,6 @@ int main(int argc, char** argv) {
   while (getline(problems_names, pb_name)) {
     ++total_problems;
     highspm::Clock clock0;
-    highspm::Clock clock1;
     // ===================================================================================
     // READ PROBLEM
     // ===================================================================================
@@ -73,23 +72,18 @@ int main(int argc, char** argv) {
       printf("Problem reading file %s\n", model_file.c_str());
       continue;
     }
-    double read_time = clock1.stop();
 
     const bool presolve = true;
     HighsLp lp;
-    double presolve_time = -1;
     if (presolve) {
-      clock1.start();
       status = highs.presolve();
       if (status != HighsStatus::kOk) {
         printf("Problem with presolve of file %s\n", model_file.c_str());
         continue;
       }
       lp = highs.getPresolvedLp();
-      presolve_time = clock1.stop();
     } else {
       lp = highs.getLp();
-      presolve_time = 0;
     }
 
     // ===================================================================================
@@ -104,7 +98,6 @@ int main(int argc, char** argv) {
     //  constraints[i] is : =, <, >
     // ===================================================================================
 
-    clock1.start();
     highspm::Int n, m;
     std::vector<double> obj, rhs, lower, upper, Aval;
     std::vector<highspm::Int> Aptr, Aind;
@@ -114,14 +107,10 @@ int main(int argc, char** argv) {
     fillInIpxData(lp, n, m, offset, obj, lower, upper, Aptr, Aind, Aval, rhs,
                   constraints);
 
-    double setup_time = clock1.stop();
-
     // ===================================================================================
     // LOAD AND SOLVE THE PROBLEM
     // ===================================================================================
-    clock1.start();
 
-    // create solver
     highspm::HpmSolver hpm{};
 
     // ===================================================================================
@@ -188,12 +177,8 @@ int main(int argc, char** argv) {
     // load the problem
     hpm.load(n, m, obj.data(), rhs.data(), lower.data(), upper.data(),
              Aptr.data(), Aind.data(), Aval.data(), constraints.data(), offset);
-    double load_time = clock1.stop();
 
-    // solve LP
-    clock1.start();
     hpm.solve();
-    double optimize_time = clock1.stop();
 
     highspm::HpmInfo info = hpm.getInfo();
     highspm::IpmStatus ipm_status = info.ipm_status;
@@ -249,7 +234,7 @@ int main(int argc, char** argv) {
     ss << std::setw(30) << pb_name << ' ';
     ss << std::setw(12) << status_string << ' ';
     ss << std::setw(10) << info.ipm_iter << ' ';
-    ss << std::setw(12) << std::fixed << std::setprecision(3) << optimize_time
+    ss << std::setw(12) << std::fixed << std::setprecision(3) << run_time
        << '\n';
   }
 
