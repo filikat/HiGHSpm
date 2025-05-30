@@ -188,7 +188,7 @@ bool HpmSolver::prepareIpx() {
   Int load_status = model_.loadIntoIpx(ipx_lps_);
 
   if (load_status) {
-    Log::printe("Error loading model into IPX\n");
+    Log::printDevInfo("Error loading model into IPX\n");
     return true;
   }
 
@@ -200,7 +200,7 @@ bool HpmSolver::prepareIpx() {
       zu.data());
 
   if (start_point_status) {
-    Log::printe("Error loading starting point into IPX\n");
+    Log::printDevInfo("Error loading starting point into IPX\n");
     return true;
   }
 
@@ -351,11 +351,11 @@ bool HpmSolver::recoverDirection(NewtonDir& delta) {
 
   // Check for NaN of Inf
   if (it_->isDirNan()) {
-    Log::printe("Direction is nan\n");
+    Log::printDevInfo("Direction is nan\n");
     info_.ipm_status = kIpmStatusError;
     return true;
   } else if (it_->isDirInf()) {
-    Log::printe("Direction is inf\n");
+    Log::printDevInfo("Direction is inf\n");
     info_.ipm_status = kIpmStatusError;
     return true;
   }
@@ -818,6 +818,8 @@ bool HpmSolver::centralityCorrectors() {
   double alpha_p_old, alpha_d_old;
   stepsToBoundary(alpha_p_old, alpha_d_old, it_->delta);
 
+  Log::printDevDetailed(" * Pred %.2f %.2f\n", alpha_p_old, alpha_d_old);
+
   Int cor;
   for (cor = 0; cor < info_.correctors; ++cor) {
     // compute rhs for corrector
@@ -833,9 +835,13 @@ bool HpmSolver::centralityCorrectors() {
     double wd = wp;
     bestWeight(it_->delta, corr, wp, wd, alpha_p, alpha_d);
 
+    Log::printDevDetailed(" * Corr %.2f %.2f, weight %.2f %.2f\n", alpha_p,
+                          alpha_d, wp, wd);
+
     if (alpha_p < alpha_p_old + kMccIncreaseAlpha * kMccIncreaseMin &&
         alpha_d < alpha_d_old + kMccIncreaseAlpha * kMccIncreaseMin) {
       // reject corrector
+      Log::printDevDetailed("  ** Rejected\n");
       break;
     }
 
@@ -845,6 +851,7 @@ bool HpmSolver::centralityCorrectors() {
       vectorAdd(it_->delta.xl, corr.xl, wp);
       vectorAdd(it_->delta.xu, corr.xu, wp);
       alpha_p_old = alpha_p;
+      Log::printDevDetailed("  ** Primal accepted\n");
     }
     if (alpha_d >= alpha_d_old + kMccIncreaseAlpha * kMccIncreaseMin) {
       // accept dual corrector
@@ -852,6 +859,7 @@ bool HpmSolver::centralityCorrectors() {
       vectorAdd(it_->delta.zl, corr.zl, wd);
       vectorAdd(it_->delta.zu, corr.zu, wd);
       alpha_d_old = alpha_d;
+      Log::printDevDetailed("  ** Dual accepted\n");
     }
 
     if (alpha_p > 0.95 && alpha_d > 0.95) {
@@ -906,11 +914,11 @@ void HpmSolver::bestWeight(const NewtonDir& delta, const NewtonDir& corrector,
 bool HpmSolver::checkIterate() {
   // Check that iterate is not NaN or Inf
   if (it_->isNan()) {
-    Log::printe("\nIterate is nan\n");
+    Log::printDevInfo("\nIterate is nan\n");
     info_.ipm_status = kIpmStatusError;
     return true;
   } else if (it_->isInf()) {
-    Log::printe("\nIterate is inf\n");
+    Log::printDevInfo("\nIterate is inf\n");
     info_.ipm_status = kIpmStatusError;
     return true;
   }
@@ -921,7 +929,7 @@ bool HpmSolver::checkIterate() {
         (model_.hasLb(i) && it_->zl[i] < 0) ||
         (model_.hasUb(i) && it_->xu[i] < 0) ||
         (model_.hasUb(i) && it_->zu[i] < 0)) {
-      Log::printe("\nIterate has negative component\n");
+      Log::printDevInfo("\nIterate has negative component\n");
       return true;
     }
   }
@@ -1003,7 +1011,7 @@ bool HpmSolver::checkInterrupt() {
 }
 
 void HpmSolver::backwardError(const NewtonDir& delta) const {
-#ifdef COLLECT_DATA
+#ifdef HPM_COLLECT_EXPENSIVE_DATA
   std::vector<double>& x = it_->x;
   std::vector<double>& xl = it_->xl;
   std::vector<double>& xu = it_->xu;
@@ -1291,9 +1299,17 @@ void HpmSolver::backwardError(const NewtonDir& delta) const {
 void HpmSolver::printHeader() const {
   if (iter_ % 20 == 0) {
     std::stringstream log_stream;
-    log_stream << " iter      primal obj        dual obj        pinf      dinf "
-                  "       mu       alpha p/d    pd gap";
-    if (!options_.timeless_log) log_stream << "     time";
+    log_stream << " iter      primal obj        dual obj"
+               << "        pinf       dinf     pd gap";
+
+    if (!options_.timeless_log) log_stream << "    time";
+
+    if (Log::debug(1)) {
+      log_stream << "     alpha p/d   sigma af/co   cor  solv"
+                 << "     minT     maxT  (xj * zj / mu)_range_&_num"
+                 << "   max_res  max_diag     norm1";
+    }
+
     log_stream << "\n";
     Log::print(log_stream);
   }
@@ -1308,12 +1324,30 @@ void HpmSolver::printOutput() const {
   log_stream << " " << sci(it_->dobj, 16, 8);
   log_stream << " " << sci(it_->pinf, 10, 2);
   log_stream << " " << sci(it_->dinf, 10, 2);
-  log_stream << " " << sci(it_->mu, 10, 2);
-  log_stream << " " << fix(alpha_primal_, 6, 2);
-  log_stream << " " << fix(alpha_dual_, 6, 2);
   log_stream << " " << sci(it_->pdgap, 9, 2);
   if (!options_.timeless_log)
     log_stream << " " << fix(control_.elapsed(), 7, 1);
+
+  if (Log::debug(1)) {
+    const IterData& data = DataCollector::get()->back();
+
+    log_stream << " " << fix(alpha_primal_, 6, 2);
+    log_stream << " " << fix(alpha_dual_, 6, 2);
+    log_stream << " " << fix(data.sigma_aff, 6, 2);
+    log_stream << " " << fix(data.sigma, 6, 2);
+    log_stream << " " << format(data.correctors, 5);
+    log_stream << " " << format(data.num_solves, 5);
+    log_stream << " " << sci(data.min_theta, 8, 1);
+    log_stream << " " << sci(data.max_theta, 8, 1);
+    log_stream << " " << sci(data.min_prod, 8, 1);
+    log_stream << " " << sci(data.max_prod, 8, 1);
+    log_stream << " " << format(data.num_small_prod, 4);
+    log_stream << " " << format(data.num_large_prod, 4);
+    log_stream << " " << sci(data.omega, 9, 1);
+    log_stream << " " << sci(data.M_maxdiag, 9, 1);
+    log_stream << " " << sci(data.M_norm1, 9, 1);
+  }
+
   log_stream << "\n";
   Log::print(log_stream);
 }
@@ -1328,8 +1362,11 @@ void HpmSolver::printInfo() const {
                << '\n';
   Log::print(log_stream);
 
-#ifdef COLLECT_DATA
-  Log::printw("Running in debug mode\n");
+#ifdef HPM_COLLECT_EXPENSIVE_DATA
+  Log::printw("Collecting expensive data\n");
+#endif
+#if HPM_TIMING_LEVEL > 0
+  Log::printw("Collecting times\n");
 #endif
 
   // print range of coefficients

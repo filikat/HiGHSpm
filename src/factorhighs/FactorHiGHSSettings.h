@@ -10,14 +10,14 @@
 // ===========================================================================
 
 #define PIVOTING
-// #define COLLECT_DATA
+// #define HPM_COLLECT_EXPENSIVE_DATA
 
 // choose level of timing:
 // - 0: no timing
 // - 1: basic timing
 // - 2: advanced timing
 // - 3: extreme timing (timing of each BLAS call, considerably slower)
-#define TIMING_LEVEL 0
+#define HPM_TIMING_LEVEL 0
 
 // ===========================================================================
 // PARAMETERS

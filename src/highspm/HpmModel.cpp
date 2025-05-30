@@ -276,8 +276,6 @@ void HpmModel::print() const {
   else
     log_stream << "-\n";
 
-  log_stream << '\n';
-
   Log::print(log_stream);
 }
 

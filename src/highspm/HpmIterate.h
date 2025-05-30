@@ -42,7 +42,7 @@ struct HpmIterate {
   // smallest value of mu seen so far
   double best_mu;
 
-  // number of small/large complementarity productsF
+  // number of small/large complementarity products
   Int num_small, num_large;
 
   // ===================================================================================

@@ -77,7 +77,7 @@ Int FactorHiGHSSolver::setup(const HpmModel& model, HpmOptions& options) {
   if (Int status = setNla(model, options)) return status;
   setParallel(options);
 
-  S_.print(1);
+  S_.print(Log::debug(1));
   return kLinearSolverStatusOk;
 }
 
@@ -366,16 +366,18 @@ Int FactorHiGHSSolver::choose(const HpmModel& model, HpmOptions& options) {
 
   Int status = kLinearSolverStatusOk;
 
+  std::stringstream log_stream;
+
   // Decision may be forced by failures
   if (failure_NE && !failure_AS) {
     options.nla = kOptionNlaAugmented;
-    Log::printf("Using augmented system because normal equations failed\n");
+    log_stream << textline("Newton system:") << "AS preferred (NE failed)\n";
   } else if (failure_AS && !failure_NE) {
     options.nla = kOptionNlaNormEq;
-    Log::printf("Using normal equations because augmented system failed\n");
+    log_stream << textline("Newton system:") << "NE preferred (AS failed)\n";
   } else if (failure_AS && failure_NE) {
     status = kLinearSolverStatusErrorAnalyse;
-    Log::printe("Both approaches failed analyse phase\n");
+    Log::printe("Both NE and AS failed analyse phase\n");
   } else {
     // Total number of operations, given by dense flops and sparse indexing
     // operations, weighted with an empirical factor
@@ -396,12 +398,14 @@ Int FactorHiGHSSolver::choose(const HpmModel& model, HpmOptions& options) {
     if (NE_much_more_expensive ||
         (sn_AS_larger_than_NE && AS_not_too_expensive)) {
       options.nla = kOptionNlaAugmented;
-      Log::printf("Using augmented system because it is preferrable\n");
+      log_stream << textline("Newton system:") << "AS preferred\n";
     } else {
       options.nla = kOptionNlaNormEq;
-      Log::printf("Using normal equations because it is preferrable\n");
+      log_stream << textline("Newton system:") << "NE preferred\n";
     }
   }
+
+  Log::print(log_stream);
 
   if (status != kLinearSolverStatusErrorAnalyse) {
     if (options.nla == kOptionNlaAugmented) {
@@ -418,6 +422,8 @@ Int FactorHiGHSSolver::setNla(const HpmModel& model, HpmOptions& options) {
   std::vector<Int> ptrLower, rowsLower;
   Clock clock;
 
+  std::stringstream log_stream;
+
   // Build the matrix
   switch (options.nla) {
     case kOptionNlaAugmented: {
@@ -425,28 +431,28 @@ Int FactorHiGHSSolver::setNla(const HpmModel& model, HpmOptions& options) {
       clock.start();
       Analyse analyse(S_, rowsLower, ptrLower, model.A().num_col_);
       if (analyse.run()) {
-        Log::printe("Analyse phase failed\n");
+        Log::printe("AS requested, failed analyse phase\n");
         return kLinearSolverStatusErrorAnalyse;
       }
       if (info_) info_->analyse_AS_time = clock.stop();
-      Log::printf("Using augmented system as requested\n");
+      log_stream << textline("Newton system:") << "AS requested\n";
       break;
     }
 
     case kOptionNlaNormEq: {
       Int NE_status = getNE(model.A(), ptrLower, rowsLower);
       if (NE_status) {
-        Log::printe("Failure: AAt is too large\n");
+        Log::printe("NE requested, matrix is too large\n");
         return kLinearSolverStatusErrorOom;
       }
       clock.start();
       Analyse analyse(S_, rowsLower, ptrLower, 0);
       if (analyse.run()) {
-        Log::printe("Analyse phase failed\n");
+        Log::printe("NE requested, failed analyse phase\n");
         return kLinearSolverStatusErrorAnalyse;
       }
       if (info_) info_->analyse_NE_time = clock.stop();
-      Log::printf("Using normal equations as requested\n");
+      log_stream << textline("Newton system:") << "NE requested\n";
       break;
     }
 
@@ -456,6 +462,8 @@ Int FactorHiGHSSolver::setNla(const HpmModel& model, HpmOptions& options) {
     }
   }
 
+  Log::print(log_stream);
+
   return kLinearSolverStatusOk;
 }
 
@@ -464,14 +472,17 @@ void FactorHiGHSSolver::setParallel(HpmOptions& options) {
   bool parallel_tree = false;
   bool parallel_node = false;
 
+  std::stringstream log_stream;
+  log_stream << textline("Parallelism:");
+
   switch (options.parallel) {
     case kOptionParallelOff:
-      Log::printf("Using no parallelism as requested\n");
+      log_stream << "None requested\n";
       break;
     case kOptionParallelOn:
       parallel_tree = true;
       parallel_node = true;
-      Log::printf("Using full parallelism as requested\n");
+      log_stream << "Full requested\n";
       break;
     case kOptionParallelChoose: {
 #ifdef FRAMEWORK_ACCELERATE
@@ -506,30 +517,31 @@ void FactorHiGHSSolver::setParallel(HpmOptions& options) {
 
       if (parallel_tree && parallel_node) {
         options.parallel = kOptionParallelOn;
-        Log::printf("Using full parallelism because it is preferrable\n");
+        log_stream << "Full preferred\n";
       } else if (parallel_tree && !parallel_node) {
         options.parallel = kOptionParallelTreeOnly;
-        Log::printf("Using only tree parallelism because it is preferrable\n");
+        log_stream << "Tree preferred\n";
       } else if (!parallel_tree && parallel_node) {
         options.parallel = kOptionParallelNodeOnly;
-        Log::printf("Using only node parallelism because it is preferrable\n");
+        log_stream << "Node preferred\n";
       } else {
         options.parallel = kOptionParallelOff;
-        Log::printf("Using no parallelism because it is preferrable\n");
+        log_stream << "None preferred\n";
       }
 
       break;
     }
     case kOptionParallelTreeOnly:
       parallel_tree = true;
-      Log::printf("Using only tree parallelism as requested\n");
+      log_stream << "Tree requested\n";
       break;
     case kOptionParallelNodeOnly:
       parallel_node = true;
-      Log::printf("Using only node parallelism as requested\n");
+      log_stream << "Node requested\n";
       break;
   }
 
+  Log::print(log_stream);
   S_.setParallel(parallel_tree, parallel_node);
 }
 

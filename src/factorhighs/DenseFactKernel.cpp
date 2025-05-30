@@ -58,29 +58,11 @@ bool blockBunchKaufman(Int j, Int n, double* A, Int lda, Int* swaps, Int* sign,
   // Swap of columns may be performed.
   // Regularisation of pivot may be performed.
 
+#if HPM_TIMING_LEVEL >= 2
   Clock clock;
+#endif
   bool flag_2x2 = false;
 
-  /*if (n == 1) {
-    // only pivot in the block or supernode
-    if (sign[j] * A[j + lda * j] < 0)
-      DataCollector::get()->setWrongSign(A[j + lda * j]);
-
-    double old_pivot = A[j + lda * j];
-    staticReg(A[j + lda * j], sign[j], regul[j]);
-    if (std::abs(A[j + lda * j]) < kAlphaBK * max_in_R * 1e-6) {
-      A[j + lda * j] = sign[j] * kAlphaBK * max_in_R * 1e-6;
-      DataCollector::get()->countRegPiv();
-      // #ifdef PRINT_REGULARISATION
-      printf("%4d %2d %2d: pivot %8.1e set to %8.1e\n", sn, bl, j, old_pivot,
-             A[j + lda * j]);
-      // #endif
-    }
-    regul[j] = A[j + lda * j] - old_pivot;
-    DataCollector::get()->setMaxReg(std::abs(regul[j]));
-  }*/
-
-#if 1
   // Find largest diagonal entry in the residual part of the block
   Int ind_max_diag = -1;
   double max_diag = -1.0;
@@ -95,7 +77,6 @@ bool blockBunchKaufman(Int j, Int n, double* A, Int lda, Int* swaps, Int* sign,
 
   // put column with max pivot as first column
   swapCols('U', n, A, lda, j, ind_max_diag, swaps, sign);
-#endif
 
   // Max in column j of diagonal block
   auto res = maxInCol(j, n, j, A, lda);
@@ -119,10 +100,6 @@ bool blockBunchKaufman(Int j, Int n, double* A, Int lda, Int* swaps, Int* sign,
       // perturbe pivot
       A[j + lda * j] = sign[j] * thresh;
       DataCollector::get()->countRegPiv();
-#ifdef PRINT_REGULARISATION
-      printf("%4d %2d %2d: pivot %8.1e set to %8.1e\n", sn, bl, j, old_pivot,
-             A[j + lda * j]);
-#endif
     }
     regul[j] = A[j + lda * j] - old_pivot;
     DataCollector::get()->setMaxReg(std::abs(regul[j]));
@@ -167,7 +144,9 @@ bool blockBunchKaufman(Int j, Int n, double* A, Int lda, Int* swaps, Int* sign,
     }
   }
 
+#if HPM_TIMING_LEVEL >= 2
   DataCollector::get()->sumTime(kTimeDenseFact_pivoting, clock.stop());
+#endif
   return flag_2x2;
 }
 
@@ -194,32 +173,17 @@ double regularisePivot(double pivot, double thresh, const Int* sign,
     pivot = s * thresh;
     adjust = true;
     modified_pivot = true;
-#ifdef PRINT_REGULARISATION
-    printf("%2d, %2d, %2d: small pivot %e, with sign " HIGHSINT_FORMAT
-           ", set to %e\n",
-           sn, bl, j, old_pivot, sign[j], pivot);
-#endif
 
   } else if (spivot < -thresh && spivot >= -thresh * K) {
     // wrong sign, lift more
     pivot = s * thresh * 10;
     adjust = true;
     modified_pivot = true;
-#ifdef PRINT_REGULARISATION
-    printf("%2d, %2d, %2d: wrong pivot %e, with sign %" HIGHSINT_FORMAT
-           ", set to %e\n",
-           sn, bl, j, old_pivot, sign[j], pivot);
-#endif
 
   } else if (spivot < -thresh * K) {
     // pivot is completely lost
     pivot = s * 1e100;
     modified_pivot = true;
-#ifdef PRINT_REGULARISATION
-    printf("%2d, %2d, %2d: disaster pivot %e, with sign %" HIGHSINT_FORMAT
-           ", set to %e\n",
-           sn, bl, j, old_pivot, sign[j], pivot);
-#endif
   }
 
   if (adjust) {
@@ -258,10 +222,6 @@ double regularisePivot(double pivot, double thresh, const Int* sign,
         pivot = std::max(pivot, required_pivot);
       else
         pivot = std::min(pivot, required_pivot);
-
-#ifdef PRINT_REGULARISATION
-      printf("\t%2d, %2d, %2d: adjust %e to %e\n", sn, bl, j, old_pivot, pivot);
-#endif
     }
   }
 
@@ -281,14 +241,14 @@ Int denseFactK(char uplo, Int n, double* A, Int lda, Int* pivot_sign,
 
   // check input
   if (n < 0 || !A || lda < n) {
-    Log::printe("\ndenseFactK: invalid input\n");
+    Log::printDevInfo("\ndenseFactK: invalid input\n");
     return kRetInvalidInput;
   }
 
   // quick return
   if (n == 0) return kRetOk;
 
-#if TIMING_LEVEL >= 2
+#if HPM_TIMING_LEVEL >= 2
   Clock clock;
 #endif
 
@@ -306,7 +266,7 @@ Int denseFactK(char uplo, Int n, double* A, Int lda, Int* pivot_sign,
       double Ajj = A[j + lda * j];
 
       if (std::isnan(Ajj)) {
-        Log::printe("\ndenseFactK: invalid pivot %e\n", Ajj);
+        Log::printDevInfo("\ndenseFactK: invalid pivot\n");
         return kRetInvalidPivot;
       }
 
@@ -340,7 +300,7 @@ Int denseFactK(char uplo, Int n, double* A, Int lda, Int* pivot_sign,
   // ===========================================================================
   else {
     if (!swaps || !pivot_2x2) {
-      Log::printe("\ndenseFactK: invalid input\n");
+      Log::printDevInfo("\ndenseFactK: invalid input\n");
       return kRetInvalidInput;
     }
 
@@ -372,7 +332,7 @@ Int denseFactK(char uplo, Int n, double* A, Int lda, Int* pivot_sign,
         double Ajj = A[j + lda * j];
 
         if (std::isnan(Ajj)) {
-          Log::printe("\ndenseFactK: invalid pivot %e\n", Ajj);
+          Log::printDevInfo("\ndenseFactK: invalid pivot\n");
           return kRetInvalidPivot;
         }
 
@@ -409,7 +369,7 @@ Int denseFactK(char uplo, Int n, double* A, Int lda, Int* pivot_sign,
         const double d2 = A[j + 1 + lda * (j + 1)];
 
         if (std::isnan(d1) || std::isnan(d2)) {
-          Log::printe("\ndenseFactK: invalid pivot %e %e\n", d1, d2);
+          Log::printDevInfo("\ndenseFactK: invalid pivot\n");
           return kRetInvalidPivot;
         }
 
@@ -457,7 +417,7 @@ Int denseFactK(char uplo, Int n, double* A, Int lda, Int* pivot_sign,
     }
   }
 
-#if TIMING_LEVEL >= 2
+#if HPM_TIMING_LEVEL >= 2
   DataCollector::get()->sumTime(kTimeDenseFact_kernel, clock.stop());
 #endif
 

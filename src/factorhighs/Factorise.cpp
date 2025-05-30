@@ -28,7 +28,7 @@ Factorise::Factorise(const Symbolic& S, const std::vector<Int>& rowsA,
   n_ = ptrA.size() - 1;
 
   if (n_ != S_.size()) {
-    Log::printe(
+    Log::printDevInfo(
         "Matrix provided to Factorise has size incompatible with symbolic "
         "object.\n");
     return;
@@ -190,7 +190,7 @@ void Factorise::processSupernode(Int sn) {
     if (first_child_reverse_[sn] != -1) highs::parallel::sync();
   }
 
-#if TIMING_LEVEL >= 2
+#if HPM_TIMING_LEVEL >= 2
   Clock clock;
 #endif
   // ===================================================
@@ -205,11 +205,11 @@ void Factorise::processSupernode(Int sn) {
   // this also allocates space for the frontal matrix and schur complement
   std::unique_ptr<FormatHandler> FH = getFormatHandler(S_, sn);
 
-#if TIMING_LEVEL >= 2
+#if HPM_TIMING_LEVEL >= 2
   DataCollector::get()->sumTime(kTimeFactorisePrepare, clock.stop());
 #endif
 
-#if TIMING_LEVEL >= 2
+#if HPM_TIMING_LEVEL >= 2
   clock.start();
 #endif
   // ===================================================
@@ -228,7 +228,7 @@ void Factorise::processSupernode(Int sn) {
       FH->assembleFrontal(i, j, valA_[el]);
     }
   }
-#if TIMING_LEVEL >= 2
+#if HPM_TIMING_LEVEL >= 2
   DataCollector::get()->sumTime(kTimeFactoriseAssembleOriginal, clock.stop());
 #endif
 
@@ -247,7 +247,7 @@ void Factorise::processSupernode(Int sn) {
       if (flag_stop_) return;
 
       if (child_clique.size() == 0) {
-        Log::printe("Missing child supernode contribution\n");
+        Log::printDevInfo("Missing child supernode contribution\n");
         flag_stop_ = true;
         return;
       }
@@ -264,7 +264,7 @@ void Factorise::processSupernode(Int sn) {
     const Int nc = S_.ptr(child_sn + 1) - S_.ptr(child_sn) - child_size;
 
 // ASSEMBLE INTO FRONTAL
-#if TIMING_LEVEL >= 2
+#if HPM_TIMING_LEVEL >= 2
     clock.start();
 #endif
     // go through the columns of the contribution of the child
@@ -291,17 +291,17 @@ void Factorise::processSupernode(Int sn) {
         }
       }
     }
-#if TIMING_LEVEL >= 2
+#if HPM_TIMING_LEVEL >= 2
     DataCollector::get()->sumTime(kTimeFactoriseAssembleChildrenFrontal,
                                   clock.stop());
 #endif
 
 // ASSEMBLE INTO CLIQUE
-#if TIMING_LEVEL >= 2
+#if HPM_TIMING_LEVEL >= 2
     clock.start();
 #endif
     FH->assembleClique(child_clique, nc, child_sn);
-#if TIMING_LEVEL >= 2
+#if HPM_TIMING_LEVEL >= 2
     DataCollector::get()->sumTime(kTimeFactoriseAssembleChildrenClique,
                                   clock.stop());
 #endif
@@ -320,7 +320,7 @@ void Factorise::processSupernode(Int sn) {
     // ===================================================
     // Partial factorisation
     // ===================================================
-#if TIMING_LEVEL >= 2
+#if HPM_TIMING_LEVEL >= 2
   clock.start();
 #endif
   // threshold for regularisation
@@ -331,11 +331,11 @@ void Factorise::processSupernode(Int sn) {
     flag_stop_ = true;
     return;
   }
-#if TIMING_LEVEL >= 2
+#if HPM_TIMING_LEVEL >= 2
   DataCollector::get()->sumTime(kTimeFactoriseDenseFact, clock.stop());
 #endif
 
-#if TIMING_LEVEL >= 2
+#if HPM_TIMING_LEVEL >= 2
   clock.start();
 #endif
   // compute largest elements in factorisation
@@ -344,13 +344,13 @@ void Factorise::processSupernode(Int sn) {
   // terminate the format handler
   FH->terminate(sn_columns_[sn], schur_contribution_[sn], total_reg_,
                 swaps_[sn], pivot_2x2_[sn]);
-#if TIMING_LEVEL >= 2
+#if HPM_TIMING_LEVEL >= 2
   DataCollector::get()->sumTime(kTimeFactoriseTerminate, clock.stop());
 #endif
 }
 
 bool Factorise::run(Numeric& num) {
-#if TIMING_LEVEL >= 1
+#if HPM_TIMING_LEVEL >= 1
   Clock clock;
 #endif
 
@@ -396,7 +396,7 @@ bool Factorise::run(Numeric& num) {
   num.one_norm_cols_ = std::move(one_norm_cols_);
   num.inf_norm_cols_ = std::move(inf_norm_cols_);
 
-#if TIMING_LEVEL >= 1
+#if HPM_TIMING_LEVEL >= 1
   DataCollector::get()->sumTime(kTimeFactorise, clock.stop());
 #endif
 

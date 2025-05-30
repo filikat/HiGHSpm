@@ -8,8 +8,6 @@
 
 // Interface to Highs logging.
 // Call Log::setOptions to set the HighsLogOptions.
-// Call Log::printf for normal printing, same syntax as printf.
-// Call Log::printw for warnings, Log::printe for errors.
 // If log_options_ is null, nothing is printed.
 
 namespace highspm {
@@ -23,28 +21,50 @@ class Log {
 
  public:
   static void setOptions(const HighsLogOptions& log_options);
+  static bool debug(Int level);
 
-  // normal printing
+  // Logging normal, warning and error, with stream
+  static void print(std::stringstream& ss);
+  static void printw(std::stringstream& ss);
+  static void printe(std::stringstream& ss);
+
+  // Logging normal, warning and error, formatted
   template <typename... Args>
   static void printf(const char* format, Args... args) {
     if (log_options_)
       highsLogUser(*log_options_, HighsLogType::kInfo, format, args...);
   }
-
-  static void print(std::stringstream& ss);
-
-  // print warnings
   template <typename... Args>
   static void printw(const char* format, Args... args) {
     if (log_options_)
       highsLogUser(*log_options_, HighsLogType::kWarning, format, args...);
   }
-
-  // print errors
   template <typename... Args>
   static void printe(const char* format, Args... args) {
     if (log_options_)
       highsLogUser(*log_options_, HighsLogType::kError, format, args...);
+  }
+
+  // Dev logging info, detailed and verbose, with stream
+  static void printDevInfo(std::stringstream& ss);
+  static void printDevDetailed(std::stringstream& ss);
+  static void printDevVerbose(std::stringstream& ss);
+
+  // Dev logging info, detailed and verbose, formatted
+  template <typename... Args>
+  static void printDevInfo(const char* format, Args... args) {
+    if (log_options_)
+      highsLogDev(*log_options_, HighsLogType::kInfo, format, args...);
+  }
+  template <typename... Args>
+  static void printDevDetailed(const char* format, Args... args) {
+    if (log_options_)
+      highsLogDev(*log_options_, HighsLogType::kDetailed, format, args...);
+  }
+  template <typename... Args>
+  static void printDevVerbose(const char* format, Args... args) {
+    if (log_options_)
+      highsLogDev(*log_options_, HighsLogType::kVerbose, format, args...);
   }
 };
 
@@ -58,7 +78,6 @@ inline std::string sci(double d, Int width, Int prec) {
 inline std::string fix(double d, Int width, Int prec) {
   return format(d, width, prec, std::ios_base::fixed);
 }
-
 template <typename T>
 std::string textline(const T& text) {
   std::ostringstream s;

@@ -113,7 +113,7 @@ Int Analyse::getPermutation() {
   Int status = METIS_NodeND(&n_, temp_ptr.data(), temp_rows.data(), NULL,
                             options, perm_.data(), iperm_.data());
   if (status != METIS_OK) {
-    Log::printe("Error with Metis\n");
+    Log::printDevInfo("Error with Metis\n");
     return kRetMetisError;
   }
 
@@ -952,8 +952,7 @@ void Analyse::relativeIndClique() {
       } else if (consecutive_sums_[sn][i] == 1) {
         consecutive_sums_[sn][i] = consecutive_sums_[sn][i + 1] + 1;
       } else {
-        Log::printe("Error in consecutiveSums %" HIGHSINT_FORMAT "\n",
-                    consecutive_sums_[sn][i]);
+        Log::printDevInfo("Error in consecutiveSums\n");
       }
     }
   }
@@ -1286,68 +1285,68 @@ Int Analyse::run() {
 
   if (!ready_) return kRetGeneric;
 
-#if TIMING_LEVEL >= 1
+#if HPM_TIMING_LEVEL >= 1
   Clock clock_total;
 #endif
 
-#if TIMING_LEVEL >= 2
+#if HPM_TIMING_LEVEL >= 2
   Clock clock_items;
 #endif
   if (Int metis_status = getPermutation()) return kRetMetisError;
-#if TIMING_LEVEL >= 2
+#if HPM_TIMING_LEVEL >= 2
   DataCollector::get()->sumTime(kTimeAnalyseMetis, clock_items.stop());
 #endif
 
-#if TIMING_LEVEL >= 2
+#if HPM_TIMING_LEVEL >= 2
   clock_items.start();
 #endif
   permute(iperm_);
   eTree();
   postorder();
-#if TIMING_LEVEL >= 2
+#if HPM_TIMING_LEVEL >= 2
   DataCollector::get()->sumTime(kTimeAnalyseTree, clock_items.stop());
 #endif
 
-#if TIMING_LEVEL >= 2
+#if HPM_TIMING_LEVEL >= 2
   clock_items.start();
 #endif
   colCount();
-#if TIMING_LEVEL >= 2
+#if HPM_TIMING_LEVEL >= 2
   DataCollector::get()->sumTime(kTimeAnalyseCount, clock_items.stop());
 #endif
 
-#if TIMING_LEVEL >= 2
+#if HPM_TIMING_LEVEL >= 2
   clock_items.start();
 #endif
   fundamentalSupernodes();
   relaxSupernodes();
   afterRelaxSn();
-#if TIMING_LEVEL >= 2
+#if HPM_TIMING_LEVEL >= 2
   DataCollector::get()->sumTime(kTimeAnalyseSn, clock_items.stop());
 #endif
 
-#if TIMING_LEVEL >= 2
+#if HPM_TIMING_LEVEL >= 2
   clock_items.start();
 #endif
   reorderChildren();
-#if TIMING_LEVEL >= 2
+#if HPM_TIMING_LEVEL >= 2
   DataCollector::get()->sumTime(kTimeAnalyseReorder, clock_items.stop());
 #endif
 
-#if TIMING_LEVEL >= 2
+#if HPM_TIMING_LEVEL >= 2
   clock_items.start();
 #endif
   snPattern();
-#if TIMING_LEVEL >= 2
+#if HPM_TIMING_LEVEL >= 2
   DataCollector::get()->sumTime(kTimeAnalysePattern, clock_items.stop());
 #endif
 
-#if TIMING_LEVEL >= 2
+#if HPM_TIMING_LEVEL >= 2
   clock_items.start();
 #endif
   relativeIndCols();
   relativeIndClique();
-#if TIMING_LEVEL >= 2
+#if HPM_TIMING_LEVEL >= 2
   DataCollector::get()->sumTime(kTimeAnalyseRelInd, clock_items.stop());
 #endif
 
@@ -1405,7 +1404,7 @@ Int Analyse::run() {
   S_.consecutive_sums_ = std::move(consecutive_sums_);
   S_.clique_block_start_ = std::move(clique_block_start_);
 
-#if TIMING_LEVEL >= 1
+#if HPM_TIMING_LEVEL >= 1
   DataCollector::get()->sumTime(kTimeAnalyse, clock_total.stop());
 #endif
 

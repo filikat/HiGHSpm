@@ -6,15 +6,17 @@
 #include <mutex>
 #include <vector>
 
+#include "FactorHiGHSSettings.h"
 #include "Timing.h"
 #include "auxiliary/IntConfig.h"
 
 namespace highspm {
 
 struct IterData {
-  // data of a given ipm iteration
+// data of a given ipm iteration
 
-  // factorisation data
+// factorisation data
+#ifdef HPM_COLLECT_EXPENSIVE_DATA
   double minD = std::numeric_limits<double>::max();
   double maxD = 0.0;
   double minL = std::numeric_limits<double>::max();
@@ -25,31 +27,31 @@ struct IterData {
   Int n_2x2 = 0;
   Int n_wrong_sign = 0;
   double max_wrong_sign = 0.0;
+  double nw_back_err{};
+  double cw_back_err{};
+  Int large_components_cw{};
+#endif
 
   // ipm data
+  double sigma_aff;
+  double sigma;
+  Int correctors;
+  Int num_solves = 0;
   double min_theta;
   double max_theta;
   double min_prod;
   double max_prod;
   Int num_small_prod;
   Int num_large_prod;
-  double sigma_aff;
-  double sigma;
-  Int correctors;
   double omega{};
-  double nw_back_err{};
-  double cw_back_err{};
-  Int large_components_cw{};
   double M_norm1;
   double M_maxdiag;
-  Int num_solves = 0;
 };
 
 struct CounterData {
   // Record of times and BLAS calls
   std::vector<double> times{};
   std::vector<Int> blas_calls{};
-  Int solves{};
 };
 
 // DataCollector is used to collect debug data during the ipm and factorisation.
@@ -58,11 +60,19 @@ struct CounterData {
 // - DataCollector::initialise() to allocate the DataCollector.
 // - DataCollector::terminate() to deallocate the DataCollector.
 // - DataCollector::get()->... to access any non-static member function.
-// Nothing happens if DEBUG is not switched on during compilation.
-// Debug mode is selected at compile time, because some data is collected many
-// times, during many steps of the factorisation; if debug is off at compile
-// time, then there is no performance hit, since the functions are empty and are
-// completely ignored by the compiler.
+//
+// Expensive data related to the factorisation is only collected if
+// HPM_COLLECT_EXPENSIVE_DATA is defined. "Cheaper" data related to the ipm is
+// always collected and printed only if log_dev_level is high enough.
+//
+// HPM_COLLECT_EXPENSIVE_DATA is selected at compile time, because some data is
+// collected many times, during many steps of the factorisation, using locks; if
+// HPM_COLLECT_EXPENSIVE_DATA is off at compile time, then there is no
+// performance hit, since the functions are empty and are completely ignored by
+// the compiler.
+//
+// Times are only collected if HPM_TIMING_LEVEL is defined at compile time, for
+// the same reason.
 
 class DataCollector {
   // Record of times and BLAS calls
@@ -82,25 +92,21 @@ class DataCollector {
   DataCollector();
   ~DataCollector() = default;
 
-  IterData& back();
-
  public:
   // Access to the object
   static DataCollector* get();
   static void initialise();
   static void terminate();
 
-  // =================================================
+  // ========================================================================
   // The functions below can only be accessed via DataCollector::get()->
-  // They do nothing if DEBUG is not switched on by an ifdef statement.
-  // =================================================
+  // ========================================================================
 
-  // Manage record of data of iterations
+  IterData& back();
   void append();
 
   // Functions with lock, they can be accessed simultaneously
   void sumTime(TimeItems i, double t);
-  void countSolves();
   void countRegPiv();
   void countSwap();
   void count2x2();
@@ -109,6 +115,8 @@ class DataCollector {
   void setExtremeEntries(double minD, double maxD, double minoffD,
                          double maxoffD);
 
+  // Functions without lock
+  void countSolves();
   void setOmega(double omega);
   void setNorms(double norm1, double maxdiag);
   void setSigma(double sigma, bool affinescaling = false);

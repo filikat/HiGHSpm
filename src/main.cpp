@@ -50,6 +50,11 @@ int main(int argc, char** argv) {
     lp = highs.getLp();
   }
 
+  // set highs options
+  HighsOptions highs_options;
+  highs_options.log_dev_level = 0;
+  highs.passOptions(highs_options);
+
   // ===================================================================================
   // CHANGE FORMULATION
   // ===================================================================================

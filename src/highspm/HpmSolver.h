@@ -43,7 +43,7 @@ class HpmSolver {
   double alpha_primal_{}, alpha_dual_{};
 
   // Coefficient for reduction of mu
-  double sigma_{}, sigma_affine_{};
+  double sigma_{};
 
   // General information
   HpmInfo info_;
