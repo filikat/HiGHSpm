@@ -44,8 +44,8 @@ set_tests_properties(test_as PROPERTIES
 
 add_test(NAME test_ne_crossover COMMAND ipm ../instances/afiro.mps 1 1)
 set_tests_properties(test_ne_crossover PROPERTIES
-                    PASS_REGULAR_EXPRESSION "Status crossover: +optimal")
+                    PASS_REGULAR_EXPRESSION "crossover optimal")
 
 add_test(NAME test_as_crossover COMMAND ipm ../instances/afiro.mps 0 1)
 set_tests_properties(test_as_crossover PROPERTIES
-                    PASS_REGULAR_EXPRESSION "Status crossover: +optimal")                 
+                    PASS_REGULAR_EXPRESSION "crossover optimal")                 

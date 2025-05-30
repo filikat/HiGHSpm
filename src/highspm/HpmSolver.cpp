@@ -193,7 +193,7 @@ bool HpmSolver::prepareIpx() {
   }
 
   std::vector<double> x, xl, xu, slack, y, zl, zu;
-  getSolution(x, xl, xu, slack, y, zl, zu);
+  getInteriorSolution(x, xl, xu, slack, y, zl, zu);
 
   Int start_point_status = ipx_lps_.LoadIPMStartingPoint(
       x.data(), xl.data(), xu.data(), slack.data(), y.data(), zl.data(),
@@ -234,13 +234,18 @@ void HpmSolver::refineWithIpx() {
   else if (info_.ipx_info.status_ipm == IPX_STATUS_dual_infeas)
     info_.ipm_status = kIpmStatusDualInfeasible;
 
-  if (info_.ipx_info.status_crossover == IPX_STATUS_optimal)
+  if (info_.ipx_info.status_crossover == IPX_STATUS_optimal) {
     info_.ipm_status = kIpmStatusBasic;
+    Log::printf("IPX crossover is optimal\n");
+  }
 
   info_.ipx_used = true;
 }
 
 void HpmSolver::runCrossover() {
+  // run crossover directly, without refining with ipx.
+  // not used for now.
+
   prepareIpx();
 
   std::vector<double> x, slack, y, z;
@@ -1391,10 +1396,10 @@ void HpmSolver::printSummary() const {
 }
 
 const HpmInfo& HpmSolver::getInfo() const { return info_; }
-void HpmSolver::getSolution(std::vector<double>& x, std::vector<double>& xl,
-                            std::vector<double>& xu, std::vector<double>& slack,
-                            std::vector<double>& y, std::vector<double>& zl,
-                            std::vector<double>& zu) const {
+void HpmSolver::getInteriorSolution(
+    std::vector<double>& x, std::vector<double>& xl, std::vector<double>& xu,
+    std::vector<double>& slack, std::vector<double>& y, std::vector<double>& zl,
+    std::vector<double>& zu) const {
   // prepare and return solution with internal format
 
   if (!info_.ipx_used) {
@@ -1407,19 +1412,22 @@ void HpmSolver::getSolution(std::vector<double>& x, std::vector<double>& xl,
   }
 }
 
+Int HpmSolver::getBasicSolution(std::vector<double>& x,
+                                std::vector<double>& slack,
+                                std::vector<double>& y, std::vector<double>& z,
+                                Int* cbasis, Int* vbasis) const {
+  // interface to ipx getBasicSolution
+  return ipx_lps_.GetBasicSolution(x.data(), slack.data(), y.data(), z.data(),
+                                   cbasis, vbasis);
+}
+
 void HpmSolver::getSolution(std::vector<double>& x, std::vector<double>& slack,
                             std::vector<double>& y,
                             std::vector<double>& z) const {
   // prepare and return solution with format for crossover
-
-  if (!info_.ipx_used) {
-    it_->extract(x, slack, y, z);
-    model_.unscale(x, slack, y, z);
-    model_.postprocess(slack, y);
-  } else {
-    ipx_lps_.GetBasicSolution(x.data(), slack.data(), y.data(), z.data(),
-                              nullptr, nullptr);
-  }
+  it_->extract(x, slack, y, z);
+  model_.unscale(x, slack, y, z);
+  model_.postprocess(slack, y);
 }
 
 void HpmSolver::maxCorrectors() {

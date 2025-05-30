@@ -97,12 +97,15 @@ class HpmSolver {
   // ===================================================================================
   // Extract information
   // ===================================================================================
-  void getSolution(std::vector<double>& x, std::vector<double>& xl,
-                   std::vector<double>& xu, std::vector<double>& slack,
-                   std::vector<double>& y, std::vector<double>& zl,
-                   std::vector<double>& zu) const;
+  void getInteriorSolution(std::vector<double>& x, std::vector<double>& xl,
+                           std::vector<double>& xu, std::vector<double>& slack,
+                           std::vector<double>& y, std::vector<double>& zl,
+                           std::vector<double>& zu) const;
+  Int getBasicSolution(std::vector<double>& x, std::vector<double>& slack,
+                       std::vector<double>& y, std::vector<double>& z,
+                       Int* cbasis, Int* vbasis) const;
   void getSolution(std::vector<double>& x, std::vector<double>& slack,
-                   std::vector<double>& y, std::vector<double>& z) const;
+                  std::vector<double>& y, std::vector<double>& z) const;
   const HpmInfo& getInfo() const;
 
  private:
